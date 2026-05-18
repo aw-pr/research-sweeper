@@ -59,7 +59,19 @@ Briefs are plain markdown files in `prompts/`. A brief carries the topic string
 and the themed sub-questions; `--brief-file prompts/<name>.md` passes both
 through to the lane agents and the synthesis step.
 
-To create one:
+Three ways, easiest first:
+
+**1. The `sweeper-prompt-creation` skill (recommended).** If you drive this repo
+from Claude Code or an MCP harness, invoke the `sweeper-prompt-creation` skill
+(distributed via mcp-hub). Describe your research goal in plain English; it
+interviews you for the gaps (time window, lanes, depth), writes a well-formed
+`prompts/<slug>.md`, and offers to launch the sweep. This is the handiest path —
+a good brief is the single highest-leverage input to a sweep.
+
+**2. Any capable LLM.** No skill? Paste `prompts/sweep-template.md` into any
+model, describe the goal, and save the returned brief into `prompts/`.
+
+**3. By hand.**
 
 ```bash
 cp prompts/sweep-template.md prompts/my-topic.md
@@ -67,10 +79,7 @@ cp prompts/sweep-template.md prompts/my-topic.md
 ```
 
 The template documents the expected structure (topic string with a date range,
-then themed sub-question blocks). Or skip the manual edit: paste
-`prompts/sweep-template.md` into any capable LLM, describe your research goal in
-plain English, and have it return a completed brief — then save the output as a
-new file in `prompts/`. The repo ships ~24 real briefs in `prompts/` you can use
+then themed sub-question blocks). The repo ships ~24 real briefs in `prompts/`
 as worked examples.
 
 ## Quick start (with 1Password, optional)
