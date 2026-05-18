@@ -9,9 +9,17 @@ dist/
 .env.*
 !.env.example
 *.local
+.env.bak
+
+# Secret key material (never commit)
+*.pem
+*.key
+*.p12
+*.pfx
 
 # Private 1Password ref override (keep .example committed)
 op-refs.local.sh
+op-refs.local.sh.bak
 
 # Local Claude Code settings + runtime state (machine-specific)
 .claude/settings.local.json
@@ -21,7 +29,13 @@ op-refs.local.sh
 # Research output (large generated files)
 research-output/
 output/
+# results/ is ignored by default; the three curated sample outputs below are
+# deliberately tracked as worked examples. Do NOT add a broad !results/2026-*
+# negation — that would re-expose the scrubbed political result.
 results/
+!results/2026-04-07-ai-software-engineering-trends-2026.md
+!results/2026-04-07-certification-options-claude-code-codex.md
+!results/2026-04-07-technology-trends-market-reactions.md
 logs/
 
 # Test run output folders

@@ -494,7 +494,7 @@ Output:   ${config.outputDir}
 Stub:     ${stubPath}
 `);
 
-    const batchId = await provider.submitBatchLanes(config, files.summaryName, files.sourcesName);
+    const batchId = await provider.submitBatchLanes(config);
     const job: SweepJob = {
       provider: config.provider,
       batchId,

@@ -98,6 +98,13 @@ export class OpenAIProvider implements ProviderAdapter {
   }
 
   private async runViaCodexCli(prompt: string, model: string, useSearch: boolean, reasoningEffort: string): Promise<CodexExecResult> {
+    const allowedEfforts = ["minimal", "low", "medium", "high"];
+    if (!allowedEfforts.includes(reasoningEffort)) {
+      throw new Error(
+        `Invalid reasoning effort "${reasoningEffort}"; expected one of ${allowedEfforts.join(", ")}. ` +
+          "Check config/depths.json — this value is interpolated into the codex argv."
+      );
+    }
     delete process.env.OPENAI_API_KEY;
     const outputPath = tempBatchFilePath() + ".out.txt";
     const args = [

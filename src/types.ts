@@ -146,7 +146,7 @@ export interface ProviderAdapter {
     laneResults: LaneResult[],
     sourcesName: string
   ): Promise<{ markdown: string; tokensIn: number; tokensOut: number }>;
-  submitBatchLanes(config: SweepConfig, summaryName: string, sourcesName: string): Promise<string>;
+  submitBatchLanes(config: SweepConfig): Promise<string>;
   getBatchStatus(batchId: string): Promise<BatchStatus>;
   collectBatchResults(batchId: string, lanes: Lane[], submittedModel?: string): Promise<LaneResult[]>;
   submitBatchSynthesis?(config: SweepConfig, laneResults: LaneResult[], sourcesName: string): Promise<string>;

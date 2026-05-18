@@ -75,7 +75,7 @@ async function toolRunSweep(args: Record<string, unknown>): Promise<unknown> {
 
   const p = getProvider(provider);
   p.requireApiKey(config);
-  const batchId = await p.submitBatchLanes(config, files.summaryName, files.sourcesName);
+  const batchId = await p.submitBatchLanes(config);
 
   const job: SweepJob = {
     provider,
