@@ -1,0 +1,1473 @@
+[
+  {
+    "runId": "2026-04-02T13-28-48-batch-comparing-llm-performance-acro",
+    "timestamp": "2026-04-02T13:28:48.270Z",
+    "mode": "batch",
+    "topic": "Comparing LLM performance across OpenAI GPT, Google Gemini, and Anthropic Claude: enterprise, software development, and consumer use cases",
+    "depth": "standard",
+    "lanes": [
+      "academic",
+      "frontier"
+    ],
+    "fromYear": 2024,
+    "toYear": 2026,
+    "test": false,
+    "durationSec": null,
+    "submittedAt": "2026-04-02T12:54:53.180Z",
+    "tokens": {
+      "lanesIn": 161200,
+      "lanesOut": 5251,
+      "synthesisIn": 3784,
+      "synthesisOut": 906,
+      "totalIn": 164984,
+      "totalOut": 6157
+    },
+    "models": {
+      "lane": "claude-sonnet-4-6",
+      "synthesis": "claude-opus-4-5"
+    },
+    "estimatedCostUSD": 0.405893,
+    "outputFiles": [
+      "~/obsidian/research/model-comparison-evals/summary-comparing-llm-performance-across-openai-gpt-google.md",
+      "~/obsidian/research/model-comparison-evals/sources-comparing-llm-performance-across-openai-gpt-google.md"
+    ]
+  },
+  {
+    "runId": "2026-04-02T14-42-07-batch-enterprise-ai-tool-adoption-ac",
+    "timestamp": "2026-04-02T14:42:07.759Z",
+    "mode": "batch",
+    "topic": "Enterprise AI tool adoption across organisation sizes: operating model transformation, uptake rates, management change and ROI from SME to global enterprise",
+    "depth": "deep",
+    "lanes": [
+      "financial",
+      "vc",
+      "academic"
+    ],
+    "fromYear": 2025,
+    "toYear": null,
+    "test": false,
+    "durationSec": null,
+    "submittedAt": "2026-04-02T14:32:17.138Z",
+    "tokens": {
+      "lanesIn": 290769,
+      "lanesOut": 12445,
+      "synthesisIn": 4464,
+      "synthesisOut": 1202,
+      "totalIn": 295233,
+      "totalOut": 13647
+    },
+    "models": {
+      "lane": "claude-sonnet-4-6",
+      "synthesis": "claude-opus-4-5"
+    },
+    "estimatedCostUSD": 0.686601,
+    "outputFiles": [
+      "~/obsidian/research/enterprise-ai-adoption/summary-enterprise-ai-tool-adoption-across-organisation-si.md",
+      "~/obsidian/research/enterprise-ai-adoption/sources-enterprise-ai-tool-adoption-across-organisation-si.md"
+    ]
+  },
+  {
+    "runId": "2026-04-02T14-42-15-batch-test-batch-mode",
+    "timestamp": "2026-04-02T14:42:15.771Z",
+    "mode": "batch",
+    "topic": "test batch mode",
+    "depth": "shallow",
+    "lanes": [
+      "frontier"
+    ],
+    "fromYear": 2023,
+    "toYear": 2026,
+    "test": true,
+    "durationSec": null,
+    "submittedAt": "2026-04-02T10:21:06.901Z",
+    "tokens": {
+      "lanesIn": 36473,
+      "lanesOut": 385,
+      "synthesisIn": 588,
+      "synthesisOut": 564,
+      "totalIn": 37061,
+      "totalOut": 949
+    },
+    "models": {
+      "lane": "claude-haiku-4-5-20251001",
+      "synthesis": "claude-haiku-4-5-20251001"
+    },
+    "estimatedCostUSD": 0.018086,
+    "outputFiles": [
+      "~/obsidian/research/test-batch/summary-test-batch-mode.md",
+      "~/obsidian/research/test-batch/sources-test-batch-mode.md"
+    ]
+  },
+  {
+    "runId": "2026-04-02T14-42-43-batch-ai-tool-adoption-in-technology",
+    "timestamp": "2026-04-02T14:42:43.117Z",
+    "mode": "batch",
+    "topic": "AI tool adoption in technology functions: engineering, infrastructure, data analysis and tech management transformation — role evolution, org structure change and who is actually using AI tools at scale",
+    "depth": "deep",
+    "lanes": [
+      "financial",
+      "vc",
+      "academic"
+    ],
+    "fromYear": 2025,
+    "toYear": null,
+    "test": false,
+    "durationSec": null,
+    "submittedAt": "2026-04-02T14:32:18.406Z",
+    "tokens": {
+      "lanesIn": 272171,
+      "lanesOut": 12220,
+      "synthesisIn": 4511,
+      "synthesisOut": 1154,
+      "totalIn": 276682,
+      "totalOut": 13374
+    },
+    "models": {
+      "lane": "claude-sonnet-4-6",
+      "synthesis": "claude-opus-4-5"
+    },
+    "estimatedCostUSD": 0.654122,
+    "outputFiles": [
+      "~/obsidian/research/tech-function-ai-adaptation/summary-ai-tool-adoption-in-technology-functions-engineeri.md",
+      "~/obsidian/research/tech-function-ai-adaptation/sources-ai-tool-adoption-in-technology-functions-engineeri.md"
+    ]
+  },
+  {
+    "runId": "2026-04-03T09-38-33-openai-sync-how-are-enterprises-approachin",
+    "timestamp": "2026-04-03T09:38:33.314Z",
+    "provider": "openai",
+    "mode": "sync",
+    "topic": "How are enterprises approaching multi provider provision in their ORS from July 2025 to present: prevailing provider strategy (single provider via Microsoft/OpenAI, Anthropic, etc. vs multi-provider hedging), provider-agnostic model wrapping, future-proof service wrapping, segmented across small businesses, SMEs, and global enterprises, and cost management approaches",
+    "depth": "standard",
+    "lanes": [
+      "financial",
+      "frontier",
+      "academic",
+      "vc"
+    ],
+    "fromYear": 2025,
+    "toYear": null,
+    "test": false,
+    "durationSec": 155.1,
+    "submittedAt": null,
+    "tokens": {
+      "lanesIn": 168627,
+      "lanesOut": 42715,
+      "synthesisIn": 19068,
+      "synthesisOut": 2370,
+      "totalIn": 187695,
+      "totalOut": 45085
+    },
+    "models": {
+      "lane": "gpt-5.4-mini",
+      "synthesis": "gpt-5.4"
+    },
+    "estimatedCostUSD": 0.251674,
+    "outputFiles": [
+      "~/obsidian/research/z-oai-enterprise-ai-provider-strategy/summary-how-are-enterprises-approaching-multi-provider-pro.md",
+      "~/obsidian/research/z-oai-enterprise-ai-provider-strategy/sources-how-are-enterprises-approaching-multi-provider-pro.md",
+      "~/obsidian/research/z-oai-enterprise-ai-provider-strategy/lanes/lane-financial-how-are-enterprises-approaching-multi-provider-pro.md",
+      "~/obsidian/research/z-oai-enterprise-ai-provider-strategy/lanes/lane-frontier-how-are-enterprises-approaching-multi-provider-pro.md",
+      "~/obsidian/research/z-oai-enterprise-ai-provider-strategy/lanes/lane-academic-how-are-enterprises-approaching-multi-provider-pro.md",
+      "~/obsidian/research/z-oai-enterprise-ai-provider-strategy/lanes/lane-vc-how-are-enterprises-approaching-multi-provider-pro.md"
+    ]
+  },
+  {
+    "runId": "2026-04-04T16-10-02-claude-batch-2026-ai-policy-developments-eu",
+    "timestamp": "2026-04-04T16:10:02.234Z",
+    "provider": "claude",
+    "mode": "batch",
+    "topic": "2026 AI policy developments (EU AI Act, US executive orders, international treaties, lab responsible scaling policies, acceptable use policies) AND security threats from frontier models (zero-day exploit discovery, offensive cybersecurity, autonomous hacking agents, red-teaming findings, jailbreaks enabling cyberattacks) — 2026 only",
+    "depth": "deep",
+    "lanes": [
+      "financial",
+      "frontier",
+      "academic",
+      "vc"
+    ],
+    "fromYear": 2026,
+    "toYear": null,
+    "test": false,
+    "durationSec": null,
+    "submittedAt": "2026-04-04T16:05:11.332Z",
+    "tokens": {
+      "lanesIn": 346260,
+      "lanesOut": 17356,
+      "synthesisIn": 6523,
+      "synthesisOut": 3955,
+      "totalIn": 352783,
+      "totalOut": 21311
+    },
+    "models": {
+      "lane": "claude-sonnet-4-6",
+      "synthesis": "claude-opus-4-5"
+    },
+    "estimatedCostUSD": 1.04403,
+    "outputFiles": [
+      "~/obsidian/research/ai-policy-security-2026/summary-2026-ai-policy-developments-eu-ai-act-us-executive.md",
+      "~/obsidian/research/ai-policy-security-2026/sources-2026-ai-policy-developments-eu-ai-act-us-executive.md",
+      "~/obsidian/research/ai-policy-security-2026/lanes/lane-financial-2026-ai-policy-developments-eu-ai-act-us-executive.md",
+      "~/obsidian/research/ai-policy-security-2026/lanes/lane-frontier-2026-ai-policy-developments-eu-ai-act-us-executive.md",
+      "~/obsidian/research/ai-policy-security-2026/lanes/lane-academic-2026-ai-policy-developments-eu-ai-act-us-executive.md",
+      "~/obsidian/research/ai-policy-security-2026/lanes/lane-vc-2026-ai-policy-developments-eu-ai-act-us-executive.md"
+    ]
+  },
+  {
+    "runId": "2026-04-06T15-58-44-openai-sync-evolving-enterprise-architectu",
+    "timestamp": "2026-04-06T15:58:44.143Z",
+    "provider": "openai",
+    "mode": "sync",
+    "topic": "Evolving Enterprise Architecture patterns and practices for AI adoption (April 2025 to present): Identify the most common   enterprise architecture patterns used to adopt AI, and explain how these patterns   augment or replace prior enterprise strategies and architectures. Cover data platform   design (batch, streaming, lakehouse, vector stores, governance), API and integration   patterns (gateway, orchestration, agent frameworks, event-driven), deployment models   across cloud, hybrid, and on-prem, and security/compliance implications. Evaluate how   these architecture choices support target operating models (centralized AI platform,   federated domain ownership, product operating model, shared services), and provide   evidence of effectiveness to date using concrete case studies, KPIs, cost/performance   outcomes, and failure modes. Analyze how AI changes enterprise decisions on buy vs   build, vendor selection criteria, lock-in risk, and enterprise reporting/measurement   frameworks. Prioritize named companies, quantified results, and specific   implementation patterns over high-level commentary.  Focus on wholistic strategies and architectures for enterprise systems and provide example implemntations, planned, in progress or complete.  ",
+    "depth": "deep",
+    "lanes": [
+      "financial",
+      "frontier",
+      "academic",
+      "vc"
+    ],
+    "fromYear": 2025,
+    "toYear": null,
+    "test": false,
+    "durationSec": 271.9,
+    "submittedAt": null,
+    "tokens": {
+      "lanesIn": 322798,
+      "lanesOut": 62831,
+      "synthesisIn": 20437,
+      "synthesisOut": 3955,
+      "totalIn": 343235,
+      "totalOut": 66786
+    },
+    "models": {
+      "lane": "gpt-5.4-mini",
+      "synthesis": "gpt-5.4"
+    },
+    "estimatedCostUSD": 0.395275,
+    "outputFiles": [
+      "~/obsidian/research/emerging-enterprise-patterns/summary-evolving-enterprise-architecture-patterns-and-prac.md",
+      "~/obsidian/research/emerging-enterprise-patterns/sources-evolving-enterprise-architecture-patterns-and-prac.md",
+      "~/obsidian/research/emerging-enterprise-patterns/lanes/lane-financial-evolving-enterprise-architecture-patterns-and-prac.md",
+      "~/obsidian/research/emerging-enterprise-patterns/lanes/lane-frontier-evolving-enterprise-architecture-patterns-and-prac.md",
+      "~/obsidian/research/emerging-enterprise-patterns/lanes/lane-academic-evolving-enterprise-architecture-patterns-and-prac.md",
+      "~/obsidian/research/emerging-enterprise-patterns/lanes/lane-vc-evolving-enterprise-architecture-patterns-and-prac.md"
+    ]
+  },
+  {
+    "runId": "2026-04-06T16-56-47-openai-batch-evolving-enterprise-architectu",
+    "timestamp": "2026-04-06T16:56:47.403Z",
+    "provider": "openai",
+    "mode": "batch",
+    "topic": "Evolving Enterprise Architecture patterns and practices for AI adoption (April 2025 to present): Identify the most common   enterprise architecture patterns used to adopt AI, and explain how these patterns   augment or replace prior enterprise strategies and architectures. Cover data platform   design (batch, streaming, lakehouse, vector stores, governance), API and integration   patterns (gateway, orchestration, agent frameworks, event-driven), deployment models   across cloud, hybrid, and on-prem, and security/compliance implications. Evaluate how   these architecture choices support target operating models (centralized AI platform,   federated domain ownership, product operating model, shared services), and provide   evidence of effectiveness to date using concrete case studies, KPIs, cost/performance   outcomes, and failure modes. Analyze how AI changes enterprise decisions on buy vs   build, vendor selection criteria, lock-in risk, and enterprise reporting/measurement   frameworks. Prioritize named companies, quantified results, and specific   implementation patterns over high-level commentary.  Focus on wholistic strategies and architectures for enterprise systems and provide example implemntations, planned, in progress or complete.  ",
+    "depth": "deep",
+    "lanes": [
+      "financial",
+      "frontier",
+      "academic",
+      "vc"
+    ],
+    "fromYear": 2025,
+    "toYear": null,
+    "test": false,
+    "durationSec": null,
+    "submittedAt": "2026-04-06T16:24:21.641Z",
+    "tokens": {
+      "lanesIn": 76914,
+      "lanesOut": 10841,
+      "synthesisIn": 785,
+      "synthesisOut": 3695,
+      "totalIn": 77699,
+      "totalOut": 14536
+    },
+    "models": {
+      "lane": "gpt-5.4-mini",
+      "synthesis": "gpt-5.4"
+    },
+    "estimatedCostUSD": 0.07066,
+    "outputFiles": [
+      "~/obsidian/research/emerging-enterprise-patterns-batch/summary-evolving-enterprise-architecture-patterns-and-prac.md",
+      "~/obsidian/research/emerging-enterprise-patterns-batch/sources-evolving-enterprise-architecture-patterns-and-prac.md",
+      "~/obsidian/research/emerging-enterprise-patterns-batch/lanes/lane-financial-evolving-enterprise-architecture-patterns-and-prac.md",
+      "~/obsidian/research/emerging-enterprise-patterns-batch/lanes/lane-frontier-evolving-enterprise-architecture-patterns-and-prac.md",
+      "~/obsidian/research/emerging-enterprise-patterns-batch/lanes/lane-academic-evolving-enterprise-architecture-patterns-and-prac.md",
+      "~/obsidian/research/emerging-enterprise-patterns-batch/lanes/lane-vc-evolving-enterprise-architecture-patterns-and-prac.md"
+    ]
+  },
+  {
+    "runId": "2026-04-07T10-10-33-claude-batch-ai-model-and-orchestrator-adop",
+    "timestamp": "2026-04-07T10:10:33.426Z",
+    "provider": "claude",
+    "mode": "batch",
+    "topic": "AI model and orchestrator adoption trends August 2025–present: which models and orchestration layers are gaining or losing traction across enterprise and consumer segments, how usage breaks down by use case, whether specialist models are displacing foundational models, and what deployment strategies are proving effective",
+    "depth": "deep",
+    "lanes": [
+      "financial",
+      "frontier",
+      "academic",
+      "vc"
+    ],
+    "fromYear": 2025,
+    "toYear": null,
+    "test": false,
+    "durationSec": null,
+    "submittedAt": "2026-04-07T09:54:54.326Z",
+    "tokens": {
+      "lanesIn": 11233,
+      "lanesOut": 16425,
+      "synthesisIn": 8820,
+      "synthesisOut": 4864,
+      "totalIn": 20053,
+      "totalOut": 21289
+    },
+    "models": {
+      "lane": "claude-sonnet-4-6",
+      "synthesis": "claude-opus-4-5"
+    },
+    "estimatedCostUSD": 0.637137,
+    "outputFiles": [
+      "~/obsidian/research/ai-model-orchestrator-adoption/summary-ai-model-and-orchestrator-adoption-trends-august-2.md",
+      "~/obsidian/research/ai-model-orchestrator-adoption/sources-ai-model-and-orchestrator-adoption-trends-august-2.md",
+      "~/obsidian/research/ai-model-orchestrator-adoption/lanes/lane-financial-ai-model-and-orchestrator-adoption-trends-august-2.md",
+      "~/obsidian/research/ai-model-orchestrator-adoption/lanes/lane-frontier-ai-model-and-orchestrator-adoption-trends-august-2.md",
+      "~/obsidian/research/ai-model-orchestrator-adoption/lanes/lane-academic-ai-model-and-orchestrator-adoption-trends-august-2.md",
+      "~/obsidian/research/ai-model-orchestrator-adoption/lanes/lane-vc-ai-model-and-orchestrator-adoption-trends-august-2.md"
+    ]
+  },
+  {
+    "runId": "2026-04-08T11-49-31-claude-batch-anthropic-api-and-platform-pro",
+    "timestamp": "2026-04-08T11:49:31.266Z",
+    "provider": "claude",
+    "mode": "batch",
+    "topic": "Anthropic API and platform progress against AI 2027 report timelines (https://ai-2027.com/) from report publication (2025) to present: verify what has materially shipped in Anthropic APIs, what remains missing, and what near-term roadmap signals (including references to \"Methos\" or similar initiatives) indicate for the next 6-12 months, with comparisons to claims in my prior Substack post https://itone.substack.com/p/fant-ai-sia-magic-without-mastery?r=46vzx1.",
+    "depth": "deep",
+    "lanes": [
+      "financial",
+      "frontier"
+    ],
+    "fromYear": 2025,
+    "toYear": null,
+    "test": false,
+    "durationSec": null,
+    "submittedAt": "2026-04-08T11:42:06.738Z",
+    "tokens": {
+      "lanesIn": 5734,
+      "lanesOut": 10329,
+      "synthesisIn": 4143,
+      "synthesisOut": 5368,
+      "totalIn": 9877,
+      "totalOut": 15697
+    },
+    "models": {
+      "lane": "claude-sonnet-4-6",
+      "synthesis": "claude-opus-4-5"
+    },
+    "estimatedCostUSD": 0.550814,
+    "outputFiles": [
+      "~/obsidian/research/ai2027-anthropic-api-tracking/summary-anthropic-api-and-platform-progress-against-ai-202.md",
+      "~/obsidian/research/ai2027-anthropic-api-tracking/sources-anthropic-api-and-platform-progress-against-ai-202.md",
+      "~/obsidian/research/ai2027-anthropic-api-tracking/lanes/lane-financial-anthropic-api-and-platform-progress-against-ai-202.md",
+      "~/obsidian/research/ai2027-anthropic-api-tracking/lanes/lane-frontier-anthropic-api-and-platform-progress-against-ai-202.md"
+    ]
+  },
+  {
+    "runId": "2026-04-08T12-32-18-openai-sync-market-wide-ai-progress-agains",
+    "timestamp": "2026-04-08T12:32:18.740Z",
+    "provider": "openai",
+    "mode": "sync",
+    "topic": "Market-wide AI progress against AI 2027 report timelines (https://ai-2027.com/) from report publication (2025) to present: assess what has materially shipped across Anthropic, OpenAI, Google DeepMind, Meta, xAI, Mistral, major enterprise adopters, and regulators; what remains missing; and what near-term roadmap signals for the next 6-12 months indicate for capability, safety, and deployment. Include explicit validation of claims in my prior Substack post https://itone.substack.com/p/fant-ai-sia-magic-without-mastery?r=46vzx1, separating supported, contradicted, and unresolved claims.",
+    "depth": "standard",
+    "lanes": [
+      "financial",
+      "frontier",
+      "vc",
+      "substack"
+    ],
+    "fromYear": 2025,
+    "toYear": null,
+    "test": false,
+    "durationSec": 271.5,
+    "submittedAt": null,
+    "tokens": {
+      "lanesIn": 336146,
+      "lanesOut": 72269,
+      "synthesisIn": 19166,
+      "synthesisOut": 3172,
+      "totalIn": 355312,
+      "totalOut": 75441
+    },
+    "models": {
+      "lane": "gpt-5.4-mini",
+      "synthesis": "gpt-5.4"
+    },
+    "estimatedCostUSD": 0.421397,
+    "outputFiles": [
+      "~/obsidian/research/ai2027-market-tracking/summary-market-wide-ai-progress-against-ai-2027-report-tim.md",
+      "~/obsidian/research/ai2027-market-tracking/sources-market-wide-ai-progress-against-ai-2027-report-tim.md",
+      "~/obsidian/research/ai2027-market-tracking/lanes/lane-financial-market-wide-ai-progress-against-ai-2027-report-tim.md",
+      "~/obsidian/research/ai2027-market-tracking/lanes/lane-frontier-market-wide-ai-progress-against-ai-2027-report-tim.md",
+      "~/obsidian/research/ai2027-market-tracking/lanes/lane-vc-market-wide-ai-progress-against-ai-2027-report-tim.md",
+      "~/obsidian/research/ai2027-market-tracking/lanes/lane-substack-market-wide-ai-progress-against-ai-2027-report-tim.md"
+    ]
+  },
+  {
+    "runId": "2026-04-08T18-37-41-openai-sync-market-wide-ai-progress-agains",
+    "timestamp": "2026-04-08T18:37:41.496Z",
+    "provider": "openai",
+    "mode": "sync",
+    "topic": "Market-wide AI progress against AI 2027 report timelines (https://ai-2027.com/) from report publication (2025) to present: assess what has materially shipped across Anthropic, OpenAI, Google DeepMind, Meta, xAI, Mistral, major enterprise adopters, and regulators; what remains missing; and what near-term roadmap signals for the next 6-12 months indicate for capability, safety, and deployment. Include explicit validation of claims in my prior Substack post https://itone.substack.com/p/fant-ai-sia-magic-without-mastery?r=46vzx1, separating supported, contradicted, and unresolved claims.",
+    "depth": "standard",
+    "lanes": [
+      "financial",
+      "frontier",
+      "vc",
+      "substack"
+    ],
+    "fromYear": 2025,
+    "toYear": null,
+    "test": false,
+    "durationSec": 690.4,
+    "submittedAt": null,
+    "tokens": {
+      "lanesIn": 467281,
+      "lanesOut": 96565,
+      "synthesisIn": 395865,
+      "synthesisOut": 16089,
+      "totalIn": 863146,
+      "totalOut": 112654
+    },
+    "models": {
+      "lane": "gpt-5.4-mini",
+      "synthesis": "gpt-5.4"
+    },
+    "estimatedCostUSD": 1.151642,
+    "outputFiles": [
+      "~/obsidian/research/ai2027-market-tracking-20260408/summary-market-wide-ai-progress-against-ai-2027-report-tim.md",
+      "~/obsidian/research/ai2027-market-tracking-20260408/sources-market-wide-ai-progress-against-ai-2027-report-tim.md",
+      "~/obsidian/research/ai2027-market-tracking-20260408/lanes/lane-financial-market-wide-ai-progress-against-ai-2027-report-tim.md",
+      "~/obsidian/research/ai2027-market-tracking-20260408/lanes/lane-frontier-market-wide-ai-progress-against-ai-2027-report-tim.md",
+      "~/obsidian/research/ai2027-market-tracking-20260408/lanes/lane-vc-market-wide-ai-progress-against-ai-2027-report-tim.md",
+      "~/obsidian/research/ai2027-market-tracking-20260408/lanes/lane-substack-market-wide-ai-progress-against-ai-2027-report-tim.md"
+    ]
+  },
+  {
+    "runId": "2026-04-08T20-53-56-claude-batch-ai-2027-report-milestone-track",
+    "timestamp": "2026-04-08T20:53:56.866Z",
+    "provider": "claude",
+    "mode": "batch",
+    "topic": "AI 2027 report milestone tracking (January 2025–present): which predicted capabilities have shipped across Anthropic, OpenAI, Google DeepMind, Meta, xAI, and major enterprise adopters; what remains unshipped or contradicted; and what near-term signals suggest for agentic AI, safety frameworks, autonomy, and deployment timelines",
+    "depth": "deep",
+    "lanes": [
+      "financial",
+      "frontier",
+      "academic",
+      "vc",
+      "substack"
+    ],
+    "fromYear": 2025,
+    "toYear": null,
+    "test": false,
+    "durationSec": null,
+    "submittedAt": "2026-04-08T20:45:33.970Z",
+    "tokens": {
+      "lanesIn": 18562,
+      "lanesOut": 28132,
+      "synthesisIn": 12966,
+      "synthesisOut": 5582,
+      "totalIn": 31528,
+      "totalOut": 33714
+    },
+    "models": {
+      "lane": "claude-sonnet-4-6",
+      "synthesis": "claude-opus-4-5"
+    },
+    "estimatedCostUSD": 0.851973,
+    "outputFiles": [
+      "~/obsidian/research/ai2027-market-tracking-2026-04/summary-ai-2027-report-milestone-tracking-january-2025-pre.md",
+      "~/obsidian/research/ai2027-market-tracking-2026-04/sources-ai-2027-report-milestone-tracking-january-2025-pre.md",
+      "~/obsidian/research/ai2027-market-tracking-2026-04/lanes/lane-financial-ai-2027-report-milestone-tracking-january-2025-pre.md",
+      "~/obsidian/research/ai2027-market-tracking-2026-04/lanes/lane-frontier-ai-2027-report-milestone-tracking-january-2025-pre.md",
+      "~/obsidian/research/ai2027-market-tracking-2026-04/lanes/lane-academic-ai-2027-report-milestone-tracking-january-2025-pre.md",
+      "~/obsidian/research/ai2027-market-tracking-2026-04/lanes/lane-vc-ai-2027-report-milestone-tracking-january-2025-pre.md",
+      "~/obsidian/research/ai2027-market-tracking-2026-04/lanes/lane-substack-ai-2027-report-milestone-tracking-january-2025-pre.md"
+    ]
+  },
+  {
+    "runId": "2026-04-09T06-46-13-claude-batch-enterprise-agentic-ai-adoption",
+    "timestamp": "2026-04-09T06:46:13.965Z",
+    "provider": "claude",
+    "mode": "batch",
+    "topic": "Enterprise agentic AI adoption in operational processes November 2025–present: procurement criteria, model drift risk, version stability, availability SLAs, and how enterprises manage dependency on AI vendors in production workflows",
+    "depth": "standard",
+    "lanes": [
+      "financial",
+      "frontier",
+      "academic",
+      "vc"
+    ],
+    "fromYear": 2025,
+    "toYear": null,
+    "test": false,
+    "durationSec": null,
+    "submittedAt": "2026-04-09T06:36:08.056Z",
+    "tokens": {
+      "lanesIn": 13751,
+      "lanesOut": 11898,
+      "synthesisIn": 6257,
+      "synthesisOut": 1971,
+      "totalIn": 20008,
+      "totalOut": 13869
+    },
+    "models": {
+      "lane": "claude-haiku-4-5-20251001",
+      "synthesis": "claude-opus-4-5"
+    },
+    "estimatedCostUSD": 0.270976,
+    "outputFiles": [
+      "~/obsidian/research/enterprise-agentic-ai-adoption/summary-enterprise-agentic-ai-adoption-in-operational-proc.md",
+      "~/obsidian/research/enterprise-agentic-ai-adoption/sources-enterprise-agentic-ai-adoption-in-operational-proc.md",
+      "~/obsidian/research/enterprise-agentic-ai-adoption/lanes/lane-financial-enterprise-agentic-ai-adoption-in-operational-proc.md",
+      "~/obsidian/research/enterprise-agentic-ai-adoption/lanes/lane-frontier-enterprise-agentic-ai-adoption-in-operational-proc.md",
+      "~/obsidian/research/enterprise-agentic-ai-adoption/lanes/lane-academic-enterprise-agentic-ai-adoption-in-operational-proc.md",
+      "~/obsidian/research/enterprise-agentic-ai-adoption/lanes/lane-vc-enterprise-agentic-ai-adoption-in-operational-proc.md"
+    ]
+  },
+  {
+    "runId": "2026-04-09T06-48-49-claude-batch-ai-api-service-reliability-202",
+    "timestamp": "2026-04-09T06:48:49.199Z",
+    "provider": "claude",
+    "mode": "batch",
+    "topic": "AI API service reliability 2023–present: Anthropic, OpenAI, and Google downtime statistics, incident history, SLA terms, and how availability track records have changed over time",
+    "depth": "standard",
+    "lanes": [
+      "financial",
+      "frontier",
+      "academic",
+      "vc"
+    ],
+    "fromYear": 2023,
+    "toYear": null,
+    "test": false,
+    "durationSec": null,
+    "submittedAt": "2026-04-09T06:36:11.215Z",
+    "tokens": {
+      "lanesIn": 13689,
+      "lanesOut": 10644,
+      "synthesisIn": 5683,
+      "synthesisOut": 2447,
+      "totalIn": 19372,
+      "totalOut": 13091
+    },
+    "models": {
+      "lane": "claude-haiku-4-5-20251001",
+      "synthesis": "claude-opus-4-5"
+    },
+    "estimatedCostUSD": 0.295534,
+    "outputFiles": [
+      "~/obsidian/research/api-reliability-comparison/summary-ai-api-service-reliability-2023-present-anthropic-.md",
+      "~/obsidian/research/api-reliability-comparison/sources-ai-api-service-reliability-2023-present-anthropic-.md",
+      "~/obsidian/research/api-reliability-comparison/lanes/lane-financial-ai-api-service-reliability-2023-present-anthropic-.md",
+      "~/obsidian/research/api-reliability-comparison/lanes/lane-frontier-ai-api-service-reliability-2023-present-anthropic-.md",
+      "~/obsidian/research/api-reliability-comparison/lanes/lane-academic-ai-api-service-reliability-2023-present-anthropic-.md",
+      "~/obsidian/research/api-reliability-comparison/lanes/lane-vc-ai-api-service-reliability-2023-present-anthropic-.md"
+    ]
+  },
+  {
+    "runId": "2026-04-13T07-28-15-claude-batch-enterprise-llm-vendor-selectio",
+    "timestamp": "2026-04-13T07:28:15.837Z",
+    "provider": "claude",
+    "mode": "batch",
+    "topic": "Enterprise LLM vendor selection and consumption patterns (April 2025–present): how companies choose between OpenAI, Anthropic, Google, hyperscaler-hosted model access, and direct API relationships; what decision metrics they use across availability, quality, price, governance, and SLAs; and how adoption differs by company size, workload criticality, and realtime versus offline use cases",
+    "depth": "standard",
+    "lanes": [
+      "financial",
+      "frontier",
+      "academic",
+      "vc",
+      "substack"
+    ],
+    "fromYear": 2025,
+    "toYear": null,
+    "test": false,
+    "durationSec": null,
+    "submittedAt": "2026-04-13T07:20:50.327Z",
+    "tokens": {
+      "lanesIn": 18582,
+      "lanesOut": 13454,
+      "synthesisIn": 7840,
+      "synthesisOut": 2463,
+      "totalIn": 26422,
+      "totalOut": 15917
+    },
+    "models": {
+      "lane": "claude-haiku-4-5-20251001",
+      "synthesis": "claude-opus-4-5"
+    },
+    "estimatedCostUSD": 0.336666,
+    "outputFiles": [
+      "~/obsidian/research/enterprise-llm-vendor-selection-2026-04/summary-enterprise-llm-vendor-selection-and-consumption-pa.md",
+      "~/obsidian/research/enterprise-llm-vendor-selection-2026-04/sources-enterprise-llm-vendor-selection-and-consumption-pa.md",
+      "~/obsidian/research/enterprise-llm-vendor-selection-2026-04/lanes/lane-financial-enterprise-llm-vendor-selection-and-consumption-pa.md",
+      "~/obsidian/research/enterprise-llm-vendor-selection-2026-04/lanes/lane-frontier-enterprise-llm-vendor-selection-and-consumption-pa.md",
+      "~/obsidian/research/enterprise-llm-vendor-selection-2026-04/lanes/lane-academic-enterprise-llm-vendor-selection-and-consumption-pa.md",
+      "~/obsidian/research/enterprise-llm-vendor-selection-2026-04/lanes/lane-vc-enterprise-llm-vendor-selection-and-consumption-pa.md",
+      "~/obsidian/research/enterprise-llm-vendor-selection-2026-04/lanes/lane-substack-enterprise-llm-vendor-selection-and-consumption-pa.md"
+    ]
+  },
+  {
+    "runId": "2026-04-13T19-40-05-claude-batch-ai-generated-and-agent-produce",
+    "timestamp": "2026-04-13T19:40:05.900Z",
+    "provider": "claude",
+    "mode": "batch",
+    "topic": "AI-generated and agent-produced code (\"dark code\") in enterprise settings June 2025–April 2026: organisational accountability structures, failure and adaptation of established management frameworks, technical and governance controls, observability and discoverability of agent logic, and documented outcomes from early enterprise adoption.",
+    "depth": "deep",
+    "lanes": [
+      "financial",
+      "frontier",
+      "academic",
+      "vc",
+      "substack"
+    ],
+    "fromYear": 2025,
+    "toYear": null,
+    "test": false,
+    "durationSec": null,
+    "submittedAt": "2026-04-13T19:29:15.984Z",
+    "tokens": {
+      "lanesIn": 17944,
+      "lanesOut": 28830,
+      "synthesisIn": 13385,
+      "synthesisOut": 5145,
+      "totalIn": 31329,
+      "totalOut": 33975
+    },
+    "models": {
+      "lane": "claude-sonnet-4-6",
+      "synthesis": "claude-opus-4-5"
+    },
+    "estimatedCostUSD": 0.829791,
+    "outputFiles": [
+      "~/obsidian/research/ai-dark-code-org-accountability/summary-ai-generated-and-agent-produced-code-dark-code-in-.md",
+      "~/obsidian/research/ai-dark-code-org-accountability/sources-ai-generated-and-agent-produced-code-dark-code-in-.md",
+      "~/obsidian/research/ai-dark-code-org-accountability/lanes/lane-financial-ai-generated-and-agent-produced-code-dark-code-in-.md",
+      "~/obsidian/research/ai-dark-code-org-accountability/lanes/lane-frontier-ai-generated-and-agent-produced-code-dark-code-in-.md",
+      "~/obsidian/research/ai-dark-code-org-accountability/lanes/lane-academic-ai-generated-and-agent-produced-code-dark-code-in-.md",
+      "~/obsidian/research/ai-dark-code-org-accountability/lanes/lane-vc-ai-generated-and-agent-produced-code-dark-code-in-.md",
+      "~/obsidian/research/ai-dark-code-org-accountability/lanes/lane-substack-ai-generated-and-agent-produced-code-dark-code-in-.md"
+    ]
+  },
+  {
+    "runId": "2026-04-15T18-53-04-openai-sync-the-2026-saas-sector-stress-te",
+    "timestamp": "2026-04-15T18:53:04.876Z",
+    "provider": "openai",
+    "mode": "sync",
+    "topic": "The 2026 SaaS sector stress: testing whether weak SaaS revenue growth and stock performance are driven by AI displacing knowledge-work jobs, post-ZIRP overhiring correction, compression of growth-era revenue multiples, or macro tech-capex slowdown — January 2026 through April 2026.",
+    "depth": "standard",
+    "lanes": [
+      "financial",
+      "academic",
+      "vc",
+      "substack"
+    ],
+    "fromYear": 2026,
+    "toYear": null,
+    "test": false,
+    "durationSec": 80.8,
+    "submittedAt": null,
+    "tokens": {
+      "lanesIn": 67384,
+      "lanesOut": 8758,
+      "synthesisIn": 3806,
+      "synthesisOut": 3227,
+      "totalIn": 71190,
+      "totalOut": 11985
+    },
+    "models": {
+      "lane": "gpt-5.4-mini",
+      "synthesis": "gpt-5.4"
+    },
+    "estimatedCostUSD": 0.092007,
+    "outputFiles": [
+      "~/obsidian/research/saas-pocalypse-openai-sync/summary-the-2026-saas-sector-stress-testing-whether-weak-s.md",
+      "~/obsidian/research/saas-pocalypse-openai-sync/sources-the-2026-saas-sector-stress-testing-whether-weak-s.md",
+      "~/obsidian/research/saas-pocalypse-openai-sync/lanes/lane-financial-the-2026-saas-sector-stress-testing-whether-weak-s.md",
+      "~/obsidian/research/saas-pocalypse-openai-sync/lanes/lane-academic-the-2026-saas-sector-stress-testing-whether-weak-s.md",
+      "~/obsidian/research/saas-pocalypse-openai-sync/lanes/lane-vc-the-2026-saas-sector-stress-testing-whether-weak-s.md",
+      "~/obsidian/research/saas-pocalypse-openai-sync/lanes/lane-substack-the-2026-saas-sector-stress-testing-whether-weak-s.md"
+    ]
+  },
+  {
+    "runId": "2026-04-15T19-03-53-claude-sync-the-2026-saas-sector-stress-te",
+    "timestamp": "2026-04-15T19:03:53.599Z",
+    "provider": "claude",
+    "mode": "sync",
+    "topic": "The 2026 SaaS sector stress: testing whether weak SaaS revenue growth and stock performance are driven by AI displacing knowledge-work jobs, post-ZIRP overhiring correction, compression of growth-era revenue multiples, or macro tech-capex slowdown — January 2026 through April 2026.",
+    "depth": "standard",
+    "lanes": [
+      "financial",
+      "academic",
+      "vc",
+      "substack"
+    ],
+    "fromYear": 2026,
+    "toYear": null,
+    "test": false,
+    "durationSec": 87.5,
+    "submittedAt": null,
+    "tokens": {
+      "lanesIn": 15126,
+      "lanesOut": 11634,
+      "synthesisIn": 6923,
+      "synthesisOut": 2315,
+      "totalIn": 22049,
+      "totalOut": 13949
+    },
+    "models": {
+      "lane": "claude-haiku-4-5-20251001",
+      "synthesis": "claude-opus-4-5"
+    },
+    "estimatedCostUSD": 0.336107,
+    "outputFiles": [
+      "~/obsidian/research/saas-pocalypse/summary-the-2026-saas-sector-stress-testing-whether-weak-s.md",
+      "~/obsidian/research/saas-pocalypse/sources-the-2026-saas-sector-stress-testing-whether-weak-s.md",
+      "~/obsidian/research/saas-pocalypse/lanes/lane-financial-the-2026-saas-sector-stress-testing-whether-weak-s.md",
+      "~/obsidian/research/saas-pocalypse/lanes/lane-academic-the-2026-saas-sector-stress-testing-whether-weak-s.md",
+      "~/obsidian/research/saas-pocalypse/lanes/lane-vc-the-2026-saas-sector-stress-testing-whether-weak-s.md",
+      "~/obsidian/research/saas-pocalypse/lanes/lane-substack-the-2026-saas-sector-stress-testing-whether-weak-s.md"
+    ]
+  },
+  {
+    "runId": "2026-04-17T08-35-04-claude-batch-agentic-ai-s-impact-on-enterpr",
+    "timestamp": "2026-04-17T08:35:04.272Z",
+    "provider": "claude",
+    "mode": "batch",
+    "topic": "Agentic AI's impact on enterprise technology operating models and architecture (January 2025–April 17th 2026): what stays (API infrastructure, data governance, SDLC controls), what shifts (DevOps as the new control plane, testing and rollback at agent speed, dark-code and agentic tech-debt governance), and whether frontier models like Anthropic's Mythos become embedded in CI/CD pipelines for security, code review, and release control",
+    "depth": "deep",
+    "lanes": [
+      "financial",
+      "frontier",
+      "academic",
+      "vc",
+      "blogs",
+      "tech"
+    ],
+    "fromYear": 2025,
+    "toYear": null,
+    "test": false,
+    "durationSec": null,
+    "submittedAt": "2026-04-17T08:21:37.926Z",
+    "tokens": {
+      "lanesIn": 26403,
+      "lanesOut": 36511,
+      "synthesisIn": 17873,
+      "synthesisOut": 4810,
+      "totalIn": 44276,
+      "totalOut": 41321
+    },
+    "models": {
+      "lane": "claude-sonnet-4-6",
+      "synthesis": "claude-opus-4-5"
+    },
+    "estimatedCostUSD": 0.942282,
+    "outputFiles": [
+      "~/obsidian/research/agentic-ai-operating-model-shift/summary-agentic-ai-s-impact-on-enterprise-technology-opera.md",
+      "~/obsidian/research/agentic-ai-operating-model-shift/sources-agentic-ai-s-impact-on-enterprise-technology-opera.md",
+      "~/obsidian/research/agentic-ai-operating-model-shift/lanes/lane-financial-agentic-ai-s-impact-on-enterprise-technology-opera.md",
+      "~/obsidian/research/agentic-ai-operating-model-shift/lanes/lane-frontier-agentic-ai-s-impact-on-enterprise-technology-opera.md",
+      "~/obsidian/research/agentic-ai-operating-model-shift/lanes/lane-academic-agentic-ai-s-impact-on-enterprise-technology-opera.md",
+      "~/obsidian/research/agentic-ai-operating-model-shift/lanes/lane-vc-agentic-ai-s-impact-on-enterprise-technology-opera.md",
+      "~/obsidian/research/agentic-ai-operating-model-shift/lanes/lane-blogs-agentic-ai-s-impact-on-enterprise-technology-opera.md",
+      "~/obsidian/research/agentic-ai-operating-model-shift/lanes/lane-tech-agentic-ai-s-impact-on-enterprise-technology-opera.md"
+    ]
+  },
+  {
+    "runId": "2026-04-17T09-18-56-claude-batch-agentic-ai-s-impact-on-enterpr",
+    "timestamp": "2026-04-17T09:18:56.032Z",
+    "provider": "claude",
+    "mode": "batch",
+    "topic": "Agentic AI's impact on enterprise technology operating models and architecture (January 2025–April 17th 2026): what stays (API infrastructure, data governance, SDLC controls), what shifts (DevOps as the new control plane, testing and rollback at agent speed, dark-code and agentic tech-debt governance), and whether frontier models like Anthropic's Mythos become embedded in CI/CD pipelines for security, code review, and release control",
+    "depth": "deep",
+    "lanes": [
+      "financial",
+      "frontier",
+      "academic",
+      "vc",
+      "blogs",
+      "tech"
+    ],
+    "fromYear": 2025,
+    "toYear": null,
+    "test": false,
+    "durationSec": null,
+    "submittedAt": "2026-04-17T08:51:49.308Z",
+    "tokens": {
+      "lanesIn": 26404,
+      "lanesOut": 35273,
+      "synthesisIn": 17912,
+      "synthesisOut": 4499,
+      "totalIn": 44316,
+      "totalOut": 39772
+    },
+    "models": {
+      "lane": "claude-sonnet-4-6",
+      "synthesis": "claude-opus-4-5"
+    },
+    "estimatedCostUSD": 0.910259,
+    "outputFiles": [
+      "~/obsidian/research/agentic-ai-operating-model-shift/summary-agentic-ai-s-impact-on-enterprise-technology-opera.md",
+      "~/obsidian/research/agentic-ai-operating-model-shift/sources-agentic-ai-s-impact-on-enterprise-technology-opera.md",
+      "~/obsidian/research/agentic-ai-operating-model-shift/lanes/lane-financial-agentic-ai-s-impact-on-enterprise-technology-opera.md",
+      "~/obsidian/research/agentic-ai-operating-model-shift/lanes/lane-frontier-agentic-ai-s-impact-on-enterprise-technology-opera.md",
+      "~/obsidian/research/agentic-ai-operating-model-shift/lanes/lane-academic-agentic-ai-s-impact-on-enterprise-technology-opera.md",
+      "~/obsidian/research/agentic-ai-operating-model-shift/lanes/lane-vc-agentic-ai-s-impact-on-enterprise-technology-opera.md",
+      "~/obsidian/research/agentic-ai-operating-model-shift/lanes/lane-blogs-agentic-ai-s-impact-on-enterprise-technology-opera.md",
+      "~/obsidian/research/agentic-ai-operating-model-shift/lanes/lane-tech-agentic-ai-s-impact-on-enterprise-technology-opera.md"
+    ]
+  },
+  {
+    "runId": "2026-04-18T21-03-16-claude-batch-quantum-computing-advances-qua",
+    "timestamp": "2026-04-18T21:03:16.396Z",
+    "provider": "claude",
+    "mode": "batch",
+    "topic": "Quantum computing advances, quantum advantage benchmarks, real-world applications, and programming interfaces for business and consumer use — April 2025 to April 2026",
+    "depth": "deep",
+    "lanes": [
+      "frontier",
+      "academic",
+      "vc",
+      "tech",
+      "blogs"
+    ],
+    "fromYear": 2025,
+    "toYear": null,
+    "test": false,
+    "durationSec": null,
+    "submittedAt": "2026-04-18T20:57:54.773Z",
+    "tokens": {
+      "lanesIn": 8977,
+      "lanesOut": 29046,
+      "synthesisIn": 12892,
+      "synthesisOut": 4791,
+      "totalIn": 21869,
+      "totalOut": 33837
+    },
+    "models": {
+      "lane": "claude-sonnet-4-6",
+      "synthesis": "claude-opus-4-5"
+    },
+    "estimatedCostUSD": 0.784016,
+    "outputFiles": [
+      "~/obsidian/research/quantum-computing-advances-2026/summary-quantum-computing-advances-quantum-advantage-bench.md",
+      "~/obsidian/research/quantum-computing-advances-2026/sources-quantum-computing-advances-quantum-advantage-bench.md",
+      "~/obsidian/research/quantum-computing-advances-2026/lanes/lane-frontier-quantum-computing-advances-quantum-advantage-bench.md",
+      "~/obsidian/research/quantum-computing-advances-2026/lanes/lane-academic-quantum-computing-advances-quantum-advantage-bench.md",
+      "~/obsidian/research/quantum-computing-advances-2026/lanes/lane-vc-quantum-computing-advances-quantum-advantage-bench.md",
+      "~/obsidian/research/quantum-computing-advances-2026/lanes/lane-tech-quantum-computing-advances-quantum-advantage-bench.md",
+      "~/obsidian/research/quantum-computing-advances-2026/lanes/lane-blogs-quantum-computing-advances-quantum-advantage-bench.md"
+    ],
+    "authMode": "api_key"
+  },
+  {
+    "runId": "2026-04-19T07-07-47-claude-batch-quantum-computing-fundamentals",
+    "timestamp": "2026-04-19T07:07:47.598Z",
+    "provider": "claude",
+    "mode": "batch",
+    "topic": "Quantum computing fundamentals: theory, qubit hardware approaches, decoherence, error correction, algorithmic complexity, and developer programming models — April 2024 to April 2026",
+    "depth": "standard",
+    "lanes": [
+      "academic",
+      "frontier",
+      "tech",
+      "blogs"
+    ],
+    "fromYear": 2024,
+    "toYear": null,
+    "test": false,
+    "durationSec": null,
+    "submittedAt": "2026-04-19T06:55:09.597Z",
+    "tokens": {
+      "lanesIn": 15035,
+      "lanesOut": 11820,
+      "synthesisIn": 6439,
+      "synthesisOut": 2280,
+      "totalIn": 21474,
+      "totalOut": 14100
+    },
+    "models": {
+      "lane": "claude-haiku-4-5-20251001",
+      "synthesis": "claude-opus-4-5"
+    },
+    "estimatedCostUSD": 0.297239,
+    "outputFiles": [
+      "~/obsidian/research/quantum-computing-foundations-2026/summary-quantum-computing-fundamentals-theory-qubit-hardwa.md",
+      "~/obsidian/research/quantum-computing-foundations-2026/sources-quantum-computing-fundamentals-theory-qubit-hardwa.md",
+      "~/obsidian/research/quantum-computing-foundations-2026/lanes/lane-academic-quantum-computing-fundamentals-theory-qubit-hardwa.md",
+      "~/obsidian/research/quantum-computing-foundations-2026/lanes/lane-frontier-quantum-computing-fundamentals-theory-qubit-hardwa.md",
+      "~/obsidian/research/quantum-computing-foundations-2026/lanes/lane-tech-quantum-computing-fundamentals-theory-qubit-hardwa.md",
+      "~/obsidian/research/quantum-computing-foundations-2026/lanes/lane-blogs-quantum-computing-fundamentals-theory-qubit-hardwa.md"
+    ],
+    "authMode": "api_key"
+  },
+  {
+    "runId": "2026-04-19T12-26-44-claude-sync-the-karpathy-loop-autonomous-a",
+    "timestamp": "2026-04-19T12:26:44.066Z",
+    "provider": "claude",
+    "mode": "sync",
+    "topic": "The \"Karpathy loop\" — autonomous AI agent research cycles that run and evaluate ML training experiments to discover improvements, April 2025–April 19 2026, including Karpathy's own explanations, independent commentary, and real-world implementations",
+    "depth": "shallow",
+    "lanes": [
+      "frontier",
+      "blogs",
+      "tech"
+    ],
+    "fromYear": 2025,
+    "toYear": null,
+    "test": false,
+    "durationSec": 123,
+    "submittedAt": null,
+    "tokens": {
+      "lanesIn": 62,
+      "lanesOut": 19917,
+      "synthesisIn": 10,
+      "synthesisOut": 1474,
+      "totalIn": 72,
+      "totalOut": 21391
+    },
+    "models": {
+      "lane": "claude-haiku-4-5-20251001",
+      "synthesis": "claude-opus-4-5"
+    },
+    "estimatedCostUSD": 0.190418,
+    "outputFiles": [
+      "~/obsidian/research/karpathy-loop/summary-the-karpathy-loop-autonomous-ai-agent-research-cyc.md",
+      "~/obsidian/research/karpathy-loop/sources-the-karpathy-loop-autonomous-ai-agent-research-cyc.md",
+      "~/obsidian/research/karpathy-loop/lanes/lane-frontier-the-karpathy-loop-autonomous-ai-agent-research-cyc.md",
+      "~/obsidian/research/karpathy-loop/lanes/lane-blogs-the-karpathy-loop-autonomous-ai-agent-research-cyc.md",
+      "~/obsidian/research/karpathy-loop/lanes/lane-tech-the-karpathy-loop-autonomous-ai-agent-research-cyc.md"
+    ],
+    "authMode": "claude_cli"
+  },
+  {
+    "runId": "2026-04-19T14-47-37-claude-batch-quantum-computing-fundamentals",
+    "timestamp": "2026-04-19T14:47:37.052Z",
+    "provider": "claude",
+    "mode": "batch",
+    "topic": "Quantum computing fundamentals briefing — error correction, hardware architectures, computational advantage, and where the field stands — key papers, expert commentary, and lab progress from January 2023 to April 2026",
+    "depth": "deep",
+    "lanes": [
+      "academic",
+      "frontier",
+      "blogs"
+    ],
+    "fromYear": 2023,
+    "toYear": null,
+    "test": false,
+    "durationSec": null,
+    "submittedAt": "2026-04-19T14:43:01.448Z",
+    "tokens": {
+      "lanesIn": 4531,
+      "lanesOut": 16893,
+      "synthesisIn": 8285,
+      "synthesisOut": 5130,
+      "totalIn": 12816,
+      "totalOut": 22023
+    },
+    "models": {
+      "lane": "claude-sonnet-4-6",
+      "synthesis": "claude-opus-4-5"
+    },
+    "estimatedCostUSD": 0.642519,
+    "outputFiles": [
+      "~/obsidian/research/quantum-computing-foundations-v2-2026/summary-quantum-computing-fundamentals-briefing-error-corr.md",
+      "~/obsidian/research/quantum-computing-foundations-v2-2026/sources-quantum-computing-fundamentals-briefing-error-corr.md",
+      "~/obsidian/research/quantum-computing-foundations-v2-2026/lanes/lane-academic-quantum-computing-fundamentals-briefing-error-corr.md",
+      "~/obsidian/research/quantum-computing-foundations-v2-2026/lanes/lane-frontier-quantum-computing-fundamentals-briefing-error-corr.md",
+      "~/obsidian/research/quantum-computing-foundations-v2-2026/lanes/lane-blogs-quantum-computing-fundamentals-briefing-error-corr.md"
+    ],
+    "authMode": "api_key"
+  },
+  {
+    "runId": "2026-04-19T16-33-54-claude-sync-ai-token-pricing-vs-true-total",
+    "timestamp": "2026-04-19T16:33:54.531Z",
+    "provider": "claude",
+    "mode": "sync",
+    "topic": "AI token pricing vs true total cost of ownership from January 2023 to 19 April 2026, with emphasis on 2025–2026 signals: lab subsidisation strategies, infrastructure economics (compute, energy, data centres, hardware, security, ops), how user-facing prices have evolved, and analyst and researcher projections for token cost trajectories through 2028.",
+    "depth": "deep",
+    "lanes": [
+      "financial",
+      "frontier",
+      "academic",
+      "vc",
+      "blogs"
+    ],
+    "fromYear": 2023,
+    "toYear": 2026,
+    "test": false,
+    "durationSec": 651.1,
+    "submittedAt": null,
+    "tokens": {
+      "lanesIn": 17176,
+      "lanesOut": 100371,
+      "synthesisIn": 10,
+      "synthesisOut": 5472,
+      "totalIn": 17186,
+      "totalOut": 105843
+    },
+    "models": {
+      "lane": "claude-sonnet-4-6",
+      "synthesis": "claude-opus-4-5"
+    },
+    "estimatedCostUSD": 1.967643,
+    "outputFiles": [
+      "~/obsidian/research/token-cost-of-ownership/summary-ai-token-pricing-vs-true-total-cost-of-ownership-f.md",
+      "~/obsidian/research/token-cost-of-ownership/sources-ai-token-pricing-vs-true-total-cost-of-ownership-f.md",
+      "~/obsidian/research/token-cost-of-ownership/lanes/lane-financial-ai-token-pricing-vs-true-total-cost-of-ownership-f.md",
+      "~/obsidian/research/token-cost-of-ownership/lanes/lane-frontier-ai-token-pricing-vs-true-total-cost-of-ownership-f.md",
+      "~/obsidian/research/token-cost-of-ownership/lanes/lane-academic-ai-token-pricing-vs-true-total-cost-of-ownership-f.md",
+      "~/obsidian/research/token-cost-of-ownership/lanes/lane-vc-ai-token-pricing-vs-true-total-cost-of-ownership-f.md",
+      "~/obsidian/research/token-cost-of-ownership/lanes/lane-blogs-ai-token-pricing-vs-true-total-cost-of-ownership-f.md"
+    ],
+    "authMode": "claude_cli"
+  },
+  {
+    "runId": "2026-04-24T10-13-15-claude-sync-engineering-ai-control-planes-",
+    "timestamp": "2026-04-24T10:13:15.577Z",
+    "provider": "claude",
+    "mode": "sync",
+    "topic": "Engineering AI control planes for software delivery from July 1, 2025 through April 24, 2026: how teams implement AI across development workflows and CI/CD, choose tools/models/SDKs, govern observability and compliance, manage reliability and provider availability, and handle cognitive debt, dark code, case studies, success stories, and failure modes across team size, company scale, and greenfield versus brownfield systems",
+    "depth": "deep",
+    "lanes": [
+      "financial",
+      "frontier",
+      "academic",
+      "vc",
+      "blogs",
+      "tech"
+    ],
+    "fromYear": 2025,
+    "toYear": 2026,
+    "test": false,
+    "durationSec": 542.2,
+    "submittedAt": null,
+    "tokens": {
+      "lanesIn": 21015,
+      "lanesOut": 106189,
+      "synthesisIn": 6,
+      "synthesisOut": 11426,
+      "totalIn": 21021,
+      "totalOut": 117615
+    },
+    "models": {
+      "lane": "claude-sonnet-4-6",
+      "synthesis": "claude-opus-4-7"
+    },
+    "estimatedCostUSD": 1.94156,
+    "outputFiles": [
+      "~/obsidian/research/engineering-ai-control-plane/summary-engineering-ai-control-planes-for-software-deliver.md",
+      "~/obsidian/research/engineering-ai-control-plane/sources-engineering-ai-control-planes-for-software-deliver.md",
+      "~/obsidian/research/engineering-ai-control-plane/lanes/lane-financial-engineering-ai-control-planes-for-software-deliver.md",
+      "~/obsidian/research/engineering-ai-control-plane/lanes/lane-frontier-engineering-ai-control-planes-for-software-deliver.md",
+      "~/obsidian/research/engineering-ai-control-plane/lanes/lane-academic-engineering-ai-control-planes-for-software-deliver.md",
+      "~/obsidian/research/engineering-ai-control-plane/lanes/lane-vc-engineering-ai-control-planes-for-software-deliver.md",
+      "~/obsidian/research/engineering-ai-control-plane/lanes/lane-blogs-engineering-ai-control-planes-for-software-deliver.md",
+      "~/obsidian/research/engineering-ai-control-plane/lanes/lane-tech-engineering-ai-control-planes-for-software-deliver.md"
+    ],
+    "authMode": "claude_oauth"
+  },
+  {
+    "runId": "2026-04-30T19-12-53-openai-sync-agentic-engineering-after-andr",
+    "timestamp": "2026-04-30T19:12:53.542Z",
+    "provider": "openai",
+    "mode": "sync",
+    "topic": "Agentic engineering after Andrej Karpathy's vibe coding meme, April 2025-April 2026: how AI coding agents are changing enterprise software engineering across security, testability, reliability, maintainability, availability, resilience, observability, operability, cost, recovery, and engineering governance.",
+    "depth": "deep",
+    "lanes": [
+      "frontier",
+      "academic",
+      "vc",
+      "blogs",
+      "tech",
+      "financial"
+    ],
+    "fromYear": 2025,
+    "toYear": 2026,
+    "test": false,
+    "durationSec": 187.8,
+    "submittedAt": null,
+    "tokens": {
+      "lanesIn": 275850,
+      "lanesOut": 31580,
+      "synthesisIn": 55439,
+      "synthesisOut": 6505,
+      "totalIn": 331289,
+      "totalOut": 38085
+    },
+    "models": {
+      "lane": "gpt-5.4-mini",
+      "synthesis": "gpt-5.5"
+    },
+    "estimatedCostUSD": 0.821343,
+    "outputFiles": [
+      "~/obsidian/research/agentic-engineering-enterprise-architecture/summary-agentic-engineering-after-andrej-karpathy-s-vibe-c.md",
+      "~/obsidian/research/agentic-engineering-enterprise-architecture/sources-agentic-engineering-after-andrej-karpathy-s-vibe-c.md",
+      "~/obsidian/research/agentic-engineering-enterprise-architecture/lanes/lane-frontier-agentic-engineering-after-andrej-karpathy-s-vibe-c.md",
+      "~/obsidian/research/agentic-engineering-enterprise-architecture/lanes/lane-academic-agentic-engineering-after-andrej-karpathy-s-vibe-c.md",
+      "~/obsidian/research/agentic-engineering-enterprise-architecture/lanes/lane-vc-agentic-engineering-after-andrej-karpathy-s-vibe-c.md",
+      "~/obsidian/research/agentic-engineering-enterprise-architecture/lanes/lane-blogs-agentic-engineering-after-andrej-karpathy-s-vibe-c.md",
+      "~/obsidian/research/agentic-engineering-enterprise-architecture/lanes/lane-tech-agentic-engineering-after-andrej-karpathy-s-vibe-c.md",
+      "~/obsidian/research/agentic-engineering-enterprise-architecture/lanes/lane-financial-agentic-engineering-after-andrej-karpathy-s-vibe-c.md"
+    ],
+    "authMode": "codex_cli"
+  },
+  {
+    "runId": "2026-05-10T13-45-31-openai-batch-agentic-engineering-after-andr",
+    "timestamp": "2026-05-10T13:45:31.076Z",
+    "provider": "openai",
+    "mode": "batch",
+    "topic": "Agentic engineering after Andrej Karpathy's vibe coding meme, April 2025-April 2026: how AI coding agents are changing enterprise software engineering across security, testability, reliability, maintainability, availability, resilience, observability, operability, cost, recovery, and engineering governance.",
+    "depth": "deep",
+    "lanes": [
+      "frontier",
+      "academic",
+      "vc",
+      "blogs",
+      "tech",
+      "financial"
+    ],
+    "fromYear": 2025,
+    "toYear": 2026,
+    "test": false,
+    "durationSec": null,
+    "submittedAt": "2026-05-01T05:58:19.526Z",
+    "tokens": {
+      "lanesIn": 191218,
+      "lanesOut": 32144,
+      "synthesisIn": 1686,
+      "synthesisOut": 8192,
+      "totalIn": 192904,
+      "totalOut": 40336
+    },
+    "models": {
+      "lane": "gpt-5.4-mini",
+      "synthesis": "gpt-5.5"
+    },
+    "estimatedCostUSD": 0.398221,
+    "outputFiles": [
+      "~/obsidian/research/agentic-engineering-enterprise-architecture-openai-api/summary-agentic-engineering-after-andrej-karpathy-s-vibe-c.md",
+      "~/obsidian/research/agentic-engineering-enterprise-architecture-openai-api/sources-agentic-engineering-after-andrej-karpathy-s-vibe-c.md",
+      "~/obsidian/research/agentic-engineering-enterprise-architecture-openai-api/lanes/lane-frontier-agentic-engineering-after-andrej-karpathy-s-vibe-c.md",
+      "~/obsidian/research/agentic-engineering-enterprise-architecture-openai-api/lanes/lane-academic-agentic-engineering-after-andrej-karpathy-s-vibe-c.md",
+      "~/obsidian/research/agentic-engineering-enterprise-architecture-openai-api/lanes/lane-vc-agentic-engineering-after-andrej-karpathy-s-vibe-c.md",
+      "~/obsidian/research/agentic-engineering-enterprise-architecture-openai-api/lanes/lane-blogs-agentic-engineering-after-andrej-karpathy-s-vibe-c.md",
+      "~/obsidian/research/agentic-engineering-enterprise-architecture-openai-api/lanes/lane-tech-agentic-engineering-after-andrej-karpathy-s-vibe-c.md",
+      "~/obsidian/research/agentic-engineering-enterprise-architecture-openai-api/lanes/lane-financial-agentic-engineering-after-andrej-karpathy-s-vibe-c.md"
+    ],
+    "authMode": "api_key"
+  },
+  {
+    "runId": "2026-05-10T13-48-15-claude-batch-agentic-rag-between-november-2",
+    "timestamp": "2026-05-10T13:48:15.730Z",
+    "provider": "claude",
+    "mode": "batch",
+    "topic": "Agentic RAG between November 2025 and May 2026: how retrieval-augmented generation is shifting toward agent-driven architectures, the operational problems (token burn, context management, latency, reliability), information-organisation patterns such as context catalogues and semantic categorisation, parallels with traditional data warehousing (dimensions, measures, star schemas), the evolving RAG tooling landscape, and decision criteria for switching to pure agentic workflows.",
+    "depth": "deep",
+    "lanes": [
+      "academic",
+      "frontier",
+      "tech",
+      "blogs",
+      "vc"
+    ],
+    "fromYear": 2025,
+    "toYear": 2026,
+    "test": false,
+    "durationSec": null,
+    "submittedAt": "2026-05-10T13:41:56.464Z",
+    "tokens": {
+      "lanesIn": 12134,
+      "lanesOut": 29289,
+      "synthesisIn": 21477,
+      "synthesisOut": 8022,
+      "totalIn": 33611,
+      "totalOut": 37311
+    },
+    "models": {
+      "lane": "claude-sonnet-4-6",
+      "synthesis": "claude-opus-4-7"
+    },
+    "estimatedCostUSD": 0.545803,
+    "outputFiles": [
+      "~/obsidian/research/agentic-rag-evolution/summary-agentic-rag-between-november-2025-and-may-2026-how.md",
+      "~/obsidian/research/agentic-rag-evolution/sources-agentic-rag-between-november-2025-and-may-2026-how.md",
+      "~/obsidian/research/agentic-rag-evolution/lanes/lane-academic-agentic-rag-between-november-2025-and-may-2026-how.md",
+      "~/obsidian/research/agentic-rag-evolution/lanes/lane-frontier-agentic-rag-between-november-2025-and-may-2026-how.md",
+      "~/obsidian/research/agentic-rag-evolution/lanes/lane-tech-agentic-rag-between-november-2025-and-may-2026-how.md",
+      "~/obsidian/research/agentic-rag-evolution/lanes/lane-blogs-agentic-rag-between-november-2025-and-may-2026-how.md",
+      "~/obsidian/research/agentic-rag-evolution/lanes/lane-vc-agentic-rag-between-november-2025-and-may-2026-how.md"
+    ],
+    "authMode": "api_key"
+  },
+  {
+    "runId": "2026-05-11T10-00-28-claude-batch-the-compounding-economic-logic",
+    "timestamp": "2026-05-11T10:00:28.562Z",
+    "provider": "claude",
+    "mode": "batch",
+    "topic": "The compounding economic logic of three successive technology waves from January 1995 to May 2026 — internet disintermediation of distribution, software-defined platforms and cloud infrastructure, and the current AI/agentic systems wave — examining the technical, economic and human-skills dependencies that make each wave a precondition for the next, the new categories of work each wave created, and whether the relationship is best understood as cumulative compounding or as externalised costs harvested by later layers.",
+    "depth": "deep",
+    "lanes": [
+      "financial",
+      "academic",
+      "blogs",
+      "vc"
+    ],
+    "fromYear": 1995,
+    "toYear": 2026,
+    "test": false,
+    "durationSec": null,
+    "submittedAt": "2026-05-11T09:48:05.589Z",
+    "tokens": {
+      "lanesIn": 12517,
+      "lanesOut": 23879,
+      "synthesisIn": 17434,
+      "synthesisOut": 8192,
+      "totalIn": 29951,
+      "totalOut": 32071
+    },
+    "models": {
+      "lane": "claude-sonnet-4-6",
+      "synthesis": "claude-opus-4-7"
+    },
+    "estimatedCostUSD": 0.489838,
+    "outputFiles": [
+      "~/obsidian/research/compounding-tech-waves/summary-the-compounding-economic-logic-of-three-successive.md",
+      "~/obsidian/research/compounding-tech-waves/sources-the-compounding-economic-logic-of-three-successive.md",
+      "~/obsidian/research/compounding-tech-waves/lanes/lane-financial-the-compounding-economic-logic-of-three-successive.md",
+      "~/obsidian/research/compounding-tech-waves/lanes/lane-academic-the-compounding-economic-logic-of-three-successive.md",
+      "~/obsidian/research/compounding-tech-waves/lanes/lane-blogs-the-compounding-economic-logic-of-three-successive.md",
+      "~/obsidian/research/compounding-tech-waves/lanes/lane-vc-the-compounding-economic-logic-of-three-successive.md"
+    ],
+    "authMode": "api_key"
+  },
+  {
+    "runId": "2026-05-11T14-42-37-claude-batch-stephen-wolfram-s-research-pro",
+    "timestamp": "2026-05-11T14:42:37.262Z",
+    "provider": "claude",
+    "mode": "batch",
+    "topic": "Stephen Wolfram's research programme on the ruliad and computational irreducibility from January 2020 to May 2026, covering the Wolfram Physics Project, the ruliad as the structure of all possible computations, computational irreducibility and observer theory, and the framework's connections to AI and the foundations of physics.",
+    "depth": "standard",
+    "lanes": [
+      "academic",
+      "frontier",
+      "blogs",
+      "tech"
+    ],
+    "fromYear": 2020,
+    "toYear": 2026,
+    "test": false,
+    "durationSec": null,
+    "submittedAt": "2026-05-11T14:38:01.184Z",
+    "tokens": {
+      "lanesIn": 4829,
+      "lanesOut": 13696,
+      "synthesisIn": 11958,
+      "synthesisOut": 3750,
+      "totalIn": 16787,
+      "totalOut": 17446,
+      "cacheCreateIn": 272461,
+      "cacheReadIn": 334041,
+      "reasoningOut": 0
+    },
+    "models": {
+      "lane": "claude-sonnet-4-6",
+      "synthesis": "claude-opus-4-7"
+    },
+    "estimatedCostUSD": 0.824474,
+    "outputFiles": [
+      "~/obsidian/research/wolfram-ruliad-irreducibility/summary-stephen-wolfram-s-research-programme-on-the-ruliad.md",
+      "~/obsidian/research/wolfram-ruliad-irreducibility/sources-stephen-wolfram-s-research-programme-on-the-ruliad.md",
+      "~/obsidian/research/wolfram-ruliad-irreducibility/lanes/lane-academic-stephen-wolfram-s-research-programme-on-the-ruliad.md",
+      "~/obsidian/research/wolfram-ruliad-irreducibility/lanes/lane-frontier-stephen-wolfram-s-research-programme-on-the-ruliad.md",
+      "~/obsidian/research/wolfram-ruliad-irreducibility/lanes/lane-blogs-stephen-wolfram-s-research-programme-on-the-ruliad.md",
+      "~/obsidian/research/wolfram-ruliad-irreducibility/lanes/lane-tech-stephen-wolfram-s-research-programme-on-the-ruliad.md"
+    ],
+    "authMode": "api_key"
+  },
+  {
+    "runId": "2026-05-11T15-00-30-claude-batch-ai-transformation-in-financial",
+    "timestamp": "2026-05-11T15:00:30.782Z",
+    "provider": "claude",
+    "mode": "batch",
+    "topic": "AI transformation in financial services and fintech from May 2025 to May 2026, covering departmental impact (front office, risk, compliance, operations, technology), regulatory and compliance posture, target operating model and business architecture, key technology and platform decisions, and what credible adoption and execution looks like for incumbents and challengers.",
+    "depth": "standard",
+    "lanes": [
+      "financial",
+      "frontier",
+      "vc",
+      "blogs",
+      "tech"
+    ],
+    "fromYear": 2025,
+    "toYear": 2026,
+    "test": false,
+    "durationSec": null,
+    "submittedAt": "2026-05-11T14:51:22.297Z",
+    "tokens": {
+      "lanesIn": 6873,
+      "lanesOut": 17509,
+      "synthesisIn": 14358,
+      "synthesisOut": 4391,
+      "totalIn": 21231,
+      "totalOut": 21900,
+      "cacheCreateIn": 302152,
+      "cacheReadIn": 309285,
+      "reasoningOut": 0
+    },
+    "models": {
+      "lane": "claude-sonnet-4-6",
+      "synthesis": "claude-opus-4-7"
+    },
+    "estimatedCostUSD": 0.93612,
+    "outputFiles": [
+      "~/obsidian/research/ai-transformation-financial-services/summary-ai-transformation-in-financial-services-and-fintec.md",
+      "~/obsidian/research/ai-transformation-financial-services/sources-ai-transformation-in-financial-services-and-fintec.md",
+      "~/obsidian/research/ai-transformation-financial-services/lanes/lane-financial-ai-transformation-in-financial-services-and-fintec.md",
+      "~/obsidian/research/ai-transformation-financial-services/lanes/lane-frontier-ai-transformation-in-financial-services-and-fintec.md",
+      "~/obsidian/research/ai-transformation-financial-services/lanes/lane-vc-ai-transformation-in-financial-services-and-fintec.md",
+      "~/obsidian/research/ai-transformation-financial-services/lanes/lane-blogs-ai-transformation-in-financial-services-and-fintec.md",
+      "~/obsidian/research/ai-transformation-financial-services/lanes/lane-tech-ai-transformation-in-financial-services-and-fintec.md"
+    ],
+    "authMode": "api_key"
+  },
+  {
+    "runId": "2026-05-11T16-10-21-claude-batch-end-to-end-ai-transformation-a",
+    "timestamp": "2026-05-11T16:10:21.923Z",
+    "provider": "claude",
+    "mode": "batch",
+    "topic": "End-to-end AI transformation approaches in financial services from May 2025 to May 2026, focused on how transformation sequences across departments and functions, how operating models and enterprise architecture evolve, what people-and-change work is required, and which technology and platform decisions are needed and when.",
+    "depth": "standard",
+    "lanes": [
+      "financial",
+      "tech",
+      "blogs",
+      "vc",
+      "frontier"
+    ],
+    "fromYear": 2025,
+    "toYear": 2026,
+    "test": false,
+    "durationSec": null,
+    "submittedAt": "2026-05-11T15:52:54.207Z",
+    "tokens": {
+      "lanesIn": 6736,
+      "lanesOut": 19009,
+      "synthesisIn": 14927,
+      "synthesisOut": 4914,
+      "totalIn": 21663,
+      "totalOut": 23923,
+      "cacheCreateIn": 413403,
+      "cacheReadIn": 484673,
+      "reasoningOut": 0
+    },
+    "models": {
+      "lane": "claude-sonnet-4-6",
+      "synthesis": "claude-opus-4-7"
+    },
+    "estimatedCostUSD": 1.197988,
+    "outputFiles": [
+      "~/obsidian/research/ai-transformation-fs-playbook/summary-end-to-end-ai-transformation-approaches-in-financi.md",
+      "~/obsidian/research/ai-transformation-fs-playbook/sources-end-to-end-ai-transformation-approaches-in-financi.md",
+      "~/obsidian/research/ai-transformation-fs-playbook/lanes/lane-financial-end-to-end-ai-transformation-approaches-in-financi.md",
+      "~/obsidian/research/ai-transformation-fs-playbook/lanes/lane-tech-end-to-end-ai-transformation-approaches-in-financi.md",
+      "~/obsidian/research/ai-transformation-fs-playbook/lanes/lane-blogs-end-to-end-ai-transformation-approaches-in-financi.md",
+      "~/obsidian/research/ai-transformation-fs-playbook/lanes/lane-vc-end-to-end-ai-transformation-approaches-in-financi.md",
+      "~/obsidian/research/ai-transformation-fs-playbook/lanes/lane-frontier-end-to-end-ai-transformation-approaches-in-financi.md"
+    ],
+    "authMode": "api_key"
+  },
+  {
+    "runId": "2026-05-11T16-14-27-claude-batch-end-to-end-ai-transformation-p",
+    "timestamp": "2026-05-11T16:14:27.575Z",
+    "provider": "claude",
+    "mode": "batch",
+    "topic": "End-to-end AI transformation programmes in financial services from January 2024 to May 2026, viewed as a single multi-year change programme spanning all business units and corporate functions, with focus on programme structure and sequencing, cross-functional scope, governance and executive sponsorship, people and change, and measured outcomes — deliberately backgrounding the technology architecture drill-down.",
+    "depth": "deep",
+    "lanes": [
+      "financial",
+      "blogs",
+      "tech",
+      "vc",
+      "academic"
+    ],
+    "fromYear": 2024,
+    "toYear": 2026,
+    "test": false,
+    "durationSec": null,
+    "submittedAt": "2026-05-11T16:08:36.467Z",
+    "tokens": {
+      "lanesIn": 6896,
+      "lanesOut": 27981,
+      "synthesisIn": 20215,
+      "synthesisOut": 8192,
+      "totalIn": 27111,
+      "totalOut": 36173,
+      "cacheCreateIn": 463306,
+      "cacheReadIn": 740658,
+      "reasoningOut": 0
+    },
+    "models": {
+      "lane": "claude-sonnet-4-6",
+      "synthesis": "claude-opus-4-7"
+    },
+    "estimatedCostUSD": 1.505874,
+    "outputFiles": [
+      "~/obsidian/research/ai-transformation-fs-programme/summary-end-to-end-ai-transformation-programmes-in-financi.md",
+      "~/obsidian/research/ai-transformation-fs-programme/sources-end-to-end-ai-transformation-programmes-in-financi.md",
+      "~/obsidian/research/ai-transformation-fs-programme/lanes/lane-financial-end-to-end-ai-transformation-programmes-in-financi.md",
+      "~/obsidian/research/ai-transformation-fs-programme/lanes/lane-blogs-end-to-end-ai-transformation-programmes-in-financi.md",
+      "~/obsidian/research/ai-transformation-fs-programme/lanes/lane-tech-end-to-end-ai-transformation-programmes-in-financi.md",
+      "~/obsidian/research/ai-transformation-fs-programme/lanes/lane-vc-end-to-end-ai-transformation-programmes-in-financi.md",
+      "~/obsidian/research/ai-transformation-fs-programme/lanes/lane-academic-end-to-end-ai-transformation-programmes-in-financi.md"
+    ],
+    "authMode": "api_key"
+  },
+  {
+    "runId": "2026-05-15T12-05-29-claude-batch-the-science-of-emergent-behavi",
+    "timestamp": "2026-05-15T12:05:29.791Z",
+    "provider": "claude",
+    "mode": "batch",
+    "topic": "The science of emergent behaviour and self-organisation from 2015–May 2026, connecting reaction-diffusion and cellular-automata models to commercial markets, organisational behaviour and culture, ecology, biology, physics and chaos theory, including foundational algorithms and their cross-domain explanatory power.",
+    "depth": "deep",
+    "lanes": [
+      "academic",
+      "blogs",
+      "financial"
+    ],
+    "fromYear": 2015,
+    "toYear": 2026,
+    "test": false,
+    "durationSec": null,
+    "submittedAt": "2026-05-15T11:57:12.758Z",
+    "tokens": {
+      "lanesIn": 4592,
+      "lanesOut": 16276,
+      "synthesisIn": 13379,
+      "synthesisOut": 8986,
+      "totalIn": 17971,
+      "totalOut": 25262,
+      "cacheCreateIn": 337948,
+      "cacheReadIn": 768627,
+      "reasoningOut": 0
+    },
+    "models": {
+      "lane": "claude-sonnet-4-6",
+      "synthesis": "claude-opus-4-7"
+    },
+    "estimatedCostUSD": 1.16945,
+    "outputFiles": [
+      "~/obsidian/research/emergent-behaviour-cross-domain/summary-the-science-of-emergent-behaviour-and-self-organis.md",
+      "~/obsidian/research/emergent-behaviour-cross-domain/sources-the-science-of-emergent-behaviour-and-self-organis.md",
+      "~/obsidian/research/emergent-behaviour-cross-domain/lanes/lane-academic-the-science-of-emergent-behaviour-and-self-organis.md",
+      "~/obsidian/research/emergent-behaviour-cross-domain/lanes/lane-blogs-the-science-of-emergent-behaviour-and-self-organis.md",
+      "~/obsidian/research/emergent-behaviour-cross-domain/lanes/lane-financial-the-science-of-emergent-behaviour-and-self-organis.md"
+    ],
+    "authMode": "api_key"
+  }
+]
