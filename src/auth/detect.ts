@@ -39,6 +39,13 @@ export function detectClaudeAuthMode(prefer?: ClaudeAuthMode): ClaudeAuthMode {
     return "claude_oauth";
   }
 
+  if (hasApiKey && hasOAuth) {
+    throw new Error(
+      "Error: both ANTHROPIC_API_KEY and CLAUDE_CODE_OAUTH_TOKEN are set and no --claude-auth route was given. " +
+        "Refusing to guess (the API-key route bills credits). Pass --claude-auth api-key or --claude-auth claude-oauth, " +
+        "or run via ./run-secure-sweep.sh / ./run-secure-command.sh which inject only the selected route's credential."
+    );
+  }
   if (hasApiKey) return "api_key";
   if (hasOAuth) return "claude_oauth";
   throw new Error("Error: Claude auth not configured. Provide ANTHROPIC_API_KEY via the secure helper, or generate a subscription token with `claude setup-token` and export CLAUDE_CODE_OAUTH_TOKEN.");
