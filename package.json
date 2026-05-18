@@ -1,0 +1,38 @@
+{
+  "name": "research-sweep",
+  "version": "1.0.0",
+  "description": "Multi-lane agentic research harness that runs parallel Claude and OpenAI agents, synthesises Obsidian-ready markdown, and scores each sweep with an LLM judge",
+  "keywords": ["llm", "research", "agentic", "anthropic", "claude", "openai", "rag", "evaluation", "obsidian"],
+  "main": "dist/research-sweep.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "auth:check": "npx ts-node research-sweep.ts --auth-check",
+    "auth:check:secure": "./run-secure-command.sh npx ts-node research-sweep.ts --auth-check",
+    "sweep": "npx ts-node research-sweep.ts",
+    "sweep:shallow": "npx ts-node research-sweep.ts --depth shallow",
+    "sweep:deep": "npx ts-node research-sweep.ts --depth deep",
+    "sweep:openai": "npx ts-node research-sweep.ts --provider openai",
+    "sweep:openai:deep": "npx ts-node research-sweep.ts --provider openai --depth deep",
+    "sweep:secure": "./run-secure-sweep.sh",
+    "sweep:secure:openai": "./run-secure-sweep.sh --provider openai",
+    "mcp": "./research-sweeper-mcp",
+    "eval": "npx ts-node src/eval-cli.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.112",
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "openai": "^6.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@vitest/coverage-v8": "^4.1.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5",
+    "vitest": "^4.1.5"
+  }
+}

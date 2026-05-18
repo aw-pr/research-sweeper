@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment
+.env
+.env.*
+!.env.example
+*.local
+
+# Private 1Password ref override (keep .example committed)
+op-refs.local.sh
+
+# Local Claude Code settings (machine-specific paths)
+.claude/settings.local.json
+
+# Research output (large generated files)
+research-output/
+output/
+results/
+logs/
+
+# Test run output folders
+test-*/
+tmp-runs/
+
+# Archives
+*.tar.gz
+
+# Batch job state
+jobs/
+
+# Runs directory: ignore job/state JSON and logs, keep stats.json tracked
+runs/*.json
+runs/*.log
+!runs/stats.json
+
+# macOS
+.DS_Store
