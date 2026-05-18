@@ -53,6 +53,26 @@ Generated output defaults to `~/obsidian/research/<folder>/`; set
 > any capable LLM and ask it to emit the full `--flag` invocation (topic, lanes,
 > depth, folder). Quicker and less error-prone than hand-writing the command.
 
+### Writing a research brief
+
+Briefs are plain markdown files in `prompts/`. A brief carries the topic string
+and the themed sub-questions; `--brief-file prompts/<name>.md` passes both
+through to the lane agents and the synthesis step.
+
+To create one:
+
+```bash
+cp prompts/sweep-template.md prompts/my-topic.md
+# edit: fill in the topic string and 2–4 themes of sub-questions
+```
+
+The template documents the expected structure (topic string with a date range,
+then themed sub-question blocks). Or skip the manual edit: paste
+`prompts/sweep-template.md` into any capable LLM, describe your research goal in
+plain English, and have it return a completed brief — then save the output as a
+new file in `prompts/`. The repo ships ~24 real briefs in `prompts/` you can use
+as worked examples.
+
 ## Quick start (with 1Password, optional)
 
 ```bash
