@@ -6,6 +6,17 @@ This file provides guidance to Claude Code when working in this repository.
 
 A multi-lane research harness that writes Obsidian-ready outputs. It supports `claude` and `openai`, plus two subscription auth routes: Codex auth for OpenAI sync execution, and Claude Agent SDK OAuth (Max/Pro OAuth) for Claude sync execution.
 
+## Publishing
+
+Private work → public mirror. Remotes: `origin` = private working remote
+(messy history fine), `aw-pr` = public mirror. Work on `wip/*` topic branches,
+squash-merge into the **`publish`** branch, run `git publish` (never hand-push
+to `aw-pr`; the fail-closed pre-push gate blocks it). Every `publish` commit
+goes public; never rewrite commits already on the public remote. Full model +
+setup: `docs/PUBLISH-WORKFLOW.md`. Gate config lives in local `git config`
+(`publishguard.*`) and personal block patterns in the gitignored
+`.publish-guard.local` — neither is committed.
+
 ## Canonical run paths
 
 ### API-key-backed runs

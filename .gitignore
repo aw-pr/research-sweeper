@@ -21,6 +21,10 @@ dist/
 op-refs.local.sh
 op-refs.local.sh.bak
 
+# Publish guard personal patterns + machine-specific notes (.example tracked)
+.publish-guard.local
+/LOCAL.md
+
 # Local Claude Code settings + runtime state (machine-specific)
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
