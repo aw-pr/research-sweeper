@@ -128,3 +128,7 @@ npx ts-node research-sweep.ts --re-synthesise <folder>
 - `--lane-model haiku|sonnet` overrides the depth-based Claude default lane model for that run.
 - `--claude-auth api-key|claude-oauth` picks Claude's credential route. Sync-only; batch mode rejects `claude-oauth`. The legacy alias `claude-cli` is still accepted.
 - Auth detection lives in `src/auth/detect.ts` (single source of truth for both providers). Batch guards call `requireApiKeyModeOrThrow()` from the same module. `buildRunStats()` lives in `src/stats.ts` (single copy).
+
+## Skills are canonical here
+
+`SKILL.md` (research-sweep) and `sweeper-prompt-creation/SKILL.md` are the canonical source files and are git-tracked in this repo. `mcp-hub/skills/` only holds symlinks pointing back at these files; `~/.claude/skills/` resolves through mcp-hub to here. Edit the skill files in place — do not "fix" the symlink direction or copy the content into mcp-hub. The single-source-of-truth chain keeps Codex / MCP automatically in sync with no copy step.

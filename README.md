@@ -35,11 +35,11 @@ npm install
 npm run auth:check          # verifies the keys in .env work
 
 npm run sweep -- \
-  --brief-file "prompts/your-brief.md" \
+  --brief-file "prompts/ai-transformation-financial-services.md" \
   --from 2023 \
   --lanes financial,frontier,academic,vc,blogs,tech \
   --depth standard \
-  --folder "your-topic"
+  --folder "ai-transformation-fs"
 ```
 
 `.env` is loaded fill-only and never overrides a real environment variable, so the
@@ -90,11 +90,11 @@ cp op-refs.local.sh.example op-refs.local.sh   # set your real op:// vault refs
 npm run auth:check:secure                       # resolves refs via op-fetch
 
 ./batch-search.sh \
-  --brief-file "prompts/your-brief.md" \
+  --brief-file "prompts/ai-transformation-financial-services.md" \
   --from 2023 \
   --lanes financial,frontier,academic,vc,blogs,tech \
   --depth standard \
-  --folder "your-topic"
+  --folder "ai-transformation-fs"
 ```
 
 `--brief-file` passes both the topic and the sub-questions through to lane agents and synthesis. Use `./list-batches.sh` to inspect pending jobs and `./resume-batch.sh <n>` to collect results.
