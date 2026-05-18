@@ -173,14 +173,20 @@ function printResult(result: CheckResult): void {
   console.log(`${label.padEnd(4)} ${result.name.padEnd(14)} ${result.detail}`);
 }
 
+/** Never print raw credentials. Show only presence + a short non-reversible fingerprint. */
+function maskSecret(value: string | undefined): string {
+  if (!value) return "(missing in env file)";
+  return `(set, ${value.slice(0, 4)}…len${value.length})`;
+}
+
 export async function runAuthCheck(envFilePath: string, target: AuthCheckTarget = "all"): Promise<void> {
   const envValues = parseEnvFile(envFilePath);
   console.log(`
 Auth Check
 ----------
 Env file: ${path.resolve(envFilePath)}${fs.existsSync(envFilePath) ? "" : " (not found)"}
-ANTHROPIC_API_KEY source: ${envValues.ANTHROPIC_API_KEY || "(missing in env file)"}
-OPENAI_API_KEY source: ${envValues.OPENAI_API_KEY || "(missing in env file)"}
+ANTHROPIC_API_KEY in env file: ${maskSecret(envValues.ANTHROPIC_API_KEY)}
+OPENAI_API_KEY in env file: ${maskSecret(envValues.OPENAI_API_KEY)}
 Codex auth file: ${CODEX_AUTH_FILE}${fs.existsSync(CODEX_AUTH_FILE) ? "" : " (missing)"}
 CLAUDE_CODE_OAUTH_TOKEN: ${process.env.CLAUDE_CODE_OAUTH_TOKEN ? "(set)" : "(missing)"}
 ANTHROPIC_API_KEY in process: ${process.env.ANTHROPIC_API_KEY ? "(set)" : "(absent)"}
