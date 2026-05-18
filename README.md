@@ -63,7 +63,8 @@ Three ways, easiest first:
 
 **1. The `sweeper-prompt-creation` skill (recommended).** If you drive this repo
 from Claude Code or an MCP harness, invoke the `sweeper-prompt-creation` skill
-(distributed via mcp-hub). Describe your research goal in plain English; it
+shipped in this repo at [`sweeper-prompt-creation/SKILL.md`](sweeper-prompt-creation/SKILL.md).
+Describe your research goal in plain English; it
 interviews you for the gaps (time window, lanes, depth), writes a well-formed
 `prompts/<slug>.md`, and offers to launch the sweep. This is the handiest path —
 a good brief is the single highest-leverage input to a sweep.
