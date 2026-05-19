@@ -98,6 +98,54 @@ describe("computeRunCost", () => {
     expect(batch).toBeCloseTo(0.5, 6);
   });
 
+  it("computes gemini sync cost from known flash-lite + pro pricing", () => {
+    // lane: 1M in * 0.10 + 0.5M out * 0.40 = 0.10 + 0.20 = 0.30
+    // synth: 0.2M in * 1.25 + 0.1M out * 10.0 = 0.25 + 1.00 = 1.25
+    // total = 1.55
+    const geminiModels: ProviderModels = {
+      lane: "gemini-2.5-flash-lite",
+      synthesis: "gemini-2.5-pro",
+    };
+    const cost = computeRunCost("gemini", baseTokens, geminiModels, false);
+    expect(cost).toBeCloseTo(1.55, 6);
+  });
+
+  it("applies 50% batch discount to gemini lane portion only", () => {
+    // sync lane = 0.30, batch lane = 0.15; synth = 1.25 unchanged
+    // sync total = 1.55, batch total = 1.40
+    const geminiModels: ProviderModels = {
+      lane: "gemini-2.5-flash-lite",
+      synthesis: "gemini-2.5-pro",
+    };
+    const sync = computeRunCost("gemini", baseTokens, geminiModels, false);
+    const batch = computeRunCost("gemini", baseTokens, geminiModels, true);
+    expect(sync).toBeCloseTo(1.55, 6);
+    expect(batch).toBeCloseTo(1.40, 6);
+    expect(batch).toBeLessThan(sync);
+  });
+
+  it("computes gemini flash sync cost correctly", () => {
+    // lane: 1M in * 0.30 + 0.5M out * 2.50 = 0.30 + 1.25 = 1.55
+    // synth: 0.2M in * 0.30 + 0.1M out * 2.50 = 0.06 + 0.25 = 0.31
+    // total = 1.86
+    const geminiFlashModels: ProviderModels = {
+      lane: "gemini-2.5-flash",
+      synthesis: "gemini-2.5-flash",
+    };
+    const cost = computeRunCost("gemini", baseTokens, geminiFlashModels, false);
+    expect(cost).toBeCloseTo(1.86, 6);
+  });
+
+  it("returns 0 for unknown gemini model without throwing", () => {
+    const cost = computeRunCost(
+      "gemini",
+      baseTokens,
+      { lane: "gemini-bogus-9000", synthesis: "gemini-2.5-pro" },
+      false
+    );
+    expect(cost).toBe(0);
+  });
+
 });
 
 describe("generateRunId", () => {

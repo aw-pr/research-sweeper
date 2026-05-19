@@ -1,10 +1,10 @@
 # research-sweeper
 
-Multi-lane agentic research harness that runs parallel Claude and OpenAI agents, synthesises Obsidian-ready markdown, and scores each sweep with an LLM judge.
+Multi-lane agentic research harness that runs parallel Claude, OpenAI, and Gemini agents, synthesises Obsidian-ready markdown, and scores each sweep with an LLM judge.
 
 ## What it does
 
-- Runs up to 6 parallel research lanes (`financial`, `frontier`, `academic`, `vc`, `blogs`, `tech`) as independent Claude or OpenAI agent calls with forced `web_search_20250305` tool use on the API path.
+- Runs up to 6 parallel research lanes (`financial`, `frontier`, `academic`, `vc`, `blogs`, `tech`) as independent Claude, OpenAI, or Gemini agent calls. Claude and OpenAI lanes force `web_search_20250305` tool use on the API path; Gemini lanes use Google Search grounding (model-decided, not forced).
 - Synthesises lane outputs into a single Obsidian-ready summary plus a deduplicated sources file, with optional async submission through the Anthropic and OpenAI Batch APIs for cost reduction.
 - Evaluates each sweep with an LLM-as-judge harness using `claude-haiku-4-5-20251001` across coverage, source quality, synthesis, and relevance, and persists scores back to the run record.
 
@@ -29,7 +29,9 @@ flowchart LR
 
 ```bash
 cp .env.example .env
-# edit .env: set ANTHROPIC_API_KEY (and OPENAI_API_KEY for the OpenAI provider)
+# edit .env: set ANTHROPIC_API_KEY (and OPENAI_API_KEY for the OpenAI provider,
+#            GEMINI_API_KEY for the Gemini provider;
+#            GOOGLE_ACCESS_TOKEN is only needed for the gemini-oauth route — GCP-billed)
 
 npm install
 npm run auth:check          # verifies the keys in .env work
@@ -106,11 +108,13 @@ npm run auth:check:secure                       # resolves refs via op-fetch
 | API key (batch) | Long sweeps, async, cost-tracked | `.env`, or 1Password via `op-fetch` |
 | Claude OAuth | Sync sweeps on Max/Pro quota | `CLAUDE_CODE_OAUTH_TOKEN` (`.env` or 1Password) |
 | Codex auth | OpenAI sync runs, no API billing | Codex CLI auth file (`codex login`) |
+| Gemini API key | Gemini sweeps, sync or batch | `GEMINI_API_KEY` (`.env`, or 1Password via `op-fetch`) |
+| Gemini OAuth | Gemini sync runs, GCP-billed | `GOOGLE_ACCESS_TOKEN` (caller env; not a consumer-subscription route) |
 
 1Password is optional. When configured, all `op://` references live in your
 gitignored `op-refs.local.sh`; the resolver fetches only the named refs and
 execs the child with a sanitised env. Without it, keys come from `.env`
-(fill-only). Batch mode requires API-key auth (either source).
+(fill-only). Batch mode requires API-key auth for all providers.
 
 ## Evaluation
 

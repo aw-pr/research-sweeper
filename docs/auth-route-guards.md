@@ -39,6 +39,28 @@ Smoke test:
 
 This passes only if the live Agent SDK call works with `CLAUDE_CODE_OAUTH_TOKEN` set and `ANTHROPIC_API_KEY` absent.
 
+#### Gemini routes
+
+Two Gemini routes exist, selected via `--gemini-auth api-key|gemini-oauth`.
+
+**API-key route** (default; supports batch and sync):
+
+- `GEMINI_API_KEY` is injected by `op-fetch` using `OP_REF_GEMINI_API_KEY`, or read from `.env`/`.env.local` on the fallback path.
+- No stripping required: this is purely API-key-billed and carries no subscription risk.
+- SDK: `@google/genai` (unified Google GenAI SDK; the legacy `@google/generative-ai` is deprecated and must not be used).
+
+**gemini-oauth route** (sync-only; GCP-billed):
+
+- Uses a Google OAuth access token (`GOOGLE_ACCESS_TOKEN`) passed as a Bearer header via `@google/genai` `httpOptions`.
+- **This is GCP-billed.** It is not a consumer-subscription route equivalent to Claude Max/Pro OAuth or Codex auth. Expect standard Gemini API pricing against your GCP project.
+- `run-secure-sweep.sh` injects no Gemini key when this route is active; `GOOGLE_ACCESS_TOKEN` must be present in the caller environment (e.g. from `gcloud auth print-access-token`).
+- `src/providers/gemini.ts` deletes `process.env.GEMINI_API_KEY` in-process before initialising the SDK as a belt-and-suspenders guard against accidental API-key billing.
+- Batch mode hard-fails if `--gemini-auth gemini-oauth` is set; the Gemini batch path requires the API key.
+
+**Search behaviour:**
+
+Gemini lanes use Google Search grounding (`tools: [{ googleSearch: {} }]`). Unlike the Anthropic/OpenAI paths, grounding cannot be forced — the model decides whether to invoke it. Under `--no-search` the grounding tool is omitted. Source selection may therefore diverge from claude/openai lanes; `runs/stats.json` records `authMode` per run.
+
 ### explainer-batch
 
 Key hydration:
@@ -80,6 +102,8 @@ Recommended files:
 .env.claude-oauth
 .env.openai-api
 .env.openai-codex
+.env.gemini-api
+.env.gemini-oauth
 ```
 
 Rules:

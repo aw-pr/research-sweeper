@@ -1,18 +1,20 @@
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
 import { spawn } from "child_process";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { CODEX_AUTH_FILE, hasClaudeOAuthToken } from "./auth/detect";
+import { CODEX_AUTH_FILE, hasClaudeOAuthToken, hasGeminiOAuthToken } from "./auth/detect";
 import { parseEnvFile } from "./env";
 
 const ANTHROPIC_TEST_MODEL = "claude-haiku-4-5-20251001";
 const OPENAI_TEST_MODEL = "gpt-5-mini";
 const CODEX_TEST_MODEL = "gpt-5.4-mini";
 const CLAUDE_OAUTH_TEST_MODEL = "claude-haiku-4-5-20251001";
+const GEMINI_TEST_MODEL = "gemini-2.5-flash-lite";
 const MIN_OUTPUT_TOKENS = 16;
-type AuthCheckTarget = "all" | "anthropic-api" | "openai-api" | "codex" | "claude-oauth";
+type AuthCheckTarget = "all" | "anthropic-api" | "openai-api" | "codex" | "claude-oauth" | "gemini-api" | "gemini-oauth";
 
 const dynamicImport = new Function("m", "return import(m)") as (m: string) => Promise<{ query: (args: { prompt: string; options?: Record<string, unknown> }) => AsyncIterable<{ type: string; [k: string]: unknown }> }>;
 
@@ -168,6 +170,51 @@ async function checkClaudeOAuth(): Promise<CheckResult> {
   }
 }
 
+async function checkGemini(): Promise<CheckResult> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return { name: "Gemini API", state: "missing", detail: "GEMINI_API_KEY is not set in the current process." };
+
+  try {
+    const ai = new GoogleGenAI({ apiKey });
+    const response = await ai.models.generateContent({ model: GEMINI_TEST_MODEL, contents: "ping", config: { maxOutputTokens: MIN_OUTPUT_TOKENS } });
+    const text = response.text?.trim() || "(empty response)";
+    return {
+      name: "Gemini API",
+      state: "ok",
+      detail: `Authenticated with ${GEMINI_TEST_MODEL}; response: ${text.slice(0, 40)}`,
+    };
+  } catch (error) {
+    return {
+      name: "Gemini API",
+      state: "failed",
+      detail: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+async function checkGeminiOAuth(): Promise<CheckResult> {
+  if (!hasGeminiOAuthToken()) {
+    return { name: "Gemini OAuth", state: "missing", detail: "GOOGLE_ACCESS_TOKEN is not set. Mint a token (e.g. `gcloud auth print-access-token`) for a GCP project with the Generative Language API enabled and billing attached, then export GOOGLE_ACCESS_TOKEN." };
+  }
+
+  try {
+    const ai = new GoogleGenAI({ httpOptions: { headers: { Authorization: `Bearer ${process.env.GOOGLE_ACCESS_TOKEN}` } } });
+    const response = await ai.models.generateContent({ model: GEMINI_TEST_MODEL, contents: "ping", config: { maxOutputTokens: MIN_OUTPUT_TOKENS } });
+    const text = response.text?.trim() || "(empty response)";
+    return {
+      name: "Gemini OAuth",
+      state: "ok",
+      detail: `Authenticated with ${GEMINI_TEST_MODEL} via Bearer token; response: ${text.slice(0, 40)}`,
+    };
+  } catch (error) {
+    return {
+      name: "Gemini OAuth",
+      state: "failed",
+      detail: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
 function printResult(result: CheckResult): void {
   const label = result.state === "ok" ? "PASS" : result.state === "missing" ? "MISS" : "FAIL";
   console.log(`${label.padEnd(4)} ${result.name.padEnd(14)} ${result.detail}`);
@@ -187,8 +234,10 @@ Auth Check
 Env file: ${path.resolve(envFilePath)}${fs.existsSync(envFilePath) ? "" : " (not found)"}
 ANTHROPIC_API_KEY in env file: ${maskSecret(envValues.ANTHROPIC_API_KEY)}
 OPENAI_API_KEY in env file: ${maskSecret(envValues.OPENAI_API_KEY)}
+GEMINI_API_KEY in env file: ${maskSecret(envValues.GEMINI_API_KEY)}
 Codex auth file: ${CODEX_AUTH_FILE}${fs.existsSync(CODEX_AUTH_FILE) ? "" : " (missing)"}
 CLAUDE_CODE_OAUTH_TOKEN: ${process.env.CLAUDE_CODE_OAUTH_TOKEN ? "(set)" : "(missing)"}
+GOOGLE_ACCESS_TOKEN: ${process.env.GOOGLE_ACCESS_TOKEN ? "(set)" : "(missing)"}
 ANTHROPIC_API_KEY in process: ${process.env.ANTHROPIC_API_KEY ? "(set)" : "(absent)"}
 Target: ${target}
 `);
@@ -198,6 +247,8 @@ Target: ${target}
   if (target === "all" || target === "openai-api") checks.push(checkOpenAI());
   if (target === "all" || target === "codex") checks.push(checkCodex());
   if (target === "all" || target === "claude-oauth") checks.push(checkClaudeOAuth());
+  if (target === "all" || target === "gemini-api") checks.push(checkGemini());
+  if (target === "all" || target === "gemini-oauth") checks.push(checkGeminiOAuth());
 
   if (checks.length === 0) {
     throw new Error(`Unknown auth check target: ${target}`);
