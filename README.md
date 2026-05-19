@@ -116,6 +116,14 @@ gitignored `op-refs.local.sh`; the resolver fetches only the named refs and
 execs the child with a sanitised env. Without it, keys come from `.env`
 (fill-only). Batch mode requires API-key auth for all providers.
 
+### Gemini provider — known limitations
+
+- **Free-tier rate limits.** Google AI Studio free tier enforces ~5 RPM (`gemini-2.5-flash`) / ~10 RPM (`gemini-2.5-flash-lite`). Multi-lane parallel sweeps will hit this. A GCP trial billing account does not grant paid-tier rate limits. `gemini-2.5-pro` requires paid tier.
+- **Batch API requires billing.** Free-tier keys return `400 FAILED_PRECONDITION` or `429 RESOURCE_EXHAUSTED` on batch create. Enable prepaid billing in Google AI Studio or use a billing-attached GCP project.
+- **Grounding vs JSON mode.** Google Search grounding and native JSON structured output are mutually exclusive. The provider uses the tolerant `parseLaneResponse()` parser instead of `responseMimeType` mode; some responses fall back to plain-text extraction.
+- **Empty lanes.** Upstream content-safety or grounding blocks can produce 0-source, 0-token lanes with `finishReason` other than `STOP`. This is benign; synthesis proceeds with the lanes that did return content.
+- **Batch collection.** Collect Gemini/Claude/OpenAI batches via `./run-secure-sweep.sh --resume <id> --provider <p>` rather than the all-keys helper to avoid tripping the Claude both-keys auth guard.
+
 ## Evaluation
 
 Each sweep can be scored by an LLM judge harness using `claude-haiku-4-5-20251001`. The judge reads the summary, sources, and original brief, and returns four 1-5 dimension scores (coverage, source quality, synthesis, relevance), an overall mean, a 2-3 sentence verdict, and a list of unverifiable factual flags. Scores are computed from a single API call per sweep and persisted onto the matching `runId` in `runs/stats.json`, or written to `runs/eval-<runId>.json` if no run record exists. Run it via:

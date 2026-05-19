@@ -61,6 +61,15 @@ Two Gemini routes exist, selected via `--gemini-auth api-key|gemini-oauth`.
 
 Gemini lanes use Google Search grounding (`tools: [{ googleSearch: {} }]`). Unlike the Anthropic/OpenAI paths, grounding cannot be forced — the model decides whether to invoke it. Under `--no-search` the grounding tool is omitted. Source selection may therefore diverge from claude/openai lanes; `runs/stats.json` records `authMode` per run.
 
+**Known limitations:**
+
+- Free-tier keys enforce ~5 RPM (`gemini-2.5-flash`) / ~10 RPM (`gemini-2.5-flash-lite`) on `generate_content`. Multi-lane sweeps run parallel requests and will hit these. A GCP trial billing account does **not** grant paid-tier rate limits.
+- `gemini-2.5-pro` is a paid-tier model; free-tier keys receive an auth error.
+- The Batch API requires billing. Free-tier keys return `400 FAILED_PRECONDITION` or `429 RESOURCE_EXHAUSTED` on batch create. The provider surfaces a clear actionable error when this gate fires.
+- Google Search grounding and native JSON structured output (`responseMimeType: application/json`) are mutually exclusive. The provider uses the tolerant `parseLaneResponse()` parser rather than structured-output mode; responses that are not parseable fall back to `fallbackLaneResult()`.
+- Some lanes may return 0 sources / 0 output tokens with `finishReason` other than `STOP`. This is benign upstream content-safety or grounding filter behaviour, not a provider defect.
+- Collecting pending Gemini batch jobs via the all-keys `run-secure-command.sh` helper may load both `ANTHROPIC_API_KEY` and `CLAUDE_CODE_OAUTH_TOKEN`, tripping the Claude both-keys auth guard. Use the route-aware wrapper instead: `./run-secure-sweep.sh --resume <batch-id> --provider gemini`.
+
 ### explainer-batch
 
 Key hydration:

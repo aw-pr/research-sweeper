@@ -53,6 +53,8 @@ For OpenAI: `--sync --provider openai` strips `OPENAI_API_KEY` before invoking `
 
 For Gemini: on `--gemini-auth gemini-oauth`, `run-secure-sweep.sh` injects no Gemini key via `op-fetch`; `GOOGLE_ACCESS_TOKEN` must be present in the caller environment. The provider strips `GEMINI_API_KEY` in-process as a belt-and-suspenders guard. Note: the `gemini-oauth` route is **GCP-billed** — it is not a free or subscription-quota path. Batch mode hard-fails with `gemini-oauth`; use the API-key route for batch.
 
+**Gemini known limitations:** Free-tier keys hit `generate_content` rate limits (~5 RPM flash / ~10 RPM flash-lite) — multi-lane sweeps require a paid-tier key. A GCP trial billing account does not unlock paid-tier limits. The Batch API and `gemini-2.5-pro` both require billing; free-tier returns `400 FAILED_PRECONDITION`. Google Search grounding and native JSON mode are mutually exclusive — the provider uses a tolerant parser. Some lanes may return empty output due to upstream safety/grounding blocks; this is benign. Collect batches via `./run-secure-sweep.sh --resume <id> --provider gemini` to avoid the Claude both-keys guard.
+
 ## Quality rules (synthesis pass)
 
 Apply these to every report the synthesis step produces:
