@@ -2,7 +2,17 @@
   "name": "research-sweep",
   "version": "1.0.0",
   "description": "Multi-lane agentic research harness that runs parallel Claude and OpenAI agents, synthesises Obsidian-ready markdown, and scores each sweep with an LLM judge",
-  "keywords": ["llm", "research", "agentic", "anthropic", "claude", "openai", "rag", "evaluation", "obsidian"],
+  "keywords": [
+    "llm",
+    "research",
+    "agentic",
+    "anthropic",
+    "claude",
+    "openai",
+    "rag",
+    "evaluation",
+    "obsidian"
+  ],
   "main": "dist/research-sweep.js",
   "engines": {
     "node": ">=18"
@@ -22,12 +32,16 @@
     "sweep:openai:deep": "npx ts-node research-sweep.ts --provider openai --depth deep",
     "sweep:secure": "./run-secure-sweep.sh",
     "sweep:secure:openai": "./run-secure-sweep.sh --provider openai",
+    "sweep:gemini": "npx ts-node research-sweep.ts --provider gemini",
+    "sweep:gemini:deep": "npx ts-node research-sweep.ts --provider gemini --depth deep",
+    "sweep:secure:gemini": "./run-secure-sweep.sh --provider gemini",
     "mcp": "./research-sweeper-mcp",
     "eval": "npx ts-node src/eval-cli.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.112",
     "@anthropic-ai/sdk": "^0.39.0",
+    "@google/genai": "^2.4.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "openai": "^6.3.0"
   },

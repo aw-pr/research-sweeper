@@ -4,7 +4,7 @@ This file provides guidance to Codex when working in this repository.
 
 ## What this repo is
 
-A multi-lane research harness that writes Obsidian-ready outputs. It supports `claude` and `openai`, plus two subscription auth routes: Codex auth for OpenAI sync execution, and Claude Agent SDK OAuth (Max/Pro OAuth) for Claude sync execution.
+A multi-lane research harness that writes Obsidian-ready outputs. It supports `claude`, `openai`, and `gemini`, plus subscription/OAuth auth routes: Codex auth for OpenAI sync execution, Claude Agent SDK OAuth (Max/Pro OAuth) for Claude sync execution, and Google OAuth access token for Gemini sync execution (GCP-billed).
 
 ## Publishing
 
@@ -61,6 +61,38 @@ Claude sync runs can consume Max/Pro subscription quota via the Agent SDK. Use t
 - Auto-detect precedence: API key wins when both are present. `claude-oauth` is only selected by explicit flag, or when `ANTHROPIC_API_KEY` is absent and the OAuth token is set. The legacy alias `claude-cli` is still accepted.
 - Search divergence: the Agent SDK exposes the built-in `WebSearch` tool, not the API's `web_search_20250305`. Source selection may differ vs. the API-key path. `runs/stats.json` records `authMode` per run so cross-route comparisons stay honest.
 
+### Gemini auth routes
+
+Two credential routes are supported via `--gemini-auth api-key|gemini-oauth`. The CLI flag is Gemini-specific and has no effect on other providers.
+
+#### API-key route (default, supports batch)
+
+```bash
+npm run sweep:gemini -- --brief-file "prompts/example.md" --from 2023 \
+  --lanes financial,frontier,academic,vc,blogs,tech --depth standard --folder "..."
+npm run sweep:gemini:deep -- --brief-file "prompts/example.md" --folder "..."
+npm run sweep:secure:gemini -- --brief-file "prompts/example.md" --folder "..."
+```
+
+- `GEMINI_API_KEY` is injected by `op-fetch` (op-ref: `OP_REF_GEMINI_API_KEY`) on the secure path, or read from `.env`/`.env.local` on the fallback path.
+- Supports both sync and batch modes. Batch requires the API key; `gemini-oauth` hard-fails in batch mode.
+
+#### gemini-oauth route (sync-only, GCP-billed)
+
+```bash
+./run-secure-sweep.sh --sync --provider gemini --gemini-auth gemini-oauth \
+  --brief-file "prompts/example.md" --lanes blogs,tech --depth shallow --folder "..."
+```
+
+- Uses a Google OAuth access token (`GOOGLE_ACCESS_TOKEN`) passed as a Bearer header via `@google/genai` `httpOptions`. **This is GCP-billed, not a consumer-subscription equivalent of the Claude Max/Pro or Codex routes.**
+- Sync-only. Batch mode hard-fails if `--gemini-auth gemini-oauth` is set.
+- On `gemini-oauth`, `run-secure-sweep.sh` injects no Gemini key via `op-fetch`; `GOOGLE_ACCESS_TOKEN` must already be present in the caller environment (e.g. from `gcloud auth print-access-token`). `GEMINI_API_KEY` is stripped in-process by the provider as a belt-and-suspenders guard.
+- Auto-detect precedence: `GEMINI_API_KEY` wins when both are present. `gemini-oauth` is only selected by explicit flag, or when `GEMINI_API_KEY` is absent and `GOOGLE_ACCESS_TOKEN` is set.
+
+#### Gemini search
+
+Gemini lanes use Google Search grounding via `@google/genai` (`tools: [{ googleSearch: {} }]`). Grounding **cannot be forced** — the model decides whether to invoke it. This differs from the Anthropic/OpenAI paths where `tool_choice: any` forces a search call. Under `--no-search`, grounding is omitted entirely. Source selection may therefore diverge from claude/openai lanes; `runs/stats.json` records `authMode` per run so cross-provider comparisons stay honest.
+
 ## Output behavior
 
 - Normal runs create `_research-sweeper-stub.md` in the target folder before the sweep starts.
@@ -82,6 +114,7 @@ Core files:
 - `research-sweep.ts` — CLI entrypoint
 - `src/providers/claude.ts`
 - `src/providers/openai.ts`
+- `src/providers/gemini.ts`
 - `src/output.ts`
 - `src/mcp-server.ts`
 - `src/stats.ts`
@@ -90,8 +123,8 @@ Flows:
 
 1. CLI resolves config and auth mode.
 2. `prepareOutputTarget()` creates the stub and blocks accidental overwrite.
-3. Lanes run in parallel or submit as batch jobs. Each lane uses `web_search_20250305` (forced via `tool_choice: any`) and returns `sources`, `narrative`, and `model_context` (structured background knowledge separate from retrieved sources).
-4. Synthesis (Opus) combines sourced findings and `model_context`. In batch/resume mode, synthesis is itself submitted as a batch job for 50% cost discount.
+3. Lanes run in parallel or submit as batch jobs. Each lane uses `web_search_20250305` (forced via `tool_choice: any`) for claude/openai, and Google Search grounding (model-decided, not forced) for gemini. Each lane returns `sources`, `narrative`, and `model_context` (structured background knowledge separate from retrieved sources).
+4. Synthesis (Opus / gemini-2.5-pro) combines sourced findings and `model_context`. In batch/resume mode, synthesis is itself submitted as a batch job for 50% cost discount (Gemini batch requires API-key auth).
 5. `appendRunStats()` records run metadata in `runs/stats.json`.
 
 ## Lanes and models
@@ -112,8 +145,12 @@ Model defaults:
 - Claude synthesis: `claude-opus-4-7` by default (batched for 50% discount)
 - OpenAI lanes: `gpt-5.4-mini` with `reasoning.effort=low`
 - OpenAI synthesis: `gpt-5.5` with `reasoning.effort=high`
+- Gemini shallow/standard lanes: `gemini-2.5-flash-lite` ($0.10/$0.40 per 1M tokens)
+- Gemini deep lanes: `gemini-2.5-flash` ($0.30/$2.50 per 1M tokens)
+- Gemini synthesis: `gemini-2.5-pro` ($1.25/$10.00 per 1M tokens)
 
 Override Claude lane model per run: `--lane-model haiku` or `--lane-model sonnet`
+`--lane-model` does NOT apply to Gemini; Gemini uses depth-based model selection like OpenAI.
 Override synthesis per run: `--synthesis-model <model>`
 
 ## Commands worth knowing
@@ -132,10 +169,11 @@ npx ts-node research-sweep.ts --re-synthesise <folder>
 - `--brief-file` is the path that passes template sub-questions through to both the lanes and synthesis.
 - `batch-search.sh`, `list-batches.sh`, `resume-batch.sh`, and `research-sweeper-mcp` should stay on the `op-fetch` path (via `run-secure-command.sh` / `run-secure-sweep.sh`) for API-key execution.
 - Do not reintroduce OpenAI API-key reads from `~/.codex/auth.json`.
-- `--no-search` disables `web_search` tool and `tool_choice` forcing — use for fast/cheap model-knowledge-only runs.
-- `--lane-model haiku|sonnet` overrides the depth-based Claude default lane model for that run.
+- `--no-search` disables `web_search` tool and `tool_choice` forcing for claude/openai; for gemini it omits the grounding tool entirely — use for fast/cheap model-knowledge-only runs.
+- `--lane-model haiku|sonnet` overrides the depth-based Claude default lane model for that run. Has no effect on Gemini or OpenAI.
 - `--claude-auth api-key|claude-oauth` picks Claude's credential route. Sync-only; batch mode rejects `claude-oauth`. The legacy alias `claude-cli` is still accepted.
-- Auth detection lives in `src/auth/detect.ts` (single source of truth for both providers). Batch guards call `requireApiKeyModeOrThrow()` from the same module. `buildRunStats()` lives in `src/stats.ts` (single copy).
+- `--gemini-auth api-key|gemini-oauth` picks Gemini's credential route. `gemini-oauth` is sync-only and GCP-billed (not a consumer-subscription quota). Batch mode rejects `gemini-oauth`.
+- Auth detection lives in `src/auth/detect.ts` (single source of truth for all providers). Batch guards call `requireApiKeyModeOrThrow()` from the same module. `buildRunStats()` lives in `src/stats.ts` (single copy).
 
 ## Skills are canonical here
 

@@ -17,6 +17,8 @@ cd "$(dirname "$0")"
 
 claude_oauth=0
 openai_sync=0
+gemini_oauth=0
+provider_gemini=0
 for ((i = 1; i <= $#; i++)); do
   if [[ "${!i}" == "--claude-auth" ]]; then
     next=$((i + 1))
@@ -28,10 +30,25 @@ for ((i = 1; i <= $#; i++)); do
       esac
     fi
   fi
+  if [[ "${!i}" == "--gemini-auth" ]]; then
+    next=$((i + 1))
+    if [[ $next -le $# ]]; then
+      case "${!next}" in
+        gemini-oauth|gemini_oauth)
+          gemini_oauth=1
+          ;;
+      esac
+    fi
+  fi
   if [[ "${!i}" == "--provider" ]]; then
     next=$((i + 1))
-    if [[ $next -le $# && "${!next}" == "openai" ]]; then
-      openai_sync=1
+    if [[ $next -le $# ]]; then
+      if [[ "${!next}" == "openai" ]]; then
+        openai_sync=1
+      fi
+      if [[ "${!next}" == "gemini" ]]; then
+        provider_gemini=1
+      fi
     fi
   fi
 done
@@ -57,6 +74,20 @@ if [[ "$openai_sync" == "1" && " $* " == *" --sync "* ]]; then
   # Codex auth route: no op refs needed. Still go through op-fetch with no pairs
   # so we get the same sanitized child env (no inherited OPENAI_API_KEY etc.).
   exec op-fetch -- npx ts-node research-sweep.ts "$@"
+fi
+
+if [[ "$provider_gemini" == "1" && "$gemini_oauth" == "1" ]]; then
+  # GCP-billed OAuth route: GOOGLE_ACCESS_TOKEN must come from the caller's env
+  # (not vaulted). Inject nothing; go through op-fetch with no pairs so the
+  # child env is still sanitized (no inherited GEMINI_API_KEY etc.).
+  exec op-fetch -- npx ts-node research-sweep.ts "$@"
+fi
+
+if [[ "$provider_gemini" == "1" ]]; then
+  # Gemini API-key route (sync or batch). Fetch only the Gemini key.
+  exec op-fetch \
+    GEMINI_API_KEY="$OP_REF_GEMINI_API_KEY" \
+    -- npx ts-node research-sweep.ts "$@"
 fi
 
 # Default API-key route (sync or batch). Fetch both provider keys.

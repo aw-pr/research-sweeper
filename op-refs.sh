@@ -15,10 +15,11 @@
 : "${OP_REF_ANTHROPIC_API_KEY:=op://YOUR_VAULT/anthropic-api-key/credential}"
 : "${OP_REF_OPENAI_API_KEY:=op://YOUR_VAULT/openai-api-key/credential}"
 : "${OP_REF_CLAUDE_CODE_OAUTH_TOKEN:=op://YOUR_VAULT/claude-oauth-token/credential}"
+: "${OP_REF_GEMINI_API_KEY:=op://YOUR_VAULT/gemini-api-key/credential}"
 
 _op_refs_here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 [ -f "$_op_refs_here/op-refs.local.sh" ] && source "$_op_refs_here/op-refs.local.sh"
 unset _op_refs_here
 
-export OP_REF_ANTHROPIC_API_KEY OP_REF_OPENAI_API_KEY OP_REF_CLAUDE_CODE_OAUTH_TOKEN
+export OP_REF_ANTHROPIC_API_KEY OP_REF_OPENAI_API_KEY OP_REF_CLAUDE_CODE_OAUTH_TOKEN OP_REF_GEMINI_API_KEY
