@@ -47,6 +47,55 @@ function batchStateToStatus(state: string | undefined): string {
   return "in_progress";
 }
 
+// @google/genai throws an ApiError with a numeric `.status` and a message that
+// embeds the JSON `"status"` enum (e.g. UNAVAILABLE, RESOURCE_EXHAUSTED).
+function errInfo(err: unknown): { status: number; message: string } {
+  const e = err as { status?: number; message?: string } | undefined;
+  return { status: typeof e?.status === "number" ? e.status : 0, message: String(e?.message ?? err ?? "") };
+}
+
+// Transient: 503 UNAVAILABLE (capacity spikes) and 429 RESOURCE_EXHAUSTED
+// (rate limit). Worth a bounded retry — these killed an otherwise-good sweep.
+function isTransient(err: unknown): boolean {
+  const { status, message } = errInfo(err);
+  return status === 503 || status === 429 || /UNAVAILABLE|RESOURCE_EXHAUSTED/.test(message);
+}
+
+// 400 FAILED_PRECONDITION on a batch/generate call is Google's opaque "this
+// account/project is not on a billing-enabled paid tier" gate. Surface a
+// clear, actionable message instead of "Precondition check failed."
+function rethrowIfBillingGate(err: unknown, op: string): never | void {
+  const { status, message } = errInfo(err);
+  if (status === 400 && /FAILED_PRECONDITION|Precondition check failed/.test(message)) {
+    throw new Error(
+      `Gemini ${op} was rejected with FAILED_PRECONDITION. This almost always means the ` +
+        `API key / GCP project is not on a billing-enabled paid tier. The Gemini Batch API, ` +
+        `Gemini 2.5 Pro, and Google Search grounding all require billing. Enable prepaid ` +
+        `billing in Google AI Studio, or use a billing-attached GCP project via the OAuth ` +
+        `route (--gemini-auth gemini-oauth with GOOGLE_ACCESS_TOKEN). Original error: ${message}`
+    );
+  }
+}
+
+const RETRY_DELAYS_MS = [2000, 6000, 18000]; // 3 bounded retries, ~26s worst case
+
+async function withRetry<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (attempt === RETRY_DELAYS_MS.length || !isTransient(err)) break;
+      const wait = RETRY_DELAYS_MS[attempt];
+      const { status } = errInfo(err);
+      console.warn(`  [${label}] Transient error (${status || "?"}); retrying in ${wait / 1000}s (attempt ${attempt + 1}/${RETRY_DELAYS_MS.length})`);
+      await new Promise((r) => setTimeout(r, wait));
+    }
+  }
+  throw lastErr;
+}
+
 /**
  * Gemini provider. Two auth routes:
  *  - api_key:      GEMINI_API_KEY (default).
@@ -134,11 +183,13 @@ export class GeminiProvider implements ProviderAdapter {
         generateConfig.tools = [{ googleSearch: {} }];
       }
 
-      const response = await ai.models.generateContent({
-        model,
-        contents: buildLanePrompt(lane, config),
-        config: generateConfig,
-      });
+      const response = await withRetry(definition.label, () =>
+        ai.models.generateContent({
+          model,
+          contents: buildLanePrompt(lane, config),
+          config: generateConfig,
+        })
+      );
 
       const rawText = response.text ?? "";
       const tokensIn = response.usageMetadata?.promptTokenCount ?? 0;
@@ -208,15 +259,17 @@ export class GeminiProvider implements ProviderAdapter {
 
     console.log("\n  [Synthesis] Assembling research brief...");
 
-    const response = await ai.models.generateContent({
-      model,
-      contents: buildSynthesisPrompt(config, laneResults, sourcesName),
-      config: {
-        maxOutputTokens: DEPTH_CONFIG[config.depth].synthesisMaxTokens,
-        temperature: 0.3,
-        // Synthesis gets no tools — no grounding needed, mirrors claude.ts synthesis
-      },
-    });
+    const response = await withRetry("Synthesis", () =>
+      ai.models.generateContent({
+        model,
+        contents: buildSynthesisPrompt(config, laneResults, sourcesName),
+        config: {
+          maxOutputTokens: DEPTH_CONFIG[config.depth].synthesisMaxTokens,
+          temperature: 0.3,
+          // Synthesis gets no tools — no grounding needed, mirrors claude.ts synthesis
+        },
+      })
+    );
 
     const markdown = response.text ?? "";
     const tokensIn = response.usageMetadata?.promptTokenCount ?? 0;
@@ -252,11 +305,19 @@ export class GeminiProvider implements ProviderAdapter {
       };
     });
 
-    const job = await (ai as any).batches.create({
-      model,
-      src: requests,
-      config: { displayName: `research-sweeper-lanes-${config.topic.slice(0, 40)}-${Date.now()}` },
-    });
+    let job: { name?: string };
+    try {
+      job = await withRetry("Batch submit", () =>
+        (ai as any).batches.create({
+          model,
+          src: requests,
+          config: { displayName: `research-sweeper-lanes-${config.topic.slice(0, 40)}-${Date.now()}` },
+        })
+      );
+    } catch (err) {
+      rethrowIfBillingGate(err, "batch submit");
+      throw err;
+    }
 
     const batchName: string = job.name as string;
     console.log(`  [Batch] Gemini lanes batch submitted: ${batchName}`);
@@ -362,19 +423,27 @@ export class GeminiProvider implements ProviderAdapter {
     const ai = this.getClient("api_key");
     const model = this.getModels(config, "batch").synthesis;
 
-    const job = await (ai as any).batches.create({
-      model,
-      src: [
-        {
-          contents: buildSynthesisPrompt(config, laneResults, sourcesName),
-          config: {
-            maxOutputTokens: DEPTH_CONFIG[config.depth].synthesisMaxTokens,
-            temperature: 0.3,
-          },
-        },
-      ],
-      config: { displayName: `research-sweeper-synthesis-${config.topic.slice(0, 40)}-${Date.now()}` },
-    });
+    let job: { name?: string };
+    try {
+      job = await withRetry("Batch synthesis submit", () =>
+        (ai as any).batches.create({
+          model,
+          src: [
+            {
+              contents: buildSynthesisPrompt(config, laneResults, sourcesName),
+              config: {
+                maxOutputTokens: DEPTH_CONFIG[config.depth].synthesisMaxTokens,
+                temperature: 0.3,
+              },
+            },
+          ],
+          config: { displayName: `research-sweeper-synthesis-${config.topic.slice(0, 40)}-${Date.now()}` },
+        })
+      );
+    } catch (err) {
+      rethrowIfBillingGate(err, "batch synthesis submit");
+      throw err;
+    }
 
     const batchName: string = job.name as string;
     console.log(`  [Batch] Gemini synthesis batch submitted: ${batchName}`);
