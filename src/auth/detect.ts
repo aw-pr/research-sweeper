@@ -52,9 +52,28 @@ export function detectClaudeAuthMode(prefer?: ClaudeAuthMode): ClaudeAuthMode {
   throw new Error("Error: Claude auth not configured. Provide ANTHROPIC_API_KEY via the secure helper, or generate a subscription token with `claude setup-token` and export CLAUDE_CODE_OAUTH_TOKEN.");
 }
 
-export function detectOpenAIAuthMode(): OpenAIAuthMode {
-  if (process.env.OPENAI_API_KEY) return "api_key";
-  if (hasCodexChatGPTAuth()) return "codex_cli";
+export function detectOpenAIAuthMode(prefer?: OpenAIAuthMode): OpenAIAuthMode {
+  const hasApiKey = Boolean(process.env.OPENAI_API_KEY);
+  const hasCodex = hasCodexChatGPTAuth();
+
+  if (prefer === "api_key") {
+    if (!hasApiKey) throw new Error("Error: --openai-auth api-key requested but OPENAI_API_KEY is not set. Start via ./run-secure-sweep.sh or ./run-secure-command.sh so the helper injects it.");
+    return "api_key";
+  }
+  if (prefer === "codex_cli") {
+    if (!hasCodex) throw new Error("Error: --openai-auth codex requested but no Codex ChatGPT auth was found. Run `codex login` (chatgpt mode) so ~/.codex/auth.json holds a chatgpt access token.");
+    return "codex_cli";
+  }
+
+  if (hasApiKey && hasCodex) {
+    throw new Error(
+      "Error: both OPENAI_API_KEY and Codex ChatGPT auth are present and no --openai-auth route was given. " +
+        "Refusing to guess (the API-key route bills credits). Pass --openai-auth api-key or --openai-auth codex, " +
+        "or run via ./run-secure-sweep.sh / ./run-secure-command.sh which inject only the selected route's credential."
+    );
+  }
+  if (hasApiKey) return "api_key";
+  if (hasCodex) return "codex_cli";
   throw new Error("Error: OpenAI auth not configured. Use the secure helper for OPENAI_API_KEY-backed runs, or login with Codex (chatgpt mode) for the Codex auth route.");
 }
 

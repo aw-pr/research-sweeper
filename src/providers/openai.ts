@@ -47,8 +47,8 @@ export class OpenAIProvider implements ProviderAdapter {
   private client: OpenAI | null = null;
   private authMode: OpenAIAuthMode | null = null;
 
-  requireApiKey(_config?: SweepConfig): string {
-    const mode = this.resolveAuthMode();
+  requireApiKey(config?: SweepConfig): string {
+    const mode = this.resolveAuthMode(config);
     if (mode === "api_key") {
       const apiKey = this.getStoredApiKey();
       if (!apiKey) throw new Error("Error: OPENAI_API_KEY not set. Start via ./run-secure-sweep.sh or ./run-secure-command.sh so the helper injects it.");
@@ -74,9 +74,12 @@ export class OpenAIProvider implements ProviderAdapter {
     return this.authMode;
   }
 
-  private resolveAuthMode(): OpenAIAuthMode {
+  private authPrefer?: OpenAIAuthMode;
+
+  private resolveAuthMode(config?: SweepConfig): OpenAIAuthMode {
+    if (config?.openaiAuth) this.authPrefer = config.openaiAuth;
     if (this.authMode) return this.authMode;
-    this.authMode = detectOpenAIAuthMode();
+    this.authMode = detectOpenAIAuthMode(this.authPrefer);
     return this.authMode;
   }
 
@@ -176,7 +179,7 @@ export class OpenAIProvider implements ProviderAdapter {
       let searchesFired: number | undefined;
 
       let reasoningOut = 0;
-      if (this.resolveAuthMode() === "api_key") {
+      if (this.resolveAuthMode(config) === "api_key") {
         const client = this.getClient();
         const response = await client.responses.create({
           model,
@@ -225,7 +228,7 @@ export class OpenAIProvider implements ProviderAdapter {
     let tokensOut = 0;
     let reasoningOut = 0;
 
-    if (this.resolveAuthMode() === "api_key") {
+    if (this.resolveAuthMode(config) === "api_key") {
       const client = this.getClient();
       const response = await client.responses.create({
         model,
@@ -250,7 +253,7 @@ export class OpenAIProvider implements ProviderAdapter {
   }
 
   async submitBatchLanes(config: SweepConfig): Promise<string> {
-    requireApiKeyModeOrThrow("openai", this.resolveAuthMode());
+    requireApiKeyModeOrThrow("openai", this.resolveAuthMode(config));
     const client = this.getClient();
     const requests = config.lanes.map((lane) => ({
       custom_id: lane,

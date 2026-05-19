@@ -89,6 +89,13 @@ function parseArgs(): Partial<SweepConfig> {
         else throw new Error(`Error: --gemini-auth expects "api-key" or "gemini-oauth", got "${raw}"`);
         break;
       }
+      case "--openai-auth": {
+        const raw = args[++i];
+        if (raw === "api-key" || raw === "api_key") config.openaiAuth = "api_key";
+        else if (raw === "codex" || raw === "codex-cli" || raw === "codex_cli" || raw === "chatgpt") config.openaiAuth = "codex_cli";
+        else throw new Error(`Error: --openai-auth expects "api-key" or "codex", got "${raw}"`);
+        break;
+      }
     }
   }
 
@@ -426,7 +433,7 @@ Source:   ${source}
 async function main(): Promise<void> {
   loadDotEnv();
   const rawArgs = process.argv.slice(2);
-  const hasRunArgs = ["--topic", "--brief-file", "--from", "--to", "--lanes", "--depth", "--folder", "--output", "--provider", "--test", "--breadth", "--overwrite", "--claude-auth", "--gemini-auth", "--no-search", "--lane-model", "--lane-model-id", "--synthesis-model", "--min-lanes"].some((flag) =>
+  const hasRunArgs = ["--topic", "--brief-file", "--from", "--to", "--lanes", "--depth", "--folder", "--output", "--provider", "--test", "--breadth", "--overwrite", "--claude-auth", "--gemini-auth", "--openai-auth", "--no-search", "--lane-model", "--lane-model-id", "--synthesis-model", "--min-lanes"].some((flag) =>
     rawArgs.includes(flag)
   );
 
@@ -493,6 +500,9 @@ async function main(): Promise<void> {
   }
   if (batchMode && config.geminiAuth === "gemini_oauth") {
     throw new Error("Error: --gemini-auth gemini-oauth is sync-only. The Gemini batch API requires GEMINI_API_KEY.");
+  }
+  if (batchMode && config.openaiAuth === "codex_cli") {
+    throw new Error("Error: --openai-auth codex is sync-only. The OpenAI batch API requires OPENAI_API_KEY.");
   }
 
   if (batchMode) {

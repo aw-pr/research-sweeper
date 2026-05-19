@@ -194,6 +194,7 @@ npx ts-node research-sweep.ts --re-synthesise <folder>
 - `--lane-model haiku|sonnet` overrides the depth-based Claude default lane model for that run. Has no effect on Gemini or OpenAI.
 - `--claude-auth api-key|claude-oauth` picks Claude's credential route. Sync-only; batch mode rejects `claude-oauth`. The legacy alias `claude-cli` is still accepted.
 - `--gemini-auth api-key|gemini-oauth` picks Gemini's credential route. `gemini-oauth` is sync-only and GCP-billed (not a consumer-subscription quota). Batch mode rejects `gemini-oauth`.
+- `--openai-auth api-key|codex` picks OpenAI's credential route. `codex` is sync-only; batch mode rejects it. All three detectors are now symmetric: when both routes' credentials are present and no explicit flag is given, detection throws ("Refusing to guess") rather than silently billing API credits.
 - Auth detection lives in `src/auth/detect.ts` (single source of truth for all providers). Batch guards call `requireApiKeyModeOrThrow()` from the same module. `buildRunStats()` lives in `src/stats.ts` (single copy).
 
 ## Skills are canonical here
