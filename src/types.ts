@@ -18,6 +18,10 @@ export interface SweepConfig {
   noSearch?: boolean;
   laneModel?: "haiku" | "sonnet";
   synthesisModel?: string;
+  // Generic explicit lane-model id override (provider-specific string, e.g.
+  // "gemini-2.5-flash-lite"). Honoured by the Gemini provider; lets a deep
+  // sweep run on a free-tier-eligible model. Claude/OpenAI ignore it.
+  laneModelId?: string;
   claudeAuth?: "api_key" | "claude_oauth";
   geminiAuth?: "api_key" | "gemini_oauth";
   // Minimum number of lanes that must return at least one source for the sweep
