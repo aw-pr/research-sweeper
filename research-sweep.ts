@@ -79,6 +79,13 @@ function parseArgs(): Partial<SweepConfig> {
         else throw new Error(`Error: --claude-auth expects "api-key" or "claude-oauth", got "${raw}"`);
         break;
       }
+      case "--gemini-auth": {
+        const raw = args[++i];
+        if (raw === "api-key" || raw === "api_key") config.geminiAuth = "api_key";
+        else if (raw === "gemini-oauth" || raw === "gemini_oauth" || raw === "oauth") config.geminiAuth = "gemini_oauth";
+        else throw new Error(`Error: --gemini-auth expects "api-key" or "gemini-oauth", got "${raw}"`);
+        break;
+      }
     }
   }
 
@@ -140,6 +147,7 @@ async function resolveConfig(partial: Partial<SweepConfig>): Promise<SweepConfig
     laneModel: partial.laneModel,
     synthesisModel: partial.synthesisModel,
     claudeAuth: partial.claudeAuth,
+    geminiAuth: partial.geminiAuth,
     minLanes: partial.minLanes,
   };
 }
@@ -412,7 +420,7 @@ Source:   ${source}
 async function main(): Promise<void> {
   loadDotEnv();
   const rawArgs = process.argv.slice(2);
-  const hasRunArgs = ["--topic", "--brief-file", "--from", "--to", "--lanes", "--depth", "--folder", "--output", "--provider", "--test", "--breadth", "--overwrite", "--claude-auth", "--no-search", "--lane-model", "--synthesis-model", "--min-lanes"].some((flag) =>
+  const hasRunArgs = ["--topic", "--brief-file", "--from", "--to", "--lanes", "--depth", "--folder", "--output", "--provider", "--test", "--breadth", "--overwrite", "--claude-auth", "--gemini-auth", "--no-search", "--lane-model", "--synthesis-model", "--min-lanes"].some((flag) =>
     rawArgs.includes(flag)
   );
 
@@ -476,6 +484,9 @@ async function main(): Promise<void> {
   const batchMode = rawArgs.includes("--sync") ? false : true;
   if (batchMode && config.claudeAuth === "claude_oauth") {
     throw new Error("Error: --claude-auth claude-oauth is sync-only. The Anthropic batch API requires ANTHROPIC_API_KEY.");
+  }
+  if (batchMode && config.geminiAuth === "gemini_oauth") {
+    throw new Error("Error: --gemini-auth gemini-oauth is sync-only. The Gemini batch API requires GEMINI_API_KEY.");
   }
 
   if (batchMode) {

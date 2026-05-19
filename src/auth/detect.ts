@@ -4,7 +4,8 @@ import * as path from "path";
 
 export type ClaudeAuthMode = "api_key" | "claude_oauth";
 export type OpenAIAuthMode = "api_key" | "codex_cli";
-export type AnyAuthMode = ClaudeAuthMode | OpenAIAuthMode;
+export type GeminiAuthMode = "api_key" | "gemini_oauth";
+export type AnyAuthMode = ClaudeAuthMode | OpenAIAuthMode | GeminiAuthMode;
 
 export const CODEX_AUTH_FILE = path.join(os.homedir(), ".codex", "auth.json");
 
@@ -57,7 +58,39 @@ export function detectOpenAIAuthMode(): OpenAIAuthMode {
   throw new Error("Error: OpenAI auth not configured. Use the secure helper for OPENAI_API_KEY-backed runs, or login with Codex (chatgpt mode) for the Codex auth route.");
 }
 
-export function requireApiKeyModeOrThrow(provider: "claude" | "openai", authMode: AnyAuthMode): void {
+export function hasGeminiOAuthToken(): boolean {
+  // The @google/genai SDK can authenticate with a Google OAuth access token
+  // passed as a Bearer header instead of an API key. We detect the portable
+  // env-var signal (GOOGLE_ACCESS_TOKEN); ADC-based refresh is a future add.
+  return Boolean(process.env.GOOGLE_ACCESS_TOKEN);
+}
+
+export function detectGeminiAuthMode(prefer?: GeminiAuthMode): GeminiAuthMode {
+  const hasApiKey = Boolean(process.env.GEMINI_API_KEY);
+  const hasOAuth = hasGeminiOAuthToken();
+
+  if (prefer === "api_key") {
+    if (!hasApiKey) throw new Error("Error: --gemini-auth api-key requested but GEMINI_API_KEY is not set. Start via ./run-secure-sweep.sh or ./run-secure-command.sh so the helper injects it.");
+    return "api_key";
+  }
+  if (prefer === "gemini_oauth") {
+    if (!hasOAuth) throw new Error("Error: --gemini-auth gemini-oauth requested but GOOGLE_ACCESS_TOKEN is not set. Mint a token (e.g. `gcloud auth print-access-token`) for a GCP project with the Generative Language API enabled and billing attached, then export GOOGLE_ACCESS_TOKEN.");
+    return "gemini_oauth";
+  }
+
+  if (hasApiKey && hasOAuth) {
+    throw new Error(
+      "Error: both GEMINI_API_KEY and GOOGLE_ACCESS_TOKEN are set and no --gemini-auth route was given. " +
+        "Refusing to guess (the API-key route bills credits). Pass --gemini-auth api-key or --gemini-auth gemini-oauth, " +
+        "or run via ./run-secure-sweep.sh / ./run-secure-command.sh which inject only the selected route's credential."
+    );
+  }
+  if (hasApiKey) return "api_key";
+  if (hasOAuth) return "gemini_oauth";
+  throw new Error("Error: Gemini auth not configured. Provide GEMINI_API_KEY via the secure helper, or export GOOGLE_ACCESS_TOKEN for a billing-attached GCP project for the OAuth route.");
+}
+
+export function requireApiKeyModeOrThrow(provider: "claude" | "openai" | "gemini", authMode: AnyAuthMode): void {
   if (authMode === "api_key") return;
   throw new Error(`${provider} batch mode requires API-key auth; ${authMode} supports synchronous sweeps only.`);
 }
