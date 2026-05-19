@@ -24,6 +24,7 @@ export interface SweepConfig {
   laneModelId?: string;
   claudeAuth?: "api_key" | "claude_oauth";
   geminiAuth?: "api_key" | "gemini_oauth";
+  openaiAuth?: "api_key" | "codex_cli";
   // Minimum number of lanes that must return at least one source for the sweep
   // to proceed to synthesis. Default is Math.ceil(lanes.length / 2) (>50%).
   minLanes?: number;
