@@ -62,6 +62,9 @@ function parseArgs(): Partial<SweepConfig> {
       case "--lane-model":
         config.laneModel = args[++i] as SweepConfig["laneModel"];
         break;
+      case "--lane-model-id":
+        config.laneModelId = args[++i];
+        break;
       case "--synthesis-model":
         config.synthesisModel = args[++i];
         break;
@@ -146,6 +149,7 @@ async function resolveConfig(partial: Partial<SweepConfig>): Promise<SweepConfig
     noSearch: partial.noSearch,
     laneModel: partial.laneModel,
     synthesisModel: partial.synthesisModel,
+    laneModelId: partial.laneModelId,
     claudeAuth: partial.claudeAuth,
     geminiAuth: partial.geminiAuth,
     minLanes: partial.minLanes,
@@ -422,7 +426,7 @@ Source:   ${source}
 async function main(): Promise<void> {
   loadDotEnv();
   const rawArgs = process.argv.slice(2);
-  const hasRunArgs = ["--topic", "--brief-file", "--from", "--to", "--lanes", "--depth", "--folder", "--output", "--provider", "--test", "--breadth", "--overwrite", "--claude-auth", "--gemini-auth", "--no-search", "--lane-model", "--synthesis-model", "--min-lanes"].some((flag) =>
+  const hasRunArgs = ["--topic", "--brief-file", "--from", "--to", "--lanes", "--depth", "--folder", "--output", "--provider", "--test", "--breadth", "--overwrite", "--claude-auth", "--gemini-auth", "--no-search", "--lane-model", "--lane-model-id", "--synthesis-model", "--min-lanes"].some((flag) =>
     rawArgs.includes(flag)
   );
 

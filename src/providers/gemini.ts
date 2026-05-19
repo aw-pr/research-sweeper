@@ -21,7 +21,9 @@ const TERMINAL_STATES = new Set([
 ]);
 
 function resolveLaneModel(config: SweepConfig): string {
-  // Gemini ignores --lane-model (Claude-specific); depth-based, like OpenAI.
+  // Explicit --lane-model-id wins (e.g. force flash-lite for a deep sweep on a
+  // free-tier project). Gemini ignores --lane-model (that's Claude-specific).
+  if (config.laneModelId) return config.laneModelId;
   return config.depth === "deep" ? LANE_MODEL_FLASH : LANE_MODEL_FLASH_LITE;
 }
 
