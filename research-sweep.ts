@@ -344,8 +344,10 @@ async function waitAllBatches(pollIntervalMs: number): Promise<void> {
 
   const pending = new Map<string, SweepJob>();
   for (const file of files) {
-    const batchId = path.basename(file, ".json");
-    pending.set(batchId, loadJob(batchId));
+    // Use the real batchId from file content, not the (sanitised) filename —
+    // Gemini ids contain "/" so filename != batchId.
+    const job = JSON.parse(fs.readFileSync(path.join(dir, file), "utf-8")) as SweepJob;
+    pending.set(job.batchId, job);
   }
 
   console.log(`\nMonitoring ${pending.size} batch ${pending.size === 1 ? "job" : "jobs"} — polling every ${Math.round(pollIntervalMs / 1000)}s`);
