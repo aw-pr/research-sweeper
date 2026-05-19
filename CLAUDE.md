@@ -96,6 +96,24 @@ npm run sweep:secure:gemini -- --brief-file "prompts/example.md" --folder "..."
 
 Gemini lanes use Google Search grounding via `@google/genai` (`tools: [{ googleSearch: {} }]`). Grounding **cannot be forced** — the model decides whether to invoke it. This differs from the Anthropic/OpenAI paths where `tool_choice: any` forces a search call. Under `--no-search`, grounding is omitted entirely. Source selection may therefore diverge from claude/openai lanes; `runs/stats.json` records `authMode` per run so cross-provider comparisons stay honest.
 
+#### Gemini provider — known limitations
+
+**Free-tier rate limits.** The free tier of Google AI Studio enforces `generate_content` rate limits of approximately 5 RPM for `gemini-2.5-flash` and 10 RPM for `gemini-2.5-flash-lite` (as of May 2026). Multi-lane grounded sweeps run several parallel requests and will hit these limits. A GCP trial billing account does **not** grant paid-tier rate limits — only a billing-enabled project with prepaid credits or a GCP project with active billing attached to a real payment method does. `gemini-2.5-pro` is a paid-tier model and is rejected on free-tier keys.
+
+**Batch API requires paid tier.** The Gemini Batch API (used for async lane and synthesis submission) is gated behind billing. Free-tier keys return `400 FAILED_PRECONDITION` or `429 RESOURCE_EXHAUSTED` on batch create calls. The provider surfaces a clear actionable error when this gate fires. Enable prepaid billing in Google AI Studio, or use a billing-attached GCP project via `--gemini-auth gemini-oauth`.
+
+**Google Search grounding vs JSON mode.** Google Search grounding and native JSON structured output (`responseMimeType: application/json`) are mutually exclusive in the Gemini API. The provider therefore does not request structured output; instead it relies on the tolerant `parseLaneResponse()` parser to extract the JSON payload from the text response. This means some responses may fall back to the plain-text `fallbackLaneResult()` path when the model returns incomplete or non-JSON output.
+
+**Empty-lane output.** Some lanes can return 0 sources and 0 output tokens with `finishReason` other than `STOP`. This is benign upstream behaviour: Gemini's content-safety or grounding filters blocked the generation. It is not a provider bug. The lane is recorded with an empty result; the synthesis step proceeds with whatever lanes did return content.
+
+**Batch collection and the Claude both-keys guard.** Collecting pending Gemini batch jobs via the all-keys helper (`run-secure-command.sh`) loads all `OP_REF_*` variables and may trip the Claude both-keys auth guard (which prevents a process holding both `ANTHROPIC_API_KEY` and `CLAUDE_CODE_OAUTH_TOKEN`). Collect Gemini, Claude, and OpenAI batch results via the route-aware wrapper:
+
+```bash
+./run-secure-sweep.sh --resume <batch-id> --provider gemini
+./run-secure-sweep.sh --resume <batch-id> --provider claude --claude-auth api-key
+./run-secure-sweep.sh --resume <batch-id> --provider openai
+```
+
 ## Output behavior
 
 - Normal runs create `_research-sweeper-stub.md` in the target folder before the sweep starts.
