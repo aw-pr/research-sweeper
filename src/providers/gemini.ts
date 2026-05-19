@@ -413,7 +413,18 @@ export class GeminiProvider implements ProviderAdapter {
       );
     }
 
-    return lanes.map((lane) => laneResultMap.get(lane)).filter((item): item is LaneResult => item !== undefined);
+    // Never silently shrink the lane set. Any requested lane still missing here
+    // (e.g. unknown lane, or a future code path that skipped insertion) gets an
+    // explicit empty placeholder + a warning, so synthesis sees a stable lane
+    // count and the drop is visible rather than swallowed by a filter.
+    return lanes.map((lane) => {
+      const result = laneResultMap.get(lane);
+      if (result) return result;
+      const definition = LANE_CONFIG[lane];
+      const label = definition?.label ?? lane;
+      console.warn(`  [${label}] Warning: no batch result for this lane — emitting empty placeholder so synthesis sees the gap.`);
+      return { lane, label, sources: [], narrative: "Batch result: lane produced no collectable response.", rawText: "", tokensIn: 0, tokensOut: 0, model: fallbackModel };
+    });
   }
 
   // ---------------------------------------------------------------------------
