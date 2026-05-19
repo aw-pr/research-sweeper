@@ -16,6 +16,14 @@ const MODEL_PRICING: Record<Provider, Record<string, { inPer1M: number; outPer1M
     "gpt-5.4": { inPer1M: 2.5, outPer1M: 15.0 },
     "gpt-5.5": { inPer1M: 5.0, outPer1M: 30.0 },
   },
+  // Verified May 2026 against ai.google.dev/gemini-api/docs/pricing.
+  // gemini-2.5-pro uses tiered pricing (>200K context costs more); the
+  // <=200K-context rate is recorded here as the common case.
+  gemini: {
+    "gemini-2.5-flash-lite": { inPer1M: 0.10, outPer1M: 0.40 },
+    "gemini-2.5-flash": { inPer1M: 0.30, outPer1M: 2.50 },
+    "gemini-2.5-pro": { inPer1M: 1.25, outPer1M: 10.0 },
+  },
 };
 
 function runsDir(): string {

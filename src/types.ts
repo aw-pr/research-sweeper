@@ -1,4 +1,4 @@
-export type Provider = "claude" | "openai";
+export type Provider = "claude" | "openai" | "gemini";
 export type Lane = "financial" | "frontier" | "academic" | "vc" | "blogs" | "tech";
 export type Depth = "shallow" | "standard" | "deep";
 
@@ -19,6 +19,7 @@ export interface SweepConfig {
   laneModel?: "haiku" | "sonnet";
   synthesisModel?: string;
   claudeAuth?: "api_key" | "claude_oauth";
+  geminiAuth?: "api_key" | "gemini_oauth";
   // Minimum number of lanes that must return at least one source for the sweep
   // to proceed to synthesis. Default is Math.ceil(lanes.length / 2) (>50%).
   minLanes?: number;
@@ -109,7 +110,7 @@ export interface RunStats {
   models: { lane: string; synthesis: string };
   estimatedCostUSD: number;
   outputFiles: string[];
-  authMode?: "api_key" | "claude_oauth" | "codex_cli";
+  authMode?: "api_key" | "claude_oauth" | "codex_cli" | "gemini_oauth";
 }
 
 export interface FileNames {
@@ -139,7 +140,7 @@ export interface ProviderAdapter {
   readonly provider: Provider;
   getModels(config: SweepConfig, mode: "sync" | "batch"): ProviderModels;
   requireApiKey(config?: SweepConfig): string;
-  getAuthMode?(): "api_key" | "claude_oauth" | "codex_cli" | null;
+  getAuthMode?(): "api_key" | "claude_oauth" | "codex_cli" | "gemini_oauth" | null;
   runLane(config: SweepConfig, lane: Lane): Promise<LaneResult>;
   runSynthesis(
     config: SweepConfig,
