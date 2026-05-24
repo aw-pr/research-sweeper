@@ -1,6 +1,11 @@
 # research-sweeper
 
-Multi-lane agentic research harness that runs parallel Claude, OpenAI, and Gemini agents, synthesises Obsidian-ready markdown, and scores each sweep with an LLM judge.
+**Multi-lane agentic research harness that runs parallel Claude, OpenAI, and Gemini agents, synthesises Obsidian-ready markdown, and scores each sweep with an LLM judge.**
+
+![Node](https://img.shields.io/badge/node-18%2B-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+![Tests](https://img.shields.io/badge/tests-78%20passed-brightgreen)
+![Status](https://img.shields.io/badge/status-usable-brightgreen)
 
 ## What it does
 
