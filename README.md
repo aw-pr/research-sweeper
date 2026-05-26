@@ -1,4 +1,4 @@
-# Research sweeper — parallel agentic research across authoritative sources
+# Parallel agentic research across authoritative sources
 
 **Multi-lane agentic research harness that runs parallel Claude, OpenAI, and Gemini agents, synthesises Obsidian-ready markdown, and scores each sweep with an LLM judge.**
 
