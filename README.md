@@ -1,4 +1,4 @@
-# Parallel agentic research across authoritative sources
+# Research synthesis of authorative sources.
 
 **Multi-lane agentic research harness that runs parallel Claude, OpenAI, and Gemini agents, synthesises Obsidian-ready markdown, and scores each sweep with an LLM judge.**
 
