@@ -1,4 +1,4 @@
-#Research synthesis
+# Research synthesis
 
 **Multi-lane agentic research harness that runs parallel Claude, OpenAI, and Gemini agents, synthesises Obsidian-ready markdown, and scores each sweep with an LLM judge.**
 
