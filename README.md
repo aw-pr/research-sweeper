@@ -1,4 +1,4 @@
-# research-sweeper
+# Research sweeper — parallel agentic research across authoritative sources
 
 **Multi-lane agentic research harness that runs parallel Claude, OpenAI, and Gemini agents, synthesises Obsidian-ready markdown, and scores each sweep with an LLM judge.**
 
@@ -101,7 +101,7 @@ npm run auth:check:secure                       # resolves refs via op-fetch
   --folder "ai-transformation-fs"
 ```
 
-`--brief-file` passes both the topic and the sub-questions through to lane agents and synthesis. Use `./list-batches.sh` to inspect pending jobs and `./resume-batch.sh <n>` to collect results.
+Use `./list-batches.sh` to inspect pending jobs and `./resume-batch.sh <n>` to collect results.
 
 ## Auth routes
 
