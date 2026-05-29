@@ -262,7 +262,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           },
           folder: { type: "string", description: "Output folder name under the research output root (RESEARCH_SWEEPER_OUTPUT_DIR, default ~/obsidian/research) (default: derived from topic)" },
           provider: { type: "string", enum: ["claude", "openai", "gemini"], description: "AI provider — claude, openai, or gemini (default: claude)" },
-          synthesis_model: { type: "string", description: "Optional synthesis model override, e.g. claude-opus-4-7 for especially detailed/expensive runs." },
+          synthesis_model: { type: "string", description: "Optional synthesis model override, e.g. claude-opus-4-8 for especially detailed/expensive runs." },
           overwrite: { type: "boolean", description: "Replace existing summary/sources/lane outputs for the resolved topic slug." },
         },
         required: ["topic"],
