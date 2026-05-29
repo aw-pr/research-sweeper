@@ -18,18 +18,18 @@ const haikuModels: ProviderModels = {
 
 describe("computeRunCost", () => {
   it("computes sync cost from known haiku + opus pricing", () => {
-    // lane: 1M in * 0.8 + 0.5M out * 4.0 = 0.8 + 2.0 = 2.8
+    // lane: 1M in * 1.0 + 0.5M out * 5.0 = 1.0 + 2.5 = 3.5
     // synth: 0.2M in * 5.0 + 0.1M out * 25.0 = 1.0 + 2.5 = 3.5
-    // total = 6.3
+    // total = 7.0
     const cost = computeRunCost("claude", baseTokens, haikuModels, false);
-    expect(cost).toBeCloseTo(6.3, 6);
+    expect(cost).toBeCloseTo(7.0, 6);
   });
 
   it("applies 50% batch discount to lane portion only", () => {
     const sync = computeRunCost("claude", baseTokens, haikuModels, false);
     const batch = computeRunCost("claude", baseTokens, haikuModels, true);
-    // lane was 2.8 sync -> 1.4 batch; synth unchanged at 3.5
-    expect(batch).toBeCloseTo(1.4 + 3.5, 6);
+    // lane was 3.5 sync -> 1.75 batch; synth unchanged at 3.5
+    expect(batch).toBeCloseTo(1.75 + 3.5, 6);
     expect(batch).toBeLessThan(sync);
   });
 
@@ -50,17 +50,17 @@ describe("computeRunCost", () => {
   });
 
   it("prices Anthropic cache writes at 1.25x and cache reads at 0.10x lane input rate", () => {
-    // base haiku/opus: 6.3 (sync). lane input rate = 0.8.
-    // cacheCreateIn = 1M -> 1M/1e6 * 0.8 * 1.25 = 1.0
-    // cacheReadIn   = 1M -> 1M/1e6 * 0.8 * 0.10 = 0.08
-    // total expected = 6.3 + 1.0 + 0.08 = 7.38
+    // base haiku/opus: 7.0 (sync). lane input rate = 1.0.
+    // cacheCreateIn = 1M -> 1M/1e6 * 1.0 * 1.25 = 1.25
+    // cacheReadIn   = 1M -> 1M/1e6 * 1.0 * 0.10 = 0.10
+    // total expected = 7.0 + 1.25 + 0.10 = 8.35
     const tokens: TokenBreakdown = {
       ...baseTokens,
       cacheCreateIn: 1_000_000,
       cacheReadIn: 1_000_000,
     };
     const cost = computeRunCost("claude", tokens, haikuModels, false);
-    expect(cost).toBeCloseTo(7.38, 6);
+    expect(cost).toBeCloseTo(8.35, 6);
   });
 
   it("prices OpenAI reasoning tokens at synthesis output rate", () => {
@@ -90,12 +90,12 @@ describe("computeRunCost", () => {
       cacheCreateIn: 1_000_000,
       cacheReadIn: 0,
     };
-    // sync: 1.0
+    // sync: 1M/1e6 * 1.0 * 1.25 = 1.25
     const sync = computeRunCost("claude", tokens, haikuModels, false);
-    // batch: 0.5
+    // batch: 1.25 * 0.5 = 0.625
     const batch = computeRunCost("claude", tokens, haikuModels, true);
-    expect(sync).toBeCloseTo(1.0, 6);
-    expect(batch).toBeCloseTo(0.5, 6);
+    expect(sync).toBeCloseTo(1.25, 6);
+    expect(batch).toBeCloseTo(0.625, 6);
   });
 
   it("computes gemini sync cost from known flash-lite + pro pricing", () => {

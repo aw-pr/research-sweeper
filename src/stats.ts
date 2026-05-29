@@ -5,10 +5,11 @@ import { Provider, ProviderModels, RunStats, SweepConfig, TokenBreakdown } from 
 
 const MODEL_PRICING: Record<Provider, Record<string, { inPer1M: number; outPer1M: number }>> = {
   claude: {
-    "claude-haiku-4-5-20251001": { inPer1M: 0.8, outPer1M: 4.0 },
+    "claude-haiku-4-5-20251001": { inPer1M: 1.0, outPer1M: 5.0 },
     "claude-sonnet-4-6": { inPer1M: 3.0, outPer1M: 15.0 },
     "claude-opus-4-5": { inPer1M: 5.0, outPer1M: 25.0 },
     "claude-opus-4-7": { inPer1M: 5.0, outPer1M: 25.0 },
+    "claude-opus-4-8": { inPer1M: 5.0, outPer1M: 25.0 },
   },
   openai: {
     "gpt-5.4-mini": { inPer1M: 0.75, outPer1M: 4.5 },
