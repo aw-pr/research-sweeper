@@ -26,7 +26,7 @@ Specifically:
 2. **Load brief** — if a markdown brief exists, prefer the MCP `brief_file` tool over inline params.
 3. **Run sweep** — call MCP tools below; do NOT shell out to raw `npx ts-node` for secret-backed routes.
 4. **Verify outputs exist** — check the configured Obsidian path before reporting success.
-5. **Synthesise** — default model `claude-opus-4-5`. Upgrade to `claude-opus-4-7` only on explicit user request.
+5. **Synthesise** — default model `claude-opus-4-8`. Override with `--synthesis-model <id>` to trade detail for cost.
 
 ## MCP tools (preferred surface)
 

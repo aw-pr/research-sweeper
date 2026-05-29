@@ -7,7 +7,7 @@ import { BatchStatus, Lane, LaneResult, ProviderAdapter, ProviderModels, SweepCo
 
 const LANE_MODEL_HAIKU = "claude-haiku-4-5-20251001";
 const LANE_MODEL_SONNET = "claude-sonnet-4-6";
-const SYNTHESIS_MODEL = "claude-opus-4-7";
+const SYNTHESIS_MODEL = "claude-opus-4-8";
 
 // Tool allow/deny lists for the Agent SDK OAuth route. Lanes run with
 // only WebSearch available; synthesis runs with no tools at all. Everything
