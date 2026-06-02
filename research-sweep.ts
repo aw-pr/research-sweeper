@@ -401,7 +401,30 @@ async function waitAllBatches(pollIntervalMs: number): Promise<void> {
   console.log("\nAll batches complete.");
 }
 
-async function reSynthesise(folder: string, batchId?: string): Promise<void> {
+type AuthOverrides = Pick<Partial<SweepConfig>, "claudeAuth" | "geminiAuth" | "openaiAuth">;
+
+function parseAuthOverrides(args: string[]): AuthOverrides {
+  const overrides: AuthOverrides = {};
+  for (let i = 0; i < args.length; i++) {
+    const raw = args[i + 1];
+    if (args[i] === "--claude-auth") {
+      if (raw === "api-key" || raw === "api_key") overrides.claudeAuth = "api_key";
+      else if (raw === "claude-oauth" || raw === "claude_oauth" || raw === "agent-sdk" || raw === "agent_sdk" || raw === "claude-cli" || raw === "claude_cli") overrides.claudeAuth = "claude_oauth";
+      else throw new Error(`Error: --claude-auth expects "api-key" or "claude-oauth", got "${raw}"`);
+    } else if (args[i] === "--gemini-auth") {
+      if (raw === "api-key" || raw === "api_key") overrides.geminiAuth = "api_key";
+      else if (raw === "gemini-oauth" || raw === "gemini_oauth" || raw === "oauth") overrides.geminiAuth = "gemini_oauth";
+      else throw new Error(`Error: --gemini-auth expects "api-key" or "gemini-oauth", got "${raw}"`);
+    } else if (args[i] === "--openai-auth") {
+      if (raw === "api-key" || raw === "api_key") overrides.openaiAuth = "api_key";
+      else if (raw === "codex" || raw === "codex-cli" || raw === "codex_cli" || raw === "chatgpt") overrides.openaiAuth = "codex_cli";
+      else throw new Error(`Error: --openai-auth expects "api-key" or "codex", got "${raw}"`);
+    }
+  }
+  return overrides;
+}
+
+async function reSynthesise(folder: string, batchId?: string, authOverrides: AuthOverrides = {}): Promise<void> {
   const outputDir = path.join(researchRoot(), folder);
   const lanesDir = path.join(outputDir, "lanes");
   let config: SweepConfig;
@@ -424,6 +447,9 @@ async function reSynthesise(folder: string, batchId?: string): Promise<void> {
   }
 
   lanes = capLaneSourcesByDepth(config, lanes);
+  if (authOverrides.claudeAuth) config.claudeAuth = authOverrides.claudeAuth;
+  if (authOverrides.geminiAuth) config.geminiAuth = authOverrides.geminiAuth;
+  if (authOverrides.openaiAuth) config.openaiAuth = authOverrides.openaiAuth;
   const provider = getProvider(config.provider);
   const files = computeFileNames(config.topic);
   const synthesisModel = provider.getModels(config, "sync").synthesis;
@@ -475,7 +501,7 @@ async function main(): Promise<void> {
     const folder = rawArgs[reSynthIndex + 1];
     if (!folder || folder.startsWith("--")) throw new Error("Error: --re-synthesise requires a folder name");
     const fromBatchIndex = rawArgs.indexOf("--from-batch");
-    await reSynthesise(folder, fromBatchIndex !== -1 ? rawArgs[fromBatchIndex + 1] : undefined);
+    await reSynthesise(folder, fromBatchIndex !== -1 ? rawArgs[fromBatchIndex + 1] : undefined, parseAuthOverrides(rawArgs));
     return;
   }
 
