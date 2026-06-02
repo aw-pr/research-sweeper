@@ -159,6 +159,7 @@ async function resolveConfig(partial: Partial<SweepConfig>): Promise<SweepConfig
     laneModelId: partial.laneModelId,
     claudeAuth: partial.claudeAuth,
     geminiAuth: partial.geminiAuth,
+    openaiAuth: partial.openaiAuth,
     minLanes: partial.minLanes,
   };
 }
@@ -255,6 +256,7 @@ async function runSynthesisOptimised(
 async function resumeBatch(batchId: string): Promise<void> {
   const job = loadJob(batchId);
   const provider = getProvider(job.provider);
+  provider.requireApiKey(job.config);
   const status = await provider.getBatchStatus(batchId);
 
   if (status.status !== "completed" && status.status !== "ended") {
@@ -268,6 +270,14 @@ async function resumeBatch(batchId: string): Promise<void> {
   console.log(`Batch complete — retrieving results...`);
   const submittedLaneModel = provider.getModels(job.config, "batch").lane;
   const laneResults = capLaneSourcesByDepth(job.config, await provider.collectBatchResults(batchId, job.lanes, submittedLaneModel));
+  const successCount = laneResults.filter((result) => result.sources.length > 0).length;
+  const minLanes = job.config.minLanes !== undefined ? job.config.minLanes : defaultMinLanes(job.lanes.length);
+  if (successCount < minLanes) {
+    throw new Error(
+      `Aborting before synthesis: only ${successCount} of ${job.lanes.length} batch lanes returned sources (need >=${minLanes}). ` +
+        `The batch job has been retained so collection can be retried after fixing the parser.`
+    );
+  }
   const laneTotals = laneResults.reduce(
     (acc, result) => ({
       in: acc.in + result.tokensIn,
@@ -333,6 +343,7 @@ async function listBatches(): Promise<void> {
     let counts = "";
     try {
       const provider = getProvider(job.provider);
+      provider.requireApiKey(job.config);
       const batchStatus = await provider.getBatchStatus(job.batchId);
       status = batchStatus.status === "ended" ? "complete" : batchStatus.status;
       counts = `${batchStatus.counts.succeeded}/${batchStatus.counts.errored}/${batchStatus.counts.processing}`;
@@ -374,6 +385,7 @@ async function waitAllBatches(pollIntervalMs: number): Promise<void> {
 
     for (const [batchId, job] of [...pending.entries()]) {
       const provider = getProvider(job.provider);
+      provider.requireApiKey(job.config);
       const status = await provider.getBatchStatus(batchId);
       const label = job.config.topic.slice(0, 34).padEnd(34);
       console.log(`  [${ts}] +${String(elapsed).padStart(5)}s  [${batchId.slice(-8)}] (${job.provider}) ${label}  ${status.status}  (${status.counts.processing} active / ${status.counts.succeeded} done)`);
@@ -414,6 +426,7 @@ async function reSynthesise(folder: string, batchId?: string): Promise<void> {
   lanes = capLaneSourcesByDepth(config, lanes);
   const provider = getProvider(config.provider);
   const files = computeFileNames(config.topic);
+  const synthesisModel = provider.getModels(config, "sync").synthesis;
   console.log(`
 Re-synthesise
 -------------
@@ -425,7 +438,7 @@ Depth:    ${config.depth}
 Source:   ${source}
 `);
   const synthesis = await runSynthesisOptimised(provider, config, lanes, files.sourcesName);
-  const output = writeOutput(config, synthesis.markdown, lanes, files, undefined, { allowOverwrite: true });
+  const output = writeOutput(config, synthesis.markdown, lanes, files, synthesisModel, { allowOverwrite: true });
   console.log(`Done (${synthesis.tokensIn.toLocaleString()} in / ${synthesis.tokensOut.toLocaleString()} out)`);
   console.log(`Summary: ${output.summaryPath}`);
 }

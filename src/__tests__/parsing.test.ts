@@ -61,6 +61,16 @@ describe("parseLaneResponse", () => {
     expect(result!.narrative).toBe("");
     expect(result!.model_context).toBeUndefined();
   });
+
+  it("normalises OpenAI batch schema drift without discarding sourced output", () => {
+    const result = parseLaneResponse(
+      `{"sources":[{"title":"Paper A","publication":"arXiv","why_it_matters":"Measured result"}],"synthesis":{"executive_summary":["Finding"]}}`
+    );
+    expect(result).not.toBeNull();
+    expect(result!.sources).toEqual([{ title: "Paper A", outlet: "arXiv", significance: "Measured result", url: undefined, date: undefined }]);
+    expect(result!.narrative).toContain('"executive_summary"');
+    expect(result!.narrative).toContain('"Finding"');
+  });
 });
 
 describe("fallbackLaneResult", () => {

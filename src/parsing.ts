@@ -7,14 +7,35 @@ export function extractText(blocks: Array<{ type?: string; text?: string }>): st
 function coerceSourceItem(value: unknown): SourceItem | null {
   if (!value || typeof value !== "object") return null;
   const record = value as Record<string, unknown>;
-  if (typeof record.title !== "string" || typeof record.significance !== "string") return null;
+  const firstString = (...values: unknown[]): string | undefined => values.find((item): item is string => typeof item === "string" && item.length > 0);
+  const title = firstString(record.title, record.headline_claim);
+  const significance = firstString(
+    record.significance,
+    record.why_it_matters,
+    record.evidence_value,
+    record.core_contribution,
+    record.evidence_role,
+    record.why_relevant,
+    record.core_claim,
+    record.practice,
+    record.headline_claim
+  );
+  const citation = firstString(record.url, record.source, record.source_citation, record.citation, record.evidence_role);
+  const url = citation?.match(/https?:\/\/[^)\s]+/)?.[0];
+  if (!title || !significance) return null;
   return {
-    title: record.title,
-    significance: record.significance,
-    url: typeof record.url === "string" ? record.url : undefined,
-    date: typeof record.date === "string" ? record.date : undefined,
-    outlet: typeof record.outlet === "string" ? record.outlet : undefined,
+    title,
+    significance,
+    url,
+    date: typeof record.date === "string" || typeof record.date === "number" ? String(record.date) : typeof record.year === "number" ? String(record.year) : undefined,
+    outlet: firstString(record.outlet, record.publication, record.lab_or_evaluator, record.venue, record.firm),
   };
+}
+
+function stringifyNarrative(value: unknown): string | undefined {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object") return JSON.stringify(value, null, 2);
+  return undefined;
 }
 
 // Pull the first balanced { ... } object out of a string by brace-depth
@@ -59,9 +80,10 @@ export function parseLaneResponse(rawText: string): { sources: SourceItem[]; nar
   }
   if (!parsed) return null;
   const sourceValues = Array.isArray(parsed.sources) ? parsed.sources : [];
+  const narrative = stringifyNarrative(parsed.narrative) ?? stringifyNarrative(parsed.synthesis) ?? stringifyNarrative(parsed.summary) ?? stringifyNarrative(parsed.findings) ?? stringifyNarrative(parsed.recommended_narrative_themes) ?? "";
   return {
     sources: sourceValues.map(coerceSourceItem).filter((item): item is SourceItem => item !== null),
-    narrative: typeof parsed.narrative === "string" ? parsed.narrative : "",
+    narrative,
     model_context: typeof parsed.model_context === "string" ? parsed.model_context : undefined,
   };
 }

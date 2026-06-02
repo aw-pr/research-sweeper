@@ -34,8 +34,14 @@ function responseInputItem(text: string) {
   return [{ role: "user" as const, content: [{ type: "input_text" as const, text }] }];
 }
 
-function extractOutputText(response: OpenAI.Responses.Response): string {
-  return response.output_text || "";
+export function extractOutputText(response: OpenAI.Responses.Response): string {
+  if (response.output_text) return response.output_text;
+  const output = response.output as unknown as Array<{ content?: Array<{ type?: string; text?: string }> }> | undefined;
+  return (output ?? [])
+    .flatMap((item) => (Array.isArray(item.content) ? item.content : []))
+    .filter((part) => part.type === "output_text" && typeof part.text === "string")
+    .map((part) => part.text)
+    .join("");
 }
 
 function tempBatchFilePath(): string {
@@ -234,7 +240,7 @@ export class OpenAIProvider implements ProviderAdapter {
         model,
         input: responseInputItem(buildSynthesisPrompt(config, laneResults, sourcesName)),
         reasoning: { effort: SYNTHESIS_REASONING_EFFORT },
-        max_output_tokens: 8192,
+        max_output_tokens: DEPTH_CONFIG[config.depth].synthesisMaxTokens,
       });
       markdown = extractOutputText(response);
       tokensIn = response.usage?.input_tokens || 0;
