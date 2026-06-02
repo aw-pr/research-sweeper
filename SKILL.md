@@ -22,15 +22,25 @@ Specifically:
 
 ## Workflow
 
-1. **Confirm scope** — topic, lanes, depth, output location.
-2. **Load brief** — if a markdown brief exists, prefer the MCP `brief_file` tool over inline params.
-3. **Run sweep** — call MCP tools below; do NOT shell out to raw `npx ts-node` for secret-backed routes.
-4. **Verify outputs exist** — check the configured Obsidian path before reporting success.
-5. **Synthesise** — default model `claude-opus-4-8`. Override with `--synthesis-model <id>` to trade detail for cost.
+1. **Confirm scope** — topic, lanes, depth, provider, output folder.
+2. **Load brief** — if a markdown brief exists, pass it via `run_sweep`'s `brief_file` argument instead of retyping the topic and sub-questions.
+3. **Run sweep** — call `run_sweep` (it runs as a batch and returns a `batchId`). Do NOT shell out to raw `npx ts-node` for secret-backed routes.
+4. **Poll** — `check_sweep_status` until the batch completes (omit `batch_id` to list all pending).
+5. **Verify outputs exist** — check the output folder before reporting success.
+6. **Synthesise** — default synthesis model is `claude-opus-4-8`; override via `synthesis_model`. Use `resynthesize` to rebuild a report from cached lane data without re-fetching.
 
 ## MCP tools (preferred surface)
 
-Use the tools exposed by `research-sweeper-mcp`. The CLI and shell wrappers are implementation details behind the MCP — treat them as fallbacks, not first choice.
+Use the `research-sweeper` MCP. The CLI and shell wrappers are implementation details behind it — fallbacks, not first choice.
+
+| Tool | Purpose | Key arguments |
+|---|---|---|
+| `run_sweep` | Submit a multi-lane sweep; runs as a **batch**, returns a `batchId`. | `topic` (required); `brief_file`; `depth` (`shallow`=5 / `standard`=10 / `deep`=20 sources); `lanes` (any of `financial, frontier, academic, vc, blogs, tech`; default all six); `provider` (`claude` / `openai` / `gemini`, default `claude`); `from_year` / `to_year`; `folder`; `synthesis_model`; `overwrite`. |
+| `check_sweep_status` | Poll a batch; omit `batch_id` to list all pending. | `batch_id` |
+| `list_runs` | List completed sweeps, newest first, with token usage and cost. | `limit` (default 20) |
+| `resynthesize` | Regenerate the synthesis brief from cached lane data — no re-fetch. | `folder` (required) |
+
+Output lands under `RESEARCH_SWEEPER_OUTPUT_DIR` (default `~/obsidian/research`), one folder per topic slug; summaries include a Mermaid timeline section.
 
 ## Shell fallbacks (only when MCP is unavailable)
 
