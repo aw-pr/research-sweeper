@@ -119,6 +119,7 @@ Gemini lanes use Google Search grounding via `@google/genai` (`tools: [{ googleS
 - Normal runs create `_research-sweeper-stub.md` in the target folder before the sweep starts.
 - The CLI refuses to overwrite existing `summary-*`, `sources-*`, and lane files unless `--overwrite` is set.
 - Re-synthesis is allowed to rewrite existing generated outputs.
+- Deep and standard summaries include a `## Timeline` near the top: a Mermaid `timeline` of concept-level milestones (not a paper list). Granularity scales to the span — quarters (≤3yr), half-years (>3yr), whole years (≥10yr) — with flat `H1 2023`-style period labels and no `section`. Shallow summaries omit it, as do sweeps with fewer than three datable events. Defined per depth in `config/depths.json` (`synthGuide`); rendered as standard Mermaid in Obsidian and as a custom chevron layout by the downstream publishing site.
 
 Files written to `$RESEARCH_SWEEPER_OUTPUT_DIR/<folder>/` (defaults to `~/obsidian/research/<folder>/`):
 
@@ -196,6 +197,7 @@ npx ts-node research-sweep.ts --re-synthesise <folder>
 - `--gemini-auth api-key|gemini-oauth` picks Gemini's credential route. `gemini-oauth` is sync-only and GCP-billed (not a consumer-subscription quota). Batch mode rejects `gemini-oauth`.
 - `--openai-auth api-key|codex` picks OpenAI's credential route. `codex` is sync-only; batch mode rejects it. All three detectors are now symmetric: when both routes' credentials are present and no explicit flag is given, detection throws ("Refusing to guess") rather than silently billing API credits.
 - Auth detection lives in `src/auth/detect.ts` (single source of truth for all providers). Batch guards call `requireApiKeyModeOrThrow()` from the same module. `buildRunStats()` lives in `src/stats.ts` (single copy).
+- `--re-synthesise <folder>` honours `--claude-auth` / `--gemini-auth` / `--openai-auth` overrides, so a run captured under one route (e.g. `claude-oauth`) can be re-synthesised on the API-key route when only that credential is present.
 
 ## Skills are canonical here
 
