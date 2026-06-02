@@ -1469,5 +1469,97 @@
       "~/obsidian/research/emergent-behaviour-cross-domain/lanes/lane-financial-the-science-of-emergent-behaviour-and-self-organis.md"
     ],
     "authMode": "api_key"
+  },
+  {
+    "runId": "2026-05-28T17-09-57-claude-batch-handling-large-volatile-corpor",
+    "timestamp": "2026-05-28T17:09:57.206Z",
+    "provider": "claude",
+    "mode": "batch",
+    "topic": "Handling large volatile corpora with AI",
+    "depth": "standard",
+    "lanes": [
+      "frontier",
+      "tech",
+      "academic",
+      "blogs"
+    ],
+    "fromYear": 2025,
+    "toYear": 2026,
+    "test": false,
+    "durationSec": null,
+    "submittedAt": "2026-05-28T16:45:37.467Z",
+    "tokens": {
+      "lanesIn": 17854,
+      "lanesOut": 12438,
+      "synthesisIn": 11609,
+      "synthesisOut": 3660,
+      "totalIn": 29463,
+      "totalOut": 16098,
+      "cacheCreateIn": 188020,
+      "cacheReadIn": 129470,
+      "reasoningOut": 0
+    },
+    "models": {
+      "lane": "claude-haiku-4-5-20251001",
+      "synthesis": "claude-opus-4-7"
+    },
+    "estimatedCostUSD": 0.280751,
+    "outputFiles": [
+      "~/obsidian/research/large-volatile-corpora-ai/summary-handling-large-volatile-corpora-with-ai.md",
+      "~/obsidian/research/large-volatile-corpora-ai/sources-handling-large-volatile-corpora-with-ai.md",
+      "~/obsidian/research/large-volatile-corpora-ai/lanes/lane-frontier-handling-large-volatile-corpora-with-ai.md",
+      "~/obsidian/research/large-volatile-corpora-ai/lanes/lane-tech-handling-large-volatile-corpora-with-ai.md",
+      "~/obsidian/research/large-volatile-corpora-ai/lanes/lane-academic-handling-large-volatile-corpora-with-ai.md",
+      "~/obsidian/research/large-volatile-corpora-ai/lanes/lane-blogs-handling-large-volatile-corpora-with-ai.md"
+    ],
+    "authMode": "api_key"
+  },
+  {
+    "runId": "2026-06-01T18-07-19-openai-batch-methods-for-reducing-token-usa",
+    "timestamp": "2026-06-01T18:07:19.238Z",
+    "provider": "openai",
+    "mode": "batch",
+    "topic": "Methods for reducing token usage and total inference cost in developer tools and enterprise AI systems from January 2025 to June 2026, covering local-first code intelligence and compression tools, context caching and retrieval architectures, enterprise AI gateways and control planes, and the evidence needed to distinguish durable efficiency gains from vendor claims.",
+    "depth": "deep",
+    "lanes": [
+      "financial",
+      "frontier",
+      "academic",
+      "vc",
+      "blogs",
+      "tech"
+    ],
+    "fromYear": 2025,
+    "toYear": 2026,
+    "test": false,
+    "durationSec": null,
+    "submittedAt": "2026-06-01T18:00:26.825Z",
+    "tokens": {
+      "lanesIn": 180798,
+      "lanesOut": 33955,
+      "synthesisIn": 1778,
+      "synthesisOut": 834,
+      "totalIn": 182576,
+      "totalOut": 34789,
+      "cacheCreateIn": 0,
+      "cacheReadIn": 0,
+      "reasoningOut": 7125
+    },
+    "models": {
+      "lane": "gpt-5.4-mini",
+      "synthesis": "gpt-5.5"
+    },
+    "estimatedCostUSD": 0.391858,
+    "outputFiles": [
+      "~/obsidian/research/token-efficient-ai-control-planes/summary-methods-for-reducing-token-usage-and-total-inferen.md",
+      "~/obsidian/research/token-efficient-ai-control-planes/sources-methods-for-reducing-token-usage-and-total-inferen.md",
+      "~/obsidian/research/token-efficient-ai-control-planes/lanes/lane-financial-methods-for-reducing-token-usage-and-total-inferen.md",
+      "~/obsidian/research/token-efficient-ai-control-planes/lanes/lane-frontier-methods-for-reducing-token-usage-and-total-inferen.md",
+      "~/obsidian/research/token-efficient-ai-control-planes/lanes/lane-academic-methods-for-reducing-token-usage-and-total-inferen.md",
+      "~/obsidian/research/token-efficient-ai-control-planes/lanes/lane-vc-methods-for-reducing-token-usage-and-total-inferen.md",
+      "~/obsidian/research/token-efficient-ai-control-planes/lanes/lane-blogs-methods-for-reducing-token-usage-and-total-inferen.md",
+      "~/obsidian/research/token-efficient-ai-control-planes/lanes/lane-tech-methods-for-reducing-token-usage-and-total-inferen.md"
+    ],
+    "authMode": "api_key"
   }
 ]
