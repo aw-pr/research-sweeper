@@ -147,7 +147,7 @@ Each sweep writes to `<output-folder>/`:
 | File | Purpose |
 |---|---|
 | `_research-sweeper-stub.md` | Placeholder written before lanes start; signals an in-flight sweep |
-| `summary-<slug>.md` | Synthesised cross-lane narrative with section headings |
+| `summary-<slug>.md` | Synthesised cross-lane narrative with section headings; deep and standard sweeps also include a Mermaid `timeline` of dated milestones (granularity scaled to span; omitted on shallow sweeps or when fewer than three events are datable) |
 | `sources-<slug>.md` | Deduplicated, dated source list across all lanes |
 | `lanes/lane-<name>-<slug>.md` | Per-lane markdown with narrative and citations |
 | `lanes/lanes-<slug>.json` | Structured lane payload for re-synthesis and eval |
