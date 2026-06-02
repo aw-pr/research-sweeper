@@ -1,5 +1,16 @@
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
+
+// Store output paths relative to the home dir so runs/stats.json stays
+// publish-safe regardless of whether the output dir resolved to an absolute
+// path or a literal "~". Without this, runs under $HOME leak machine paths.
+function toHomeRelative(filePath: string): string {
+  const home = os.homedir();
+  if (filePath === home) return "~";
+  if (filePath.startsWith(home + path.sep)) return "~" + filePath.slice(home.length);
+  return filePath;
+}
 import { getProvider } from "./providers";
 import { Provider, ProviderModels, RunStats, SweepConfig, TokenBreakdown } from "./types";
 
@@ -95,7 +106,7 @@ export function buildRunStats(
     tokens,
     models,
     estimatedCostUSD: computeRunCost(config.provider, tokens, models, mode === "batch"),
-    outputFiles,
+    outputFiles: outputFiles.map(toHomeRelative),
     authMode,
   };
 }
