@@ -3,14 +3,6 @@ name: sweeper-prompt-creation
 description: "Draft a well-formed research brief for research-sweeper from a plain-English description, then optionally launch the sweep."
 ---
 
-## Claude.ai Compatibility
-
-- Exported for Claude.ai compatibility.
-- See `README.md` in this skill bundle for full portability notes.
-
-- Strict mode enabled.
-
-
 # Sweeper Prompt Creation Skill
 
 Turn a plain-English research description into a well-formed `prompts/*.md` brief, then offer to launch the sweep.
@@ -73,6 +65,8 @@ Manual steps (run in your own terminal if needed):
 6. `--depth [shallow|standard|deep] \`
 7. `--folder "[folder-slug]"`
 
+Add `--wait` to auto-resume when the batch finishes. Default provider is `claude`; for a different provider append e.g. `--provider openai --openai-auth api-key` (batch needs the API key, not the subscription — see Provider & auth below). For a fast, model-knowledge-only run with no web search, add `--no-search`.
+
 
 ### Depth guide
 | Depth    | Rounds | Sources/lane | Synthesis length        | Best for                          |
@@ -83,9 +77,9 @@ Manual steps (run in your own terminal if needed):
 
 ## Notes
 
-- Output lands in `<HOME_PATH>`
+- Output lands in `$RESEARCH_SWEEPER_OUTPUT_DIR/[folder-slug]/` (defaults to `~/obsidian/research/[folder-slug]/`)
 - Re-run synthesis: `npx ts-node research-sweep.ts --re-synthesise [folder-slug]`
-- Check batches: `./list-batches.sh`
+- Check batches: `./list-batches.sh`; resume a finished batch with `./resume-batch.sh`
 ```
 
 ### Brief quality rules
@@ -93,12 +87,14 @@ Manual steps (run in your own terminal if needed):
 **Topic string:**
 - One sentence, must include an explicit date range with both start and end as calendar month + year (e.g. "June 2025–April 2026") — never use bare "present"; models anchor on literal dates
 - Name 2–4 specific dimensions (not just the topic area)
+- Seed 3–6 named tools, vendors, standards, or competitors when the topic has them (e.g. "Serena, SCIP, KuzuDB") — concrete names give lane agents search anchors and surface comparisons a generic phrasing would miss
 - No URLs
 
 **Sub-questions:**
 - Group into 3–4 named themes — each theme is a bold heading
 - 3–4 bullets per theme, each specific and answerable
 - Questions direct evidence collection — avoid restating the topic
+- Include at least one evidence-quality question that forces skepticism (e.g. "Where is the evidence thin, anecdotal, or vendor-driven rather than independently measured?") — keeps synthesis from laundering marketing claims as findings
 - For competitive/comparative topics: include a "Comparative positioning" theme
 - For trend topics: include a "Trend and outlook" theme
 
@@ -115,14 +111,19 @@ Manual steps (run in your own terminal if needed):
 - `standard` — most topics, balanced coverage (default)
 - `deep` — broad competitive landscape or historical analysis
 
+**Provider & auth (load-bearing):**
+- `--provider claude|openai|gemini` selects which provider runs the lanes + synthesis. Default is `claude`.
+- **Batch mode requires API-key auth.** The subscription / OAuth routes are sync-only and hard-fail in batch: `--openai-auth codex`, `--claude-auth claude-oauth`, `--gemini-auth gemini-oauth`. So "run it as a batch on provider X" always means provider X's API key (metered billing), never the subscription.
+- When both a provider's API key and its OAuth/subscription credential are present and no auth flag is given, the tool refuses to guess and throws — pass the auth flag explicitly.
+- **Comparing providers is not a clean model comparison.** Lane search differs by route: Claude API forces `web_search_20250305` (`tool_choice: any`), the Claude Agent-SDK route uses a different `WebSearch` tool, and Gemini grounding cannot be forced. Source selection therefore diverges. The run records `authMode` in `runs/stats.json` so comparisons stay honest — flag this confound to the user before they read provider A vs B as quality.
+
 ### Step 3 — Show the draft
 
 Present the full draft to the user before writing anything. Ask for changes.
 
 ### Step 4 — Write the file
 
-Once approved, write to:
-`<LOCAL_PATH>`
+Once approved, write the brief to `prompts/[folder-slug].md` in the research-sweeper repo (the `--brief-file` path the lanes and synthesis read from).
 
 Confirm the file path to the user.
 
@@ -139,8 +140,7 @@ Manual steps (run in your own terminal if needed):
 
 Confirm with `tmux ls`. Remind user to check `./list-batches.sh` to monitor.
 
-## Reference files
+## Reference
 
-- Template: `<LOCAL_PATH>`
-- Example: `<LOCAL_PATH>`
-- Repo docs: `<LOCAL_PATH>`
+- Tool behaviour, auth routes, lane models, and cost defaults: research-sweeper `CLAUDE.md`.
+- Existing briefs to mirror for format: `prompts/*.md` in the repo.
