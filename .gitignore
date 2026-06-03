@@ -41,6 +41,7 @@ results/
 !results/2026-04-07-certification-options-claude-code-codex.md
 !results/2026-04-07-technology-trends-market-reactions.md
 logs/
+prompts/
 
 # Test run output folders
 test-*/
