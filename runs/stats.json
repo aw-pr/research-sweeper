@@ -1561,5 +1561,51 @@
       "~/obsidian/research/token-efficient-ai-control-planes/lanes/lane-tech-methods-for-reducing-token-usage-and-total-inferen.md"
     ],
     "authMode": "api_key"
+  },
+  {
+    "runId": "2026-06-03T09-21-42-openai-batch-tools-and-emerging-approaches-",
+    "timestamp": "2026-06-03T09:21:42.674Z",
+    "provider": "openai",
+    "mode": "batch",
+    "topic": "Tools and emerging approaches for code intelligence and code-graph indexing for AI coding agents from June 2025 through early June 2026, spanning local/embedded indexers (CodeGraph/Caveman-style repo maps, tree-sitter, SQLite and embedded graph stores), enterprise-scale code understanding (SCIP, code knowledge graphs, embeddings+retrieval), LSP-to-MCP bridges such as Serena, and the semantic-vs-syntactic-vs-embedding trade-off.",
+    "depth": "deep",
+    "lanes": [
+      "tech",
+      "frontier",
+      "academic",
+      "financial",
+      "blogs"
+    ],
+    "fromYear": 2025,
+    "toYear": 2026,
+    "test": false,
+    "durationSec": null,
+    "submittedAt": "2026-06-03T08:58:14.708Z",
+    "tokens": {
+      "lanesIn": 148297,
+      "lanesOut": 25464,
+      "synthesisIn": 8232,
+      "synthesisOut": 11464,
+      "totalIn": 156529,
+      "totalOut": 36928,
+      "cacheCreateIn": 0,
+      "cacheReadIn": 0,
+      "reasoningOut": 6164
+    },
+    "models": {
+      "lane": "gpt-5.4-mini",
+      "synthesis": "gpt-5.5"
+    },
+    "estimatedCostUSD": 0.682905,
+    "outputFiles": [
+      "~/obsidian/research/code-intelligence-indexing-2026-openai/summary-tools-and-emerging-approaches-for-code-intelligenc.md",
+      "~/obsidian/research/code-intelligence-indexing-2026-openai/sources-tools-and-emerging-approaches-for-code-intelligenc.md",
+      "~/obsidian/research/code-intelligence-indexing-2026-openai/lanes/lane-tech-tools-and-emerging-approaches-for-code-intelligenc.md",
+      "~/obsidian/research/code-intelligence-indexing-2026-openai/lanes/lane-frontier-tools-and-emerging-approaches-for-code-intelligenc.md",
+      "~/obsidian/research/code-intelligence-indexing-2026-openai/lanes/lane-academic-tools-and-emerging-approaches-for-code-intelligenc.md",
+      "~/obsidian/research/code-intelligence-indexing-2026-openai/lanes/lane-financial-tools-and-emerging-approaches-for-code-intelligenc.md",
+      "~/obsidian/research/code-intelligence-indexing-2026-openai/lanes/lane-blogs-tools-and-emerging-approaches-for-code-intelligenc.md"
+    ],
+    "authMode": "api_key"
   }
 ]
