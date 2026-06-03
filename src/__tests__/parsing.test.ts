@@ -71,6 +71,60 @@ describe("parseLaneResponse", () => {
     expect(result!.narrative).toContain('"executive_summary"');
     expect(result!.narrative).toContain('"Finding"');
   });
+
+  it("normalises lane-specific OpenAI source fields from completed batches", () => {
+    const result = parseLaneResponse(
+      JSON.stringify({
+        sources: [
+          {
+            outlet: "Martin Fowler / Thoughtworks",
+            date: "2025-06-04",
+            practice_or_pattern: "Autonomous background coding agents and code-context workflows.",
+            empirical_grounding: "Practitioner exploration and hands-on experiments.",
+            citation: "([martinfowler.com](https://www.martinfowler.com/articles/example.html?utm_source=openai))",
+          },
+          {
+            lab_or_evaluator: "OpenAI",
+            date: "2025-06-03",
+            model_or_paper: "Codex update",
+            core_claim: "Codex can be given internet access during execution.",
+            citation: "([openai.com](https://openai.com/index/example/?utm_source=openai))",
+          },
+          {
+            outlet: "Simon Willison's Weblog",
+            headline: "Coding agents require skilled operators",
+            claim: "Agents still require a skilled human operator to steer context and verify outputs.",
+          },
+        ],
+        summary: "Independent commentary converges on hybrid indexing.",
+      })
+    );
+    expect(result).not.toBeNull();
+    expect(result!.sources).toEqual([
+      {
+        title: "Autonomous background coding agents and code-context workflows.",
+        outlet: "Martin Fowler / Thoughtworks",
+        significance: "Autonomous background coding agents and code-context workflows.",
+        url: "https://www.martinfowler.com/articles/example.html?utm_source=openai",
+        date: "2025-06-04",
+      },
+      {
+        title: "Codex update",
+        outlet: "OpenAI",
+        significance: "Codex can be given internet access during execution.",
+        url: "https://openai.com/index/example/?utm_source=openai",
+        date: "2025-06-03",
+      },
+      {
+        title: "Coding agents require skilled operators",
+        outlet: "Simon Willison's Weblog",
+        significance: "Agents still require a skilled human operator to steer context and verify outputs.",
+        url: undefined,
+        date: undefined,
+      },
+    ]);
+    expect(result!.narrative).toBe("Independent commentary converges on hybrid indexing.");
+  });
 });
 
 describe("fallbackLaneResult", () => {

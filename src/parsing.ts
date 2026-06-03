@@ -8,7 +8,15 @@ function coerceSourceItem(value: unknown): SourceItem | null {
   if (!value || typeof value !== "object") return null;
   const record = value as Record<string, unknown>;
   const firstString = (...values: unknown[]): string | undefined => values.find((item): item is string => typeof item === "string" && item.length > 0);
-  const title = firstString(record.title, record.headline_claim);
+  const title = firstString(
+    record.title,
+    record.headline,
+    record.headline_claim,
+    record.model_or_paper,
+    record.practice_or_pattern,
+    record.paper,
+    record.claim
+  );
   const significance = firstString(
     record.significance,
     record.why_it_matters,
@@ -16,8 +24,12 @@ function coerceSourceItem(value: unknown): SourceItem | null {
     record.core_contribution,
     record.evidence_role,
     record.why_relevant,
+    record.relevance,
     record.core_claim,
+    record.claim,
     record.practice,
+    record.practice_or_pattern,
+    record.empirical_grounding,
     record.headline_claim
   );
   const citation = firstString(record.url, record.source, record.source_citation, record.citation, record.evidence_role);
