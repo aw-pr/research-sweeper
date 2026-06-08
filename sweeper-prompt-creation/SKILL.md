@@ -89,6 +89,7 @@ Add `--wait` to auto-resume when the batch finishes. Default provider is `claude
 - Name 2–4 specific dimensions (not just the topic area)
 - Seed 3–6 named tools, vendors, standards, or competitors when the topic has them (e.g. "Serena, SCIP, KuzuDB") — concrete names give lane agents search anchors and surface comparisons a generic phrasing would miss
 - No URLs
+- No em dashes. The topic string is stored verbatim in output frontmatter and rendered as the published subtitle; use colons, commas, or parentheses instead. Also avoid opening the topic with the brief title verbatim, so the subtitle does not just repeat the title
 
 **Sub-questions:**
 - Group into 3–4 named themes — each theme is a bold heading

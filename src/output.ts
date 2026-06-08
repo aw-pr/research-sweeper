@@ -106,7 +106,7 @@ export function writeLaneFiles(
   for (const result of laneResults) {
     const prefix = LANE_PREFIX[result.lane];
     const body = [
-      `# ${result.label} — ${config.topic}`,
+      `# ${result.label}`,
       "",
       `**Summary:** [[${summaryName}]] | **Sources:** [[${sourcesName}]]`,
       "",
@@ -199,13 +199,22 @@ export function writeOutput(
 
   const sourceMetaById = buildSourceMetaById(laneResults);
   const { lanesPaths } = writeLaneFiles(config, laneResults, files.summaryName, files.sourcesName, files.slug);
+  const summaryMarkdown = ensureOverviewHeading(markdown.trim());
   fs.writeFileSync(
     summaryPath,
-    fm + formatSummaryCitations(markdown.trim(), files.sourcesName, sourceMetaById) + `\n\n---\n\n![[${files.sourcesName}]]`,
+    fm + formatSummaryCitations(summaryMarkdown, files.sourcesName, sourceMetaById) + `\n\n---\n\n![[${files.sourcesName}]]`,
     "utf-8"
   );
   fs.writeFileSync(sourcesPath, fm + sourcesBody, "utf-8");
   return { summaryPath, sourcesPath, lanesPaths };
+}
+
+function ensureOverviewHeading(markdown: string): string {
+  if (/^##\s+Overview\s*$/im.test(markdown)) return markdown;
+  const h1 = /^#\s+.+$/m.exec(markdown);
+  if (!h1) return `## Overview\n\n${markdown}`;
+  const insertAt = h1.index + h1[0].length;
+  return `${markdown.slice(0, insertAt)}\n\n## Overview${markdown.slice(insertAt)}`;
 }
 
 function buildSourceMetaById(laneResults: LaneResult[]): Map<string, { outlet: string; year: string; url?: string }> {

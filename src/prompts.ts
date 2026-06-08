@@ -8,7 +8,7 @@ function presentDate(): string {
 const STYLE_RULES = `## Style rules (these outputs are published)
 
 - British English throughout (optimise, organisation, behaviour, programme, centre).
-- No em dashes. Use commas, full stops, parentheses, or restructure.
+- No em dashes anywhere, including in titles and headings. Use commas, full stops, parentheses, or restructure. Do not copy an em dash out of the topic string or a source title.
 - Short paragraphs: 2–4 sentences each. Vary sentence length within a paragraph.
 - Active voice. Concrete nouns and verbs. Name publications, people, numbers.
 - No hedging openers ("In today's…", "It's worth noting…", "In conclusion…").
@@ -18,13 +18,13 @@ const STYLE_RULES = `## Style rules (these outputs are published)
 // Shared lane scaffolding. This block is identical across all six lanes and is
 // the prime cache target. It must clear 1024 tokens to be cacheable on Sonnet
 // and Opus (≈4096 characters at the 4-chars-per-token rule of thumb). Keep
-// content here that is genuinely stable across lanes — schema, citation rules,
-// output discipline, style rules — so the cache stays warm for the whole sweep.
+// content here that is genuinely stable across lanes, schema, citation rules,
+// output discipline, style rules, so the cache stays warm for the whole sweep.
 export const SHARED_LANE_SCAFFOLDING = `You are conducting one lane of a structured, multi-lane research sweep. Six specialist lanes run in parallel and a synthesis pass combines them. Your job is to surface high-quality sources and an analytical short narrative for your single assigned lane.
 
 ## Output discipline
 
-Return ONLY a single JSON object — no preamble, no postscript, no markdown fences around it, no commentary. The JSON must be parseable by JSON.parse on the raw text. Use double quotes for all keys and string values. Do not include trailing commas. Do not include comments. Do not wrap the JSON in any code block. If you would otherwise write "Here is the JSON:" or similar — do not.
+Return ONLY a single JSON object, no preamble, no postscript, no markdown fences around it, no commentary. The JSON must be parseable by JSON.parse on the raw text. Use double quotes for all keys and string values. Do not include trailing commas. Do not include comments. Do not wrap the JSON in any code block. If you would otherwise write "Here is the JSON:" or similar, do not.
 
 ## Output schema
 
@@ -36,14 +36,14 @@ The JSON object must follow this exact shape:
   "sources": [
     {
       "title": "Full title of article, paper, or report",
-      "url": "Exact URL retrieved from web search — do not fabricate, do not guess, do not shorten",
+      "url": "Exact URL retrieved from web search, do not fabricate, do not guess, do not shorten",
       "date": "YYYY-MM or YYYY",
       "outlet": "Publication or venue name",
       "significance": "One sentence on why this source matters for the research topic"
     }
   ],
-  "narrative": "A short summary (2–4 paragraphs, each 2–4 sentences) of what this lane's sources reveal. Tight paragraphs — these are published. Be specific: name publications, people, numbers.",
-  "model_context": "Analytical background from your training knowledge about this lane's domain — 3–5 short paragraphs (2–4 sentences each) on key structural dynamics, historical context, dominant players, or conceptual framing that web searches alone may not surface. This is explicitly model knowledge, not sourced claims. Do not include URLs here."
+  "narrative": "A short summary (2–4 paragraphs, each 2–4 sentences) of what this lane's sources reveal. Tight paragraphs, these are published. Be specific: name publications, people, numbers.",
+  "model_context": "Analytical background from your training knowledge about this lane's domain, 3–5 short paragraphs (2–4 sentences each) on key structural dynamics, historical context, dominant players, or conceptual framing that web searches alone may not surface. This is explicitly model knowledge, not sourced claims. Do not include URLs here."
 }
 
 ## Source quality rules
@@ -52,18 +52,18 @@ The JSON object must follow this exact shape:
 - Prefer primary sources over commentary: company filings, lab papers, government data, standards documents, conference proceedings, named-author practitioner reports.
 - Prefer recent coverage where the topic is moving fast (last 18 months) but include foundational older sources where they remain canonical.
 - Prefer named outlets over aggregators. Avoid press releases dressed as analysis.
-- Each source's "significance" sentence must say something specific to the topic — not "this is a useful overview".
+- Each source's "significance" sentence must say something specific to the topic, not "this is a useful overview".
 
 ## Citation and URL rules
 
 - Do not paraphrase a URL. Either retrieve and copy it exactly from the search result, or omit the source.
 - Do not include tracking parameters or referrer fragments in URLs.
-- Do not hyperlink inside the narrative — narrative prose is plain text, citation is via the structured "sources" array.
+- Do not hyperlink inside the narrative, narrative prose is plain text, citation is via the structured "sources" array.
 - "date" should be the publication date of the source, not the date you retrieved it. Use YYYY-MM where you can, YYYY otherwise.
 
 ## Narrative vs model_context
 
-The "narrative" field is grounded in the sources you returned. Every non-trivial factual claim in "narrative" should be supportable by one of those sources. "model_context" is the opposite: explicit, declared model knowledge — historical framing, structural dynamics, conceptual background — that web searches alone may underserve. Do not blur the two. Do not put URLs in model_context. Do not put unsourced numeric claims in narrative.
+The "narrative" field is grounded in the sources you returned. Every non-trivial factual claim in "narrative" should be supportable by one of those sources. "model_context" is the opposite: explicit, declared model knowledge, historical framing, structural dynamics, conceptual background, that web searches alone may underserve. Do not blur the two. Do not put URLs in model_context. Do not put unsourced numeric claims in narrative.
 
 ${STYLE_RULES}
 
@@ -97,9 +97,9 @@ ${config.briefing}`
 
   const searchInstruction = config.noSearch
     ? `Draw on your training knowledge to identify the most relevant sources for this topic within your lane. Include sources you know to be authoritative and relevant.`
-    : `You MUST use the web_search tool to find sources — do not rely on training data for source discovery. All entries in "sources" must come from actual web searches. Run up to ${dc.searchRounds} targeted searches. If a search returns no useful results, try a different query.`;
+    : `You MUST use the web_search tool to find sources, do not rely on training data for source discovery. All entries in "sources" must come from actual web searches. Run up to ${dc.searchRounds} targeted searches. If a search returns no useful results, try a different query.`;
 
-  // Lane-specific addendum only — the shared scaffolding (schema, style rules,
+  // Lane-specific addendum only, the shared scaffolding (schema, style rules,
   // citation rules, output discipline) lives in the system array and is cached
   // across all six lanes per sweep.
   return `## This lane
@@ -115,7 +115,7 @@ TARGET SOURCES: approximately ${dc.sourcesPerLane} high-quality sources
 
 ${searchInstruction}
 
-Prioritise your assigned outlets, but do not limit yourself to them — include high-value sources outside the list (industry surveys, practitioner reports, government data, standards bodies, professional associations) when they offer coverage not found in the primary outlets. Prioritise quality over quantity.
+Prioritise your assigned outlets, but do not limit yourself to them, include high-value sources outside the list (industry surveys, practitioner reports, government data, standards bodies, professional associations) when they offer coverage not found in the primary outlets. Prioritise quality over quantity.
 
 Search across the full date range (${config.fromYear}–${toLabel(config)}), prioritising recent coverage from the last 18 months.${briefingSection}
 
@@ -135,7 +135,7 @@ export function buildSynthesisPrompt(config: SweepConfig, laneResults: LaneResul
   const numberedSources = laneResults.flatMap((result) =>
     result.sources.map((source, index) => {
       const id = `${LANE_PREFIX[result.lane]}${index + 1}`;
-      return `${id}: [${source.outlet || result.label}] ${source.date || "n.d."} — ${source.title}`;
+      return `${id}: [${source.outlet || result.label}] ${source.date || "n.d."}, ${source.title}`;
     })
   );
   const dc = DEPTH_CONFIG[config.depth];
@@ -151,7 +151,7 @@ ${config.briefing}
 
   return `You are a senior technology research analyst assembling a sweep summary from parallel specialist research agents.
 
-Each lane provides two things: (1) sourced findings from real web searches with citations, and (2) domain context from model knowledge. Use sourced findings as the evidentiary backbone — cite them inline. Use domain context to add depth, framing, and structural understanding where sources alone are thin. Never cite model context as if it were a retrieved source.
+Each lane provides two things: (1) sourced findings from real web searches with citations, and (2) domain context from model knowledge. Use sourced findings as the evidentiary backbone, cite them inline. Use domain context to add depth, framing, and structural understanding where sources alone are thin. Never cite model context as if it were a retrieved source.
 
 
 TOPIC: ${config.topic}
@@ -163,7 +163,7 @@ ${briefingSection}
 
 ${laneNarratives}
 
-## Available sources — cite using ${sourcesName} > ^id
+## Available sources, cite using ${sourcesName} > ^id
 
 ${numberedSources.join("\n")}
 
@@ -174,7 +174,7 @@ Citation format requirements:
 - Use this exact reference style on its own line, with the outlet name as the link text:
   Sources: [[${sourcesName}#^f1|Outlet Name (Year)]]; [[${sourcesName}#^a3|Outlet Name (Year)]]
 - Every non-trivial factual claim should be supported by one or more IDs.
-Do not write a Source Index section — sources are written separately.
+Do not write a Source Index section, sources are written separately.
 
 ${STYLE_RULES}
 

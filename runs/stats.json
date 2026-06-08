@@ -1607,5 +1607,53 @@
       "~/obsidian/research/code-intelligence-indexing-2026-openai/lanes/lane-blogs-tools-and-emerging-approaches-for-code-intelligenc.md"
     ],
     "authMode": "api_key"
+  },
+  {
+    "runId": "2026-06-07T17-21-44-claude-batch-ai-on-deterministic-rails-how-",
+    "timestamp": "2026-06-07T17:21:44.051Z",
+    "provider": "claude",
+    "mode": "batch",
+    "topic": "AI on deterministic rails — how AI and traditional deterministic software are forming a symbiotic stack from January 2025 through June 2026: the enterprise \"PoC-opalypse\" and the shift from token consumption to durable agentic adoption patterns, AI leveraging software-encoded workflows as guardrails (variance and error control) rather than replacing them, the frontier moving from raw model capability to model orchestration and harness design (Claude Code, OpenCode, Pi), right-sizing with smaller and open-weight models (Llama, Qwen, DeepSeek, Mistral) for cheap routine automation and private inference, and the token-pricing economics behind enterprise sticker-shock over agentic spend versus delivered value",
+    "depth": "deep",
+    "lanes": [
+      "financial",
+      "frontier",
+      "academic",
+      "vc",
+      "blogs",
+      "tech"
+    ],
+    "fromYear": 2025,
+    "toYear": 2026,
+    "test": false,
+    "durationSec": null,
+    "submittedAt": "2026-06-07T17:15:37.562Z",
+    "tokens": {
+      "lanesIn": 11076,
+      "lanesOut": 36277,
+      "synthesisIn": 25133,
+      "synthesisOut": 8437,
+      "totalIn": 36209,
+      "totalOut": 44714,
+      "cacheCreateIn": 549270,
+      "cacheReadIn": 795230,
+      "reasoningOut": 0
+    },
+    "models": {
+      "lane": "claude-sonnet-4-6",
+      "synthesis": "claude-opus-4-8"
+    },
+    "estimatedCostUSD": 1.774447,
+    "outputFiles": [
+      "~/obsidian/research/ai-on-deterministic-rails/summary-ai-on-deterministic-rails-how-ai-and-traditional-d.md",
+      "~/obsidian/research/ai-on-deterministic-rails/sources-ai-on-deterministic-rails-how-ai-and-traditional-d.md",
+      "~/obsidian/research/ai-on-deterministic-rails/lanes/lane-financial-ai-on-deterministic-rails-how-ai-and-traditional-d.md",
+      "~/obsidian/research/ai-on-deterministic-rails/lanes/lane-frontier-ai-on-deterministic-rails-how-ai-and-traditional-d.md",
+      "~/obsidian/research/ai-on-deterministic-rails/lanes/lane-academic-ai-on-deterministic-rails-how-ai-and-traditional-d.md",
+      "~/obsidian/research/ai-on-deterministic-rails/lanes/lane-vc-ai-on-deterministic-rails-how-ai-and-traditional-d.md",
+      "~/obsidian/research/ai-on-deterministic-rails/lanes/lane-blogs-ai-on-deterministic-rails-how-ai-and-traditional-d.md",
+      "~/obsidian/research/ai-on-deterministic-rails/lanes/lane-tech-ai-on-deterministic-rails-how-ai-and-traditional-d.md"
+    ],
+    "authMode": "api_key"
   }
 ]

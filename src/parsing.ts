@@ -46,8 +46,29 @@ function coerceSourceItem(value: unknown): SourceItem | null {
 
 function stringifyNarrative(value: unknown): string | undefined {
   if (typeof value === "string") return value;
-  if (value && typeof value === "object") return JSON.stringify(value, null, 2);
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => stringifyNarrativeLines(item)).filter(Boolean).join("\n\n");
+  }
+  if (value && typeof value === "object") {
+    return stringifyNarrativeLines(value).join("\n\n");
+  }
   return undefined;
+}
+
+function stringifyNarrativeLines(value: unknown): string[] {
+  if (typeof value === "string") return [value.trim()].filter(Boolean);
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => stringifyNarrativeLines(item)).filter(Boolean);
+  }
+  if (!value || typeof value !== "object") return [];
+
+  return Object.entries(value as Record<string, unknown>).flatMap(([key, nested]) => {
+    const label = key.replace(/_/g, " ");
+    const lines = stringifyNarrativeLines(nested);
+    if (lines.length === 0) return [];
+    if (typeof nested === "string") return [`**${label}:** ${lines[0]}`];
+    return [`**${label}:**`, ...lines.map((line) => `- ${line.replace(/^-\s+/, "")}`)];
+  });
 }
 
 // Pull the first balanced { ... } object out of a string by brace-depth
