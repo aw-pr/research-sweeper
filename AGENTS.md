@@ -134,7 +134,6 @@ Core files:
 - `src/providers/openai.ts`
 - `src/providers/gemini.ts`
 - `src/output.ts`
-- `src/mcp-server.ts`
 - `src/stats.ts`
 
 Flows:
@@ -178,14 +177,14 @@ npm run typecheck
 npx ts-node research-sweep.ts --stats
 npx ts-node research-sweep.ts --auth-check
 npx ts-node research-sweep.ts --re-synthesise <folder>
-./research-sweeper-mcp
 ```
 
 ## Notes
 
 - Keep `AGENTS.md`, `CLAUDE.md`, and `README.md` aligned when you change auth, lanes, models, or output behavior.
 - `--brief-file` is the path that passes template sub-questions through to both the lanes and synthesis.
-- `batch-search.sh`, `list-batches.sh`, `resume-batch.sh`, and `research-sweeper-mcp` should stay on the `op-fetch` path (via `run-secure-command.sh` / `run-secure-sweep.sh`) for API-key execution.
+- `batch-search.sh`, `list-batches.sh`, and `resume-batch.sh` should stay on the `op-fetch` path (via `run-secure-command.sh` / `run-secure-sweep.sh`) for API-key execution.
+- The in-process MCP server (`src/mcp-server.ts`, `research-sweeper-mcp`) was retired on 2026-06-08. It launched with an empty environment, never used `op-fetch`, and could not authenticate any provider, so it had drifted behind the CLI. The secure CLI wrappers and the `research-sweep` skill are the supported surfaces. Git history retains the old server; do not reintroduce it.
 - Do not reintroduce OpenAI API-key reads from `~/.codex/auth.json`.
 - `--no-search` disables `web_search` tool and `tool_choice` forcing for claude/openai; for gemini it omits the grounding tool entirely — use for fast/cheap model-knowledge-only runs.
 - `--lane-model haiku|sonnet` overrides the depth-based Claude default lane model for that run. Has no effect on Gemini or OpenAI.
@@ -196,4 +195,4 @@ npx ts-node research-sweep.ts --re-synthesise <folder>
 
 ## Skills are canonical here
 
-`SKILL.md` (research-sweep) and `sweeper-prompt-creation/SKILL.md` are the canonical source files and are git-tracked in this repo. `mcp-hub/skills/` only holds symlinks pointing back at these files; `~/.claude/skills/` resolves through mcp-hub to here. Edit the skill files in place — do not "fix" the symlink direction or copy the content into mcp-hub. The single-source-of-truth chain keeps Codex / MCP automatically in sync with no copy step.
+`SKILL.md` (research-sweep) and `sweeper-prompt-creation/SKILL.md` are the canonical source files and are git-tracked in this repo. `mcp-hub/skills/` only holds symlinks pointing back at these files; `~/.claude/skills/` resolves through mcp-hub to here. Edit the skill files in place — do not "fix" the symlink direction or copy the content into mcp-hub. The single-source-of-truth chain keeps Codex automatically in sync with no copy step.

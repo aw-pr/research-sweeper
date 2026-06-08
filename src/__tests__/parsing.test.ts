@@ -68,8 +68,32 @@ describe("parseLaneResponse", () => {
     );
     expect(result).not.toBeNull();
     expect(result!.sources).toEqual([{ title: "Paper A", outlet: "arXiv", significance: "Measured result", url: undefined, date: undefined }]);
-    expect(result!.narrative).toContain('"executive_summary"');
-    expect(result!.narrative).toContain('"Finding"');
+    expect(result!.narrative).toBe("**executive summary:**\n\n- Finding");
+    expect(result!.narrative).not.toContain('"executive_summary"');
+  });
+
+  it("formats object-shaped lane narratives as markdown instead of raw JSON", () => {
+    const result = parseLaneResponse(
+      JSON.stringify({
+        sources: [{ title: "Paper A", publication: "arXiv", why_it_matters: "Measured result" }],
+        narrative: {
+          one_paragraph_take: "Hybrid repo intelligence is winning.",
+          semantic_vs_syntactic_vs_embedding: {
+            semantic: "Best for symbol navigation.",
+            syntactic: "Cheap and robust.",
+            embedding: "Good for fuzzy discovery.",
+          },
+          evidence_quality_notes: ["Evidence is uneven.", "Benchmarks are still young."],
+        },
+      })
+    );
+    expect(result).not.toBeNull();
+    expect(result!.narrative).toContain("**one paragraph take:** Hybrid repo intelligence is winning.");
+    expect(result!.narrative).toContain("**semantic vs syntactic vs embedding:**");
+    expect(result!.narrative).toContain("- **semantic:** Best for symbol navigation.");
+    expect(result!.narrative).toContain("**evidence quality notes:**");
+    expect(result!.narrative).toContain("- Evidence is uneven.");
+    expect(result!.narrative).not.toContain('"one_paragraph_take"');
   });
 
   it("normalises lane-specific OpenAI source fields from completed batches", () => {

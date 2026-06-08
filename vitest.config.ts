@@ -8,7 +8,7 @@ export default defineConfig({
     coverage: {
       reporter: ['text', 'json-summary'],
       include: ['src/**/*.ts'],
-      exclude: ['src/__tests__/**', 'src/providers/**', 'src/mcp-server.ts'],
+      exclude: ['src/__tests__/**', 'src/providers/**'],
     },
   },
 });

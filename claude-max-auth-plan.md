@@ -93,7 +93,7 @@ The flag must be respected by `--sync` mode. In `--batch` mode, passing `--claud
 
 - `batch-search.sh` — no change. Batch path stays API-key.
 - `list-batches.sh`, `resume-batch.sh` — no change. Both hit batch API.
-- `research-sweeper-mcp` — consider whether the MCP `run_sweep` tool should expose `claude_auth` as a parameter. Probably yes for sync sweeps launched from Claude Desktop, so it can opt into its own quota. Check `src/mcp-server.ts` `run_sweep` schema.
+- `research-sweeper-mcp` — N/A. The MCP server was retired on 2026-06-08. Sync sweeps now launch through the CLI / secure wrapper, which already honours `--claude-auth`.
 
 ### Auth-check integration
 
@@ -107,7 +107,6 @@ The flag must be respected by `--sync` mode. In `--batch` mode, passing `--claud
 | `src/types.ts` | Extend `SweepConfig` with `claudeAuth?: "api_key" \| "claude_cli"`. Keep optional — undefined means auto-detect. |
 | `research-sweep.ts` | Parse `--claude-auth` flag, plumb into `SweepConfig`, hard-fail if combined with `--batch`. |
 | `src/auth-check.ts` | Add `claude_cli` probe. |
-| `src/mcp-server.ts` | Optionally expose `claude_auth` on the `run_sweep` tool schema (sync-only). |
 | `README.md`, `CLAUDE.md`, `AGENTS.md` | Document the new route and its sync-only constraint. |
 | `completions.zsh` | Add completions for `--claude-auth` values. |
 | `customisation.md` | Add a section explaining the cost tradeoff (API credits vs. Max quota) so future-you remembers *why* both exist. |
