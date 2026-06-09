@@ -1,141 +1,134 @@
-# Publish workflow (private work → public mirror)
+# Publish workflow
 
-A repo-agnostic runbook for keeping messy private development separate from a
-clean public mirror, with a fail-closed gate so you can't publish by accident.
-Copy this pattern to any repo you intend to open-source.
+How research-sweeper keeps a public mirror in step with private development.
+Read this before pushing to the public remote, or before changing the
+publish-guard configuration.
 
-Placeholders used below: `PRIV` = your private remote (default `origin`),
-`PUB` = your public remote, `PUB_MATCH` = a substring of the public remote URL
-(e.g. `myorg/myrepo`), `PUBLISH_BRANCH` = the local line that becomes public
-(this repo uses `publish`).
+Placeholders: `PRIV` = the private working remote (`origin`), `PUB` = the public
+mirror (`aw-pr`, default branch `main`), `PUBLISH_BRANCH` = the line that becomes
+public (`publish`).
 
-## Model
+## Model (read this first)
 
-- **One private working repo.** Full, messy history is fine — it never goes
-  public.
-- **One public mirror.** Its default branch (`main`) is append-only and always
-  publish-clean.
-- **One permanent publish line** (`PUBLISH_BRANCH`) that fast-forwards onto the
-  public default branch. Append-only, always publish-clean.
-- **Ephemeral topic branches** for everything else. Squash-merge them into
-  `PUBLISH_BRANCH` when ready. Messy commits never reach the public line.
+The history is **linear and shared**. There is one line of development:
 
-Do **not** add a second permanent "integration" branch unless you actually
-have collaborators, PRs, or CI that need one. The gap between your local
-`PUBLISH_BRANCH` HEAD and `PUB/main` already *is* your staging buffer.
+- **`dev`** — the working branch on `PRIV`. Atomic commits, per-agent author
+  attribution. This is the canonical line; all work lands here.
+- **`publish`** — not a separate history. It is a pointer that sits behind `dev`
+  on the same line and is **fast-forwarded** up to a chosen `dev` commit when you
+  publish. `publish` is pushed to `PUB` as `main`.
+- `PUB/main` is whatever `publish` last fast-forwarded to.
 
-## The one hard invariant
+`dev` and `publish` share history, and `git merge-base dev publish` is publish's
+own tip. There is nothing to rebase or cherry-pick. To publish you fast-forward
+`publish` up to `dev` and push. That is the whole model.
 
-Whatever commit `PUB/main` points at is **immutable**. Rewrite/squash freely
-*above* it (commits not yet published); never *at or below* it. Rewriting a
-published commit forces a history-rewriting push to the public remote — treat
-that as an incident, not routine.
+> **No per-batch squash.** Earlier versions of this doc told you to
+> `git merge --squash wip/<thing>` into `publish`. That collapsed atomic commits
+> into one giant commit and is no longer the workflow. Preserve the atomic,
+> per-agent-authored history; the only squash this repo ever did was the one-time
+> orphan seed (see "History note"). If a doc or memory still describes a
+> squash-merge step, it is stale.
 
-## This repo's setup (already done — non-destructive adoption)
+## Normal publish (the common case)
 
-research-sweeper was already on the `op-refs` + `.env.example` pattern and its
-public mirror history was already sanitised, so adoption did **not** rewrite
-public history. The `publish` line was created at the existing clean public
-`main` commit and the gate was armed on top. Remotes (local names):
-
-- `origin` → private working remote (full history allowed)
-- `aw-pr`  → public mirror (default branch `main`, append-only)
-
-## One-time setup for a NEW repo
-
-1. **Back up** the full private history: `git bundle create ~/<repo>-history.bundle --all`.
-2. **Sanitise the working tree** (parameterise machine paths, move secrets to
-   gitignored `*.local`, add `.env.example`, scrub org/repo names — see
-   `docs/SECURITY.md`).
-3. **Orphan squash** to one clean commit:
-   ```bash
-   git checkout --orphan PUBLISH_BRANCH
-   git add -A && git commit -m "<repo>: initial public release"
-   ```
-4. **Fresh PUBLIC remote** (create empty, private first), push only this branch:
-   ```bash
-   git remote add PUB <public-url>
-   git push PUB PUBLISH_BRANCH:main
-   ```
-5. **Rebuild the private line** from the clean base so it ff's to public, and
-   point the private remote at it:
-   ```bash
-   git branch -m <old-dev> <old-dev>-archive-$(date +%Y%m%d)
-   git push PRIV <old-dev>-archive-$(date +%Y%m%d)     # keep messy history private
-   git push -fu PRIV PUBLISH_BRANCH
-   ```
-6. **Configure the gate** (local `git config`, never committed):
-   ```bash
-   git config publishguard.publicmatch   'PUB_MATCH'
-   git config publishguard.publicremote  'PUB'
-   git config publishguard.publishbranch 'PUBLISH_BRANCH'
-   git config publishguard.privateremote 'PRIV'      # optional, default origin
-   git config publishguard.sentinel      'PUBLISH_GUARD_OK'   # optional default
-   ```
-7. **Arm the guards**: `bash scripts/install-guards.sh` (idempotent: installs
-   `pre-commit`/`pre-push`, seeds `.publish-guard.local`, reconciles the
-   `git publish` alias from the config above).
-8. **Restore real personal patterns** in `.publish-guard.local` (install-guards
-   seeds it from the placeholder example — it is toothless until you put your
-   real machine/org strings back). Verify: a planted personal string in a
-   staged file is blocked by `pre-commit`.
-9. Flip the public repo to public when satisfied.
-
-## Day-to-day
-
-```bash
-git switch -c wip/<thing>        # messy commits, freely
-# …work…
+```sh
+# 1. work on dev as usual — atomic commits, per-agent --author=
+# 2. when a batch is ready for the public mirror:
 git switch publish
-git merge --squash wip/<thing>
-git commit -m "One clean message"
-git publish                      # PRIV publish, then ff PUB/main
-git branch -D wip/<thing>
+git merge --ff-only dev          # publish catches up to dev's tip; always a clean ff
+git publish                      # backs up to origin, then ff-pushes PUB main behind the gate
+git switch dev                   # back to the working branch
 ```
 
-`git publish` (alias, set by install-guards) =
-`git push PRIV publish && PUBLISH_GUARD_OK=1 git push PUB publish:main`.
-It backs up to the private remote first, then publishes.
+`git publish` is the alias
+`git push origin publish && PUBLISH_GUARD_OK=1 git push aw-pr publish:main`. It
+backs up to the private remote first, then publishes. Never hand-type
+`git push aw-pr publish:main`: the gate blocks it and points you back here.
 
-## The gate (why it can't be bypassed by accident)
+If `git merge --ff-only dev` refuses, `publish` has commits `dev` does not
+(someone committed directly on `publish`). That should not happen in this model;
+reconcile by hand rather than forcing.
 
-`pre-push` fails closed on the public remote (matched by
-`publishguard.publicmatch`):
+## The gate (why it cannot be bypassed by accident)
 
-- non-default branch to public → rejected;
-- default branch to public → rejected **unless** the `PUBLISH_GUARD_OK=1`
-  sentinel is set, which only `git publish` does.
+The guard ships at `scripts/git-hooks/` and installs via
+`scripts/install-guards.sh`:
 
-So a hand-typed `git push PUB publish:main` is blocked and told to use
-`git publish` (which guarantees the private backup happened first). Deliberate
-one-off override: `git push --no-verify`. Org/repo names live only in local
-`git config` — never in the committed tree, so this file stays publishable.
+- `pre-commit` — refuses to stage files matching the personal or secret patterns
+  in the gitignored `.publish-guard.local`, plus never-commit paths (`.env`,
+  `*.local`, `op-refs.local.sh`, `.publish-guard.local`) regardless of
+  `.gitignore` state.
+- `pre-push` — on `PUB` (matched by `publishguard.publicmatch`): only the default
+  branch (`main`/`master`) may be pushed, only when `PUBLISH_GUARD_OK=1` is set
+  (which only `git publish` does), only as a **fast-forward**, and only if no
+  `publishguard.privatefile` (e.g. `HANDOFF.md`) is present in the pushed tree.
+  Non-default refs, non-fast-forward pushes, and private-file leaks are rejected.
 
-Why fail-closed, not a warning: publishing is effectively irreversible (objects
-stay fetchable by SHA, content gets cached/indexed). A guardrail for an
-irreversible outward action must stop it and point at the right command, not
-narrate the mistake as it completes.
+Why fail-closed rather than a warning: publishing is effectively irreversible.
+Objects stay fetchable by SHA and content gets cached and indexed. A guard for an
+irreversible outward action has to stop it and point at the right command.
 
-## Squashing
+Deliberate one-off override: `git commit --no-verify` / `git push --no-verify`.
+These are intentional escape hatches and should not appear in routine workflows.
 
-- Squash *unpublished* commits at will — topic-branch `--squash` merge (best:
-  the publish line stays append-only, every push is a clean ff, no force
-  anywhere), or `git rebase -i <PUB/main commit>` for a quick local tidy
-  (then the private push needs `--force-with-lease`).
-- Never squash/rebase commits already on `PUB/main`.
+## Config keys
 
-## Applying to other repos
+Set once per machine via `git config --local`; never committed, which keeps org
+and repo names out of the tracked tree. Current values for this repo:
 
-The mechanism is shipped, not hand-rolled: `scripts/git-hooks/{pre-commit,
-pre-push}` + `scripts/install-guards.sh` + `.publish-guard.local.example` are
-generic and config-driven. To adopt in another repo, copy those four files,
-run the one-time setup above, and set the five `publishguard.*` config keys.
-Nothing in the committed tree is repo-specific.
+```sh
+git config publishguard.publicmatch   'aw-pr/research-sweeper'
+git config publishguard.publicremote  'aw-pr'
+git config publishguard.privateremote 'origin'
+git config publishguard.publishbranch 'publish'
+git config publishguard.sentinel      'PUBLISH_GUARD_OK'
+git config publishguard.historymode   'preserve'   # atomic commits; no per-batch squash
+git config publishguard.privatefile   'HANDOFF.md'
+```
 
-Notes when porting:
-- If a repo's default public branch is `master`, the `pre-push` hook already
-  allows `main` or `master`; the alias pushes `publish:main` — adjust the alias
-  target if you want `master`.
-- A repo that already has `.env`/secrets wrappers (e.g. an `op-refs` +
-  `.env.example` setup) only needs the publish-gate config + guards armed; the
-  credential side is already conformant.
+`scripts/install-guards.sh` reads these and writes the `git publish` alias. If
+`publicmatch` or `publicremote` are unset, the alias is left inert and the
+pre-push hook is a no-op on all remotes — the correct state on a fresh clone
+before the operator has set the public-remote details. `historymode` is
+informational (surfaced in guard messages); it records the convention — `preserve`
+means atomic fast-forward, never a per-batch squash.
+
+## What is private, and how
+
+In a linear model there is **no private-tier branch**. Whatever is tracked and
+committed on `dev` reaches `PUB` on the next fast-forward. Privacy is enforced by
+`.gitignore` and the pre-commit guard, not by branch separation:
+
+- **Gitignored, never public:** `.env*`, `*.local`, `op-refs.local.sh`,
+  `.publish-guard.local`, `HANDOFF.md` (the dated operator log stays private),
+  `runs/*.json` (job/state), `logs/`, `prompts/`, and `results/` except the three
+  curated worked examples.
+- **Tracked, intentionally public:** `runs/stats.json` (run metadata — paths are
+  recorded relative to home dir so it is publish-safe) and the three curated
+  `results/2026-04-07-*.md` examples.
+
+If a file must never be public, it has to be gitignored. Keeping it only on `dev`
+is no longer protection.
+
+## When to re-audit
+
+Run the `repo-publish-audit` skill before publishing if more than ten-ish commits
+have landed on `dev` since the last publish, after any `.gitignore` change, after
+any change to `scripts/git-hooks/*`, or after editing `.publish-guard.local`. A
+fast-forward exposes the **history** of the commits it brings, not just the
+current tree, so the audit covers the range `PUB/main..dev`, not only the working
+tree.
+
+## History note (the squashes, done once)
+
+The public mirror was seeded by an orphan-squash (`research-sweeper: multi-lane
+agentic research harness`) that buried messy pre-publication history. A later
+one-off catch-up commit (`chore: retire in-process MCP server; sync recent CLI
+work`) also bundled several dev commits. Those squashes are already on `PUB/main`
+and are immutable. On 2026-06-09 the working line was rebuilt off `publish` so the
+two share one linear history (the previous diverged `dev` is archived privately as
+`dev-archive-20260609` on `origin`). From that point onward, `dev` and `publish`
+are one linear, atomic history and the normal flow above is all you need. The
+orphan-squash and catch-up squash are not part of routine publishing and should
+not be repeated.

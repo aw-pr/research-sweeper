@@ -8,14 +8,18 @@ A multi-lane research harness that writes Obsidian-ready outputs. It supports `c
 
 ## Publishing
 
-Private work → public mirror. Remotes: `origin` = private working remote
-(messy history fine), `aw-pr` = public mirror. Work on `wip/*` topic branches,
-squash-merge into the **`publish`** branch, run `git publish` (never hand-push
-to `aw-pr`; the fail-closed pre-push gate blocks it). Every `publish` commit
-goes public; never rewrite commits already on the public remote. Full model +
-setup: `docs/PUBLISH-WORKFLOW.md`. Gate config lives in local `git config`
-(`publishguard.*`) and personal block patterns in the gitignored
-`.publish-guard.local` — neither is committed.
+Private work → public mirror, **linear and atomic** — no per-batch squash.
+Remotes: `origin` = private working remote, `aw-pr` = public mirror. Work on
+**`dev`** with atomic, per-agent-authored commits; publish by fast-forwarding
+`publish` up to `dev` and running `git publish` (`git switch publish &&
+git merge --ff-only dev && git publish`). Never hand-push to `aw-pr`; the
+fail-closed pre-push gate blocks it. Privacy is enforced by `.gitignore` + the
+pre-commit guard, not by branch separation: anything tracked on `dev` reaches the
+public mirror on the next fast-forward, so private files (`HANDOFF.md`, `.env*`,
+`*.local`) must be gitignored. Never rewrite commits already on the public
+remote. Full model + setup: `docs/PUBLISH-WORKFLOW.md`. Gate config lives in
+local `git config` (`publishguard.*`) and personal block patterns in the
+gitignored `.publish-guard.local` — neither is committed.
 
 ## Canonical run paths
 
