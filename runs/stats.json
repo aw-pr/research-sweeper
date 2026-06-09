@@ -1655,5 +1655,47 @@
       "~/obsidian/research/ai-on-deterministic-rails/lanes/lane-tech-ai-on-deterministic-rails-how-ai-and-traditional-d.md"
     ],
     "authMode": "api_key"
+  },
+  {
+    "runId": "2026-06-08T13-32-13-claude-batch-uk-ir35-off-payroll-reform-emp",
+    "timestamp": "2026-06-08T13:32:13.929Z",
+    "provider": "claude",
+    "mode": "batch",
+    "topic": "UK IR35 / off-payroll reform — empirical contractor-market effects vs HMRC's claims",
+    "depth": "deep",
+    "lanes": [
+      "financial",
+      "academic",
+      "blogs"
+    ],
+    "fromYear": 2014,
+    "toYear": null,
+    "test": false,
+    "durationSec": null,
+    "submittedAt": "2026-06-08T13:16:51.203Z",
+    "tokens": {
+      "lanesIn": 2248,
+      "lanesOut": 17576,
+      "synthesisIn": 12337,
+      "synthesisOut": 7326,
+      "totalIn": 14585,
+      "totalOut": 24902,
+      "cacheCreateIn": 285163,
+      "cacheReadIn": 521987,
+      "reasoningOut": 0
+    },
+    "models": {
+      "lane": "claude-sonnet-4-6",
+      "synthesis": "claude-opus-4-8"
+    },
+    "estimatedCostUSD": 0.993006,
+    "outputFiles": [
+      "~/obsidian/research/ir35-offpayroll-market-effects/summary-uk-ir35-off-payroll-reform-empirical-contractor-ma.md",
+      "~/obsidian/research/ir35-offpayroll-market-effects/sources-uk-ir35-off-payroll-reform-empirical-contractor-ma.md",
+      "~/obsidian/research/ir35-offpayroll-market-effects/lanes/lane-financial-uk-ir35-off-payroll-reform-empirical-contractor-ma.md",
+      "~/obsidian/research/ir35-offpayroll-market-effects/lanes/lane-academic-uk-ir35-off-payroll-reform-empirical-contractor-ma.md",
+      "~/obsidian/research/ir35-offpayroll-market-effects/lanes/lane-blogs-uk-ir35-off-payroll-reform-empirical-contractor-ma.md"
+    ],
+    "authMode": "api_key"
   }
 ]
