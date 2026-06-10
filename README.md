@@ -53,6 +53,13 @@ detect that `op-fetch` is unavailable and fall back to the `.env` keys.
 Generated output defaults to `~/obsidian/research/<folder>/`; set
 `RESEARCH_SWEEPER_OUTPUT_DIR` (env or `.env`) to write elsewhere.
 
+The single synthesis call defaults to `claude-fable-5` (a tier above Opus, where
+the extra reasoning earns its cost on one call per sweep); the six lanes stay on
+haiku/sonnet. Override the synthesis model without a code change via
+`SYNTHESIS_MODEL` (env or `.env`), e.g. `SYNTHESIS_MODEL=claude-opus-4-8`, or the
+`--synthesis-model` flag. Fable 5 requires your Console admin to accept 30-day
+data retention (misuse detection only, not training).
+
 > **Tip:** the run signature is long. Describe what you want in plain English to
 > any capable LLM and ask it to emit the full `--flag` invocation (topic, lanes,
 > depth, folder). Quicker and less error-prone than hand-writing the command.
