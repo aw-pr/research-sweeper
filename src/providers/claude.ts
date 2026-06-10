@@ -7,7 +7,11 @@ import { BatchStatus, Lane, LaneResult, ProviderAdapter, ProviderModels, SweepCo
 
 const LANE_MODEL_HAIKU = "claude-haiku-4-5-20251001";
 const LANE_MODEL_SONNET = "claude-sonnet-4-6";
-const SYNTHESIS_MODEL = "claude-opus-4-8";
+// Synthesis is a single reasoning-dominated call per sweep, so it runs a tier
+// above the lanes. Default is Fable 5; override with SYNTHESIS_MODEL (read
+// lazily so .env.local, loaded in main() after import, still applies) to dial
+// it back without a code change. The high-volume lanes are unaffected.
+const SYNTHESIS_MODEL = "claude-fable-5";
 
 // Tool allow/deny lists for the Agent SDK OAuth route. Lanes run with
 // only WebSearch available; synthesis runs with no tools at all. Everything
@@ -93,7 +97,7 @@ export class ClaudeProvider implements ProviderAdapter {
   getModels(config: SweepConfig, mode: "sync" | "batch"): ProviderModels {
     return {
       lane: config.test ? LANE_MODEL_HAIKU : resolveLaneModel(config),
-      synthesis: config.test ? LANE_MODEL_HAIKU : config.synthesisModel || SYNTHESIS_MODEL,
+      synthesis: config.test ? LANE_MODEL_HAIKU : config.synthesisModel || process.env.SYNTHESIS_MODEL || SYNTHESIS_MODEL,
     };
   }
 
@@ -212,8 +216,15 @@ export class ClaudeProvider implements ProviderAdapter {
     const response = await client.messages.create({
       model: this.getModels(config, "sync").synthesis,
       max_tokens: DEPTH_CONFIG[config.depth].synthesisMaxTokens,
-      messages: [{ role: "user", content: buildSynthesisPrompt(config, laneResults, sourcesName) }],
-    });
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: buildSynthesisPrompt(config, laneResults, sourcesName), cache_control: { type: "ephemeral" } },
+          ],
+        },
+      ],
+    } as unknown as Anthropic.MessageCreateParamsNonStreaming);
     const markdown = response.content.filter((block) => block.type === "text").map((block) => block.text).join("\n");
     console.log(`  [Synthesis] Complete (${response.usage.input_tokens.toLocaleString()} in / ${response.usage.output_tokens.toLocaleString()} out)`);
     return { markdown, tokensIn: response.usage.input_tokens, tokensOut: response.usage.output_tokens };
@@ -285,7 +296,14 @@ export class ClaudeProvider implements ProviderAdapter {
         params: {
           model,
           max_tokens: DEPTH_CONFIG[config.depth].synthesisMaxTokens,
-          messages: [{ role: "user", content: buildSynthesisPrompt(config, laneResults, sourcesName) }],
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "text", text: buildSynthesisPrompt(config, laneResults, sourcesName), cache_control: { type: "ephemeral" } },
+              ],
+            },
+          ],
         },
       },
     ];
