@@ -62,6 +62,28 @@ describe("parseLaneResponse", () => {
     expect(result!.model_context).toBeUndefined();
   });
 
+  it("recovers a narrative emitted under research_summary or synthesis_signals", () => {
+    const financial = parseLaneResponse(
+      `{"lane":"financial","sources":[{"title":"A","significance":"x"}],"research_summary":"Enterprise adoption accelerated."}`
+    );
+    expect(financial!.narrative).toBe("Enterprise adoption accelerated.");
+
+    const tech = parseLaneResponse(
+      `{"lane":"tech","sources":[{"title":"B","significance":"y"}],"synthesis_signals":"Practitioners report uneven gains."}`
+    );
+    expect(tech!.narrative).toBe("Practitioners report uneven gains.");
+  });
+
+  it("falls back to a narrative-hinted key only when the lane returned sources", () => {
+    const withSources = parseLaneResponse(
+      `{"sources":[{"title":"A","significance":"x"}],"key_takeaways":"The throughline of the lane."}`
+    );
+    expect(withSources!.narrative).toBe("The throughline of the lane.");
+
+    const noSources = parseLaneResponse(`{"sources":[],"key_takeaways":"Should not be used."}`);
+    expect(noSources!.narrative).toBe("");
+  });
+
   it("normalises OpenAI batch schema drift without discarding sourced output", () => {
     const result = parseLaneResponse(
       `{"sources":[{"title":"Paper A","publication":"arXiv","why_it_matters":"Measured result"}],"synthesis":{"executive_summary":["Finding"]}}`

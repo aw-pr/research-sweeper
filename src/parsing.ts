@@ -96,6 +96,30 @@ function extractBalancedObject(text: string): string | null {
   return null;
 }
 
+// Models are asked for a `narrative` field but freely rename it (observed:
+// `synthesis`, `summary`, `research_summary`, `synthesis_signals`, …). Check
+// the known names first, then — only when the lane actually returned sources —
+// fall back to the longest value under any narrative-hinted key so a newly
+// invented name can't silently strand the narrative as empty.
+const NARRATIVE_KEYS = ["narrative", "synthesis", "summary", "research_summary", "synthesis_signals", "findings", "recommended_narrative_themes"];
+const NON_NARRATIVE_KEYS = new Set(["lane", "label", "topic", "date_range", "sources", "model_context", "searches_used"]);
+const NARRATIVE_HINT = /(narrative|synthesis|summary|finding|analysis|takeaway|insight|signal|theme)/i;
+
+function resolveNarrative(parsed: Record<string, unknown>, sourceCount: number): string {
+  for (const key of NARRATIVE_KEYS) {
+    const value = stringifyNarrative(parsed[key]);
+    if (value && value.trim()) return value;
+  }
+  if (sourceCount === 0) return "";
+  let best = "";
+  for (const [key, value] of Object.entries(parsed)) {
+    if (NON_NARRATIVE_KEYS.has(key) || !NARRATIVE_HINT.test(key)) continue;
+    const text = (stringifyNarrative(value) ?? "").trim();
+    if (text.length > best.length) best = text;
+  }
+  return best;
+}
+
 export function parseLaneResponse(rawText: string): { sources: SourceItem[]; narrative: string; model_context?: string } | null {
   // Strip ```json / ``` fences some models wrap the object in.
   const unfenced = rawText.replace(/```(?:json)?/gi, "");
@@ -113,7 +137,7 @@ export function parseLaneResponse(rawText: string): { sources: SourceItem[]; nar
   }
   if (!parsed) return null;
   const sourceValues = Array.isArray(parsed.sources) ? parsed.sources : [];
-  const narrative = stringifyNarrative(parsed.narrative) ?? stringifyNarrative(parsed.synthesis) ?? stringifyNarrative(parsed.summary) ?? stringifyNarrative(parsed.findings) ?? stringifyNarrative(parsed.recommended_narrative_themes) ?? "";
+  const narrative = resolveNarrative(parsed, sourceValues.length);
   return {
     sources: sourceValues.map(coerceSourceItem).filter((item): item is SourceItem => item !== null),
     narrative,
