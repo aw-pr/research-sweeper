@@ -84,6 +84,20 @@ describe("parseLaneResponse", () => {
     expect(noSources!.narrative).toBe("");
   });
 
+  it("recovers sources whose significance uses a drifted key and an inline URL", () => {
+    const result = parseLaneResponse(
+      `{"sources":[{"title":"Large Enough","lab_or_evaluator":"Mistral","date":"2024-07-24","core_relevance":"Shows the 2024 push toward larger-context enterprise models and why deployment pressure grew.","core_claim_or_finding":"Mistral Large 2 added a 128k context window. ([mistral.ai](https://mistral.ai/en/news/mistral-large-2407))"}],"narrative":"n"}`
+    );
+    expect(result!.sources).toHaveLength(1);
+    expect(result!.sources[0]).toMatchObject({
+      title: "Large Enough",
+      outlet: "Mistral",
+      date: "2024-07-24",
+      url: "https://mistral.ai/en/news/mistral-large-2407",
+    });
+    expect(result!.sources[0].significance).toContain("larger-context enterprise models");
+  });
+
   it("normalises OpenAI batch schema drift without discarding sourced output", () => {
     const result = parseLaneResponse(
       `{"sources":[{"title":"Paper A","publication":"arXiv","why_it_matters":"Measured result"}],"synthesis":{"executive_summary":["Finding"]}}`

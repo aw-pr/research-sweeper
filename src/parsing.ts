@@ -4,37 +4,39 @@ export function extractText(blocks: Array<{ type?: string; text?: string }>): st
   return blocks.filter((block) => block.type === "text" && typeof block.text === "string").map((block) => block.text || "").join("\n");
 }
 
+const TITLE_KEYS = ["title", "headline", "headline_claim", "model_or_paper", "practice_or_pattern", "paper", "claim"];
+const SIGNIFICANCE_KEYS = [
+  "significance", "why_it_matters", "evidence_value", "core_contribution", "evidence_role", "why_relevant",
+  "relevance", "core_relevance", "core_claim", "core_claim_or_finding", "core_finding", "claim", "finding",
+  "key_finding", "takeaway", "practice", "practice_or_pattern", "empirical_grounding", "headline_claim",
+];
+// Source items drift the same way narratives do: models rename the
+// "why it matters" field per lane (observed: `core_relevance`,
+// `core_claim_or_finding`). Match the known names, then fall back to any
+// hinted key so a renamed field can't drop an otherwise-valid source.
+const SIGNIFICANCE_HINT = /(significan|relevan|matters|claim|finding|contribution|takeaway|insight|implication|evidence|impact)/i;
+const URL_RE = /https?:\/\/[^)\s]+/;
+
 function coerceSourceItem(value: unknown): SourceItem | null {
   if (!value || typeof value !== "object") return null;
   const record = value as Record<string, unknown>;
   const firstString = (...values: unknown[]): string | undefined => values.find((item): item is string => typeof item === "string" && item.length > 0);
-  const title = firstString(
-    record.title,
-    record.headline,
-    record.headline_claim,
-    record.model_or_paper,
-    record.practice_or_pattern,
-    record.paper,
-    record.claim
-  );
-  const significance = firstString(
-    record.significance,
-    record.why_it_matters,
-    record.evidence_value,
-    record.core_contribution,
-    record.evidence_role,
-    record.why_relevant,
-    record.relevance,
-    record.core_claim,
-    record.claim,
-    record.practice,
-    record.practice_or_pattern,
-    record.empirical_grounding,
-    record.headline_claim
-  );
-  const citation = firstString(record.url, record.source, record.source_citation, record.citation, record.evidence_role);
-  const url = citation?.match(/https?:\/\/[^)\s]+/)?.[0];
+  const title = firstString(...TITLE_KEYS.map((key) => record[key]));
+  let significance = firstString(...SIGNIFICANCE_KEYS.map((key) => record[key]));
+  if (!significance) {
+    for (const [key, nested] of Object.entries(record)) {
+      if (TITLE_KEYS.includes(key) || !SIGNIFICANCE_HINT.test(key)) continue;
+      if (typeof nested === "string" && nested.length > 40) {
+        significance = nested;
+        break;
+      }
+    }
+  }
   if (!title || !significance) return null;
+  const citation = firstString(record.url, record.source, record.source_citation, record.citation, record.evidence_role);
+  // Prefer an explicit citation field; otherwise recover a URL embedded in any
+  // string value (some lanes inline the link inside the significance prose).
+  const url = citation?.match(URL_RE)?.[0] ?? Object.values(record).map((v) => (typeof v === "string" ? v.match(URL_RE)?.[0] : undefined)).find(Boolean);
   return {
     title,
     significance,
