@@ -9,8 +9,8 @@ import { fallbackLaneResult, parseLaneResponse } from "../parsing";
 import { buildLanePrompt, buildSynthesisPrompt } from "../prompts";
 import { BatchStatus, Lane, LaneResult, ProviderAdapter, ProviderModels, SweepConfig, UsageCounts } from "../types";
 
-const LANE_MODEL = "gpt-5.4-mini";
-const LANE_MODEL_BATCH = "gpt-5.4-mini";
+const LANE_MODEL = "gpt-5.4";
+const LANE_MODEL_BATCH = "gpt-5.4";
 const SYNTHESIS_MODEL = "gpt-5.5";
 const TEST_MODEL = "gpt-5-mini";
 const LANE_REASONING_EFFORT = "low";

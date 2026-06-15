@@ -160,7 +160,7 @@ Model defaults:
 - Claude shallow/standard lanes: `claude-haiku-4-5-20251001`
 - Claude deep lanes: `claude-sonnet-4-6` (truncation risk at 25 sources)
 - Claude synthesis: `claude-opus-4-8` by default (batched for 50% discount)
-- OpenAI lanes: `gpt-5.4-mini` with `reasoning.effort=low`
+- OpenAI lanes: `gpt-5.4` with `reasoning.effort=low` (mini was underpowered for lane synopses vs the Claude Sonnet path)
 - OpenAI synthesis: `gpt-5.5` with `reasoning.effort=high`
 - Gemini shallow/standard lanes: `gemini-2.5-flash-lite` ($0.10/$0.40 per 1M tokens)
 - Gemini deep lanes: `gemini-2.5-flash` ($0.30/$2.50 per 1M tokens)
