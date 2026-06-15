@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import path from "path";
 import { describe, expect, it } from "vitest";
-import { computeFileNames, writeLaneFiles, writeOutput } from "../output";
+import { computeFileNames, findDegradedLanes, MIN_NARRATIVE_WORDS, writeLaneFiles, writeOutput } from "../output";
 import type { LaneResult, SweepConfig } from "../types";
 
 describe("writeOutput", () => {
@@ -33,7 +33,8 @@ describe("writeOutput", () => {
               date: "2026",
             },
           ],
-          narrative: "Academic narrative.",
+          narrative:
+      "Academic work this period converged on retrieval-augmented indexing, with several benchmarks showing that hybrid symbol-and-embedding approaches outperform either signal alone across large monorepos and long-tail languages.",
           rawText: "",
           tokensIn: 1,
           tokensOut: 1,
@@ -68,7 +69,8 @@ describe("writeLaneFiles", () => {
     lane: "academic",
     label: "Academic",
     sources: [{ title: "Paper A", significance: "Measured result", outlet: "arXiv", date: "2026" }],
-    narrative: "Academic narrative.",
+    narrative:
+      "Academic work this period converged on retrieval-augmented indexing, with several benchmarks showing that hybrid symbol-and-embedding approaches outperform either signal alone across large monorepos and long-tail languages.",
     rawText: "",
     tokensIn: 1,
     tokensOut: 1,
@@ -92,8 +94,56 @@ describe("writeLaneFiles", () => {
       expect(page).not.toContain("Background prose about the domain.");
       expect(page).toContain("## Narrative");
       expect(page).toContain("## Sources");
+      expect(page).not.toContain("[!warning]");
     } finally {
       rmSync(outputDir, { recursive: true, force: true });
     }
+  });
+
+  it("renders a warning callout when a lane has sources but an empty narrative", () => {
+    const outputDir = mkdtempSync(path.join(tmpdir(), "research-sweeper-lanes-"));
+    try {
+      const config = baseConfig(outputDir);
+      const files = computeFileNames(config.topic);
+      const lane = baseLane({ narrative: "" });
+
+      const { lanesPaths } = writeLaneFiles(config, [lane], files.summaryName, files.sourcesName, files.slug);
+      const page = readFileSync(lanesPaths[0], "utf8");
+
+      expect(page).toContain("> [!warning] Narrative missing or truncated");
+      expect(page).toContain("published with 1 source");
+      expect(page).toContain("## Sources");
+    } finally {
+      rmSync(outputDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("findDegradedLanes", () => {
+  const lane = (overrides: Partial<LaneResult>): LaneResult => ({
+    lane: "academic",
+    label: "Academic",
+    sources: [{ title: "Paper A", significance: "Measured result", outlet: "arXiv", date: "2026" }],
+    narrative: Array.from({ length: MIN_NARRATIVE_WORDS + 5 }, () => "word").join(" "),
+    rawText: "",
+    tokensIn: 1,
+    tokensOut: 1,
+    model: "gpt-5.4-mini",
+    ...overrides,
+  });
+
+  it("flags lanes with an empty narrative", () => {
+    const flagged = findDegradedLanes([lane({ narrative: "" })]);
+    expect(flagged).toHaveLength(1);
+    expect(flagged[0].lane).toBe("academic");
+    expect(flagged[0].words).toBe(0);
+  });
+
+  it("flags lanes below the minimum word count and passes healthy lanes", () => {
+    const flagged = findDegradedLanes([
+      lane({ lane: "financial", label: "Financial Press", narrative: "Too short here." }),
+      lane({ lane: "tech", label: "Tech" }),
+    ]);
+    expect(flagged.map((entry) => entry.lane)).toEqual(["financial"]);
   });
 });

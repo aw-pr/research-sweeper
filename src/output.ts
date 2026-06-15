@@ -1,9 +1,33 @@
 import * as fs from "fs";
 import * as path from "path";
 import { LANE_PREFIX } from "./config";
-import { FileNames, LaneResult, SweepConfig } from "./types";
+import { FileNames, Lane, LaneResult, SweepConfig } from "./types";
 
 const STUB_FILE_NAME = "_research-sweeper-stub.md";
+
+// A lane with sources but a missing/near-empty narrative is the silent-failure
+// signature: the model returned JSON with `sources` but no usable `narrative`,
+// and every provider path published it without complaint. Flag anything below
+// this word count so it can never reach Obsidian or the promo site unmarked.
+export const MIN_NARRATIVE_WORDS = 25;
+
+export function narrativeWordCount(narrative: string): number {
+  const trimmed = narrative.trim();
+  return trimmed ? trimmed.split(/\s+/).length : 0;
+}
+
+export interface DegradedLane {
+  lane: Lane;
+  label: string;
+  words: number;
+  sources: number;
+}
+
+export function findDegradedLanes(laneResults: LaneResult[]): DegradedLane[] {
+  return laneResults
+    .map((result) => ({ lane: result.lane, label: result.label, words: narrativeWordCount(result.narrative), sources: result.sources.length }))
+    .filter((entry) => entry.words < MIN_NARRATIVE_WORDS);
+}
 
 export function computeFileNames(topic: string): FileNames {
   const slug = topic.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 50);
@@ -105,6 +129,16 @@ export function writeLaneFiles(
 
   for (const result of laneResults) {
     const prefix = LANE_PREFIX[result.lane];
+    const narrativeText = formatSummaryCitations(result.narrative.trim(), sourcesName, buildSourceMetaById([result]));
+    const words = narrativeWordCount(result.narrative);
+    const narrativeSection =
+      words < MIN_NARRATIVE_WORDS
+        ? [
+            "> [!warning] Narrative missing or truncated",
+            `> This lane published with ${result.sources.length} source${result.sources.length === 1 ? "" : "s"} but no usable narrative (${words} word${words === 1 ? "" : "s"}). Re-run or re-synthesise this lane before relying on it.`,
+            ...(narrativeText ? ["", narrativeText] : []),
+          ].join("\n")
+        : narrativeText;
     const body = [
       `# ${result.label}`,
       "",
@@ -114,7 +148,7 @@ export function writeLaneFiles(
       "",
       "## Narrative",
       "",
-      formatSummaryCitations(result.narrative.trim(), sourcesName, buildSourceMetaById([result])),
+      narrativeSection,
       "",
       "## Sources",
       "",
@@ -206,6 +240,15 @@ export function writeOutput(
     "utf-8"
   );
   fs.writeFileSync(sourcesPath, fm + sourcesBody, "utf-8");
+
+  const degraded = findDegradedLanes(laneResults);
+  if (degraded.length > 0) {
+    console.warn(`\n  ⚠  ${degraded.length} lane(s) published with a missing or truncated narrative — review before publishing:`);
+    for (const entry of degraded) {
+      console.warn(`     - ${entry.label} (${entry.lane}): ${entry.words} narrative word(s), ${entry.sources} source(s). Re-run or re-synthesise.`);
+    }
+  }
+
   return { summaryPath, sourcesPath, lanesPaths };
 }
 
