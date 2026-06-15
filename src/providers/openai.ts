@@ -6,6 +6,7 @@ import * as path from "path";
 import { detectOpenAIAuthMode, OpenAIAuthMode, requireApiKeyModeOrThrow } from "../auth/detect";
 import { DEPTH_CONFIG, LANE_CONFIG } from "../config";
 import { fallbackLaneResult, parseLaneResponse } from "../parsing";
+import { OPENAI_LANE_TEXT_FORMAT } from "../lane-schema";
 import { buildLanePrompt, buildSynthesisPrompt, SHARED_LANE_SCAFFOLDING } from "../prompts";
 import { BatchStatus, Lane, LaneResult, ProviderAdapter, ProviderModels, SweepConfig, UsageCounts } from "../types";
 
@@ -192,6 +193,7 @@ export class OpenAIProvider implements ProviderAdapter {
           input: responseInputItem(buildLanePrompt(lane, config)),
           instructions: `${SHARED_LANE_SCAFFOLDING}\n\n${definition.systemPrompt}`,
           tools: [{ type: "web_search" }],
+          text: OPENAI_LANE_TEXT_FORMAT,
           reasoning: { effort: LANE_REASONING_EFFORT },
           max_output_tokens: DEPTH_CONFIG[config.depth].laneMaxTokens,
         });
@@ -270,6 +272,7 @@ export class OpenAIProvider implements ProviderAdapter {
         input: responseInputItem(buildLanePrompt(lane, config)),
         instructions: `${SHARED_LANE_SCAFFOLDING}\n\n${LANE_CONFIG[lane].systemPrompt}`,
         tools: [{ type: "web_search" }],
+        text: OPENAI_LANE_TEXT_FORMAT,
         reasoning: { effort: LANE_REASONING_EFFORT },
         max_output_tokens: DEPTH_CONFIG[config.depth].laneMaxTokens,
       },

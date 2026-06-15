@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { ClaudeAuthMode, detectClaudeAuthMode, requireApiKeyModeOrThrow } from "../auth/detect";
 import { DEPTH_CONFIG, LANE_CONFIG } from "../config";
 import { fallbackLaneResult, parseLaneResponse } from "../parsing";
+import { claudeLaneToolConfig, countClaudeSearches, extractClaudeLaneRaw } from "../lane-schema";
 import { buildLanePrompt, buildSynthesisPrompt, SHARED_LANE_SCAFFOLDING } from "../prompts";
 import { BatchStatus, Lane, LaneResult, ProviderAdapter, ProviderModels, SweepConfig, UsageCounts } from "../types";
 
@@ -136,15 +137,15 @@ export class ClaudeProvider implements ProviderAdapter {
         messages: [{ role: "user", content: buildLanePrompt(lane, config) }],
       };
 
-      if (!config.noSearch) {
-        requestParams.tools = [{ type: "web_search_20250305", name: "web_search" }];
-        requestParams.tool_choice = { type: "any" };
-      }
+      const { tools, tool_choice } = claudeLaneToolConfig(!!config.noSearch);
+      requestParams.tools = tools;
+      requestParams.tool_choice = tool_choice;
 
       const response = await (client.messages.create as unknown as (params: Record<string, unknown>) => Promise<Anthropic.Message>)(requestParams);
 
-      const searchesFired = (response.content as Array<{ type: string }>).filter((block) => block.type === "server_tool_use" || block.type === "tool_use").length;
-      const rawText = response.content.filter((block) => block.type === "text").map((block) => (block as { text: string }).text).join("\n");
+      const content = response.content as Array<{ type: string; name?: string; input?: unknown; text?: string }>;
+      const searchesFired = countClaudeSearches(content);
+      const rawText = extractClaudeLaneRaw(content);
       const parsed = parseLaneResponse(rawText);
       const tokensIn = response.usage.input_tokens;
       const tokensOut = response.usage.output_tokens;
@@ -265,10 +266,9 @@ export class ClaudeProvider implements ProviderAdapter {
         ],
         messages: [{ role: "user", content: buildLanePrompt(lane, config) }],
       };
-      if (!config.noSearch) {
-        params.tools = [{ type: "web_search_20250305", name: "web_search" }];
-        params.tool_choice = { type: "any" };
-      }
+      const { tools, tool_choice } = claudeLaneToolConfig(!!config.noSearch);
+      params.tools = tools;
+      params.tool_choice = tool_choice;
       return { custom_id: lane, params };
     });
     const batch = await (client.messages.batches as any).create({ requests });
@@ -349,8 +349,9 @@ export class ClaudeProvider implements ProviderAdapter {
       const message = item.result.message;
       // Anthropic batch results include the actual model used per-result in message.model
       const batchModel: string = (message.model as string | undefined) || submittedModel || fallbackModel;
-      const searchesFired = message.content.filter((block: { type: string }) => block.type === "server_tool_use" || block.type === "tool_use").length;
-      const rawText = message.content.filter((block: { type: string }) => block.type === "text").map((block: { text: string }) => block.text).join("\n");
+      const content = message.content as Array<{ type: string; name?: string; input?: unknown; text?: string }>;
+      const searchesFired = countClaudeSearches(content);
+      const rawText = extractClaudeLaneRaw(content);
       const parsed = parseLaneResponse(rawText);
       const tokensIn = message.usage.input_tokens;
       const tokensOut = message.usage.output_tokens;
