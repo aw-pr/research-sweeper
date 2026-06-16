@@ -6,7 +6,7 @@ import * as path from "path";
 import { detectOpenAIAuthMode, OpenAIAuthMode, requireApiKeyModeOrThrow } from "../auth/detect";
 import { DEPTH_CONFIG, LANE_CONFIG } from "../config";
 import { fallbackLaneResult, parseLaneResponse } from "../parsing";
-import { buildLanePrompt, buildSynthesisPrompt } from "../prompts";
+import { buildLanePrompt, buildSynthesisPrompt, SHARED_LANE_SCAFFOLDING } from "../prompts";
 import { BatchStatus, Lane, LaneResult, ProviderAdapter, ProviderModels, SweepConfig, UsageCounts } from "../types";
 
 const LANE_MODEL = "gpt-5.4";
@@ -190,7 +190,7 @@ export class OpenAIProvider implements ProviderAdapter {
         const response = await client.responses.create({
           model,
           input: responseInputItem(buildLanePrompt(lane, config)),
-          instructions: definition.systemPrompt,
+          instructions: `${SHARED_LANE_SCAFFOLDING}\n\n${definition.systemPrompt}`,
           tools: [{ type: "web_search" }],
           reasoning: { effort: LANE_REASONING_EFFORT },
           max_output_tokens: DEPTH_CONFIG[config.depth].laneMaxTokens,
@@ -202,7 +202,7 @@ export class OpenAIProvider implements ProviderAdapter {
         const outputItems = (response.output ?? []) as Array<{ type?: string }>;
         searchesFired = outputItems.filter((o) => typeof o.type === "string" && o.type.startsWith("web_search")).length;
       } else {
-        const combinedPrompt = `${definition.systemPrompt}\n\n${buildLanePrompt(lane, config)}`;
+        const combinedPrompt = `${SHARED_LANE_SCAFFOLDING}\n\n${definition.systemPrompt}\n\n${buildLanePrompt(lane, config)}`;
         const result = await this.runViaCodexCli(combinedPrompt, model, true, LANE_REASONING_EFFORT);
         rawText = result.text;
         tokensIn = result.tokensIn;
@@ -268,7 +268,7 @@ export class OpenAIProvider implements ProviderAdapter {
       body: {
         model: config.test ? TEST_MODEL : LANE_MODEL_BATCH,
         input: responseInputItem(buildLanePrompt(lane, config)),
-        instructions: LANE_CONFIG[lane].systemPrompt,
+        instructions: `${SHARED_LANE_SCAFFOLDING}\n\n${LANE_CONFIG[lane].systemPrompt}`,
         tools: [{ type: "web_search" }],
         reasoning: { effort: LANE_REASONING_EFFORT },
         max_output_tokens: DEPTH_CONFIG[config.depth].laneMaxTokens,
