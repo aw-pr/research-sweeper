@@ -7,7 +7,7 @@ import { buildLanePrompt, buildSynthesisPrompt, SHARED_LANE_SCAFFOLDING } from "
 import { BatchStatus, Lane, LaneResult, ProviderAdapter, ProviderModels, SweepConfig, UsageCounts } from "../types";
 
 const LANE_MODEL_HAIKU = "claude-haiku-4-5-20251001";
-const LANE_MODEL_SONNET = "claude-sonnet-4-6";
+const LANE_MODEL_SONNET = "claude-sonnet-5";
 // Synthesis is a single reasoning-dominated call per sweep, so it runs a tier
 // above the lanes. Default is Opus 4.8; override with SYNTHESIS_MODEL (read
 // lazily so .env.local, loaded in main() after import, still applies) to dial

@@ -73,7 +73,7 @@ describe("ClaudeProvider.collectBatchResults — model recording", () => {
     expect(results).toHaveLength(2);
     for (const r of results) {
       expect(r.model).toBe("claude-haiku-4-5-20251001");
-      expect(r.model).not.toBe("claude-sonnet-4-6");
+      expect(r.model).not.toBe("claude-sonnet-5");
     }
   });
 
