@@ -11,7 +11,7 @@ import {
   markNarrativeTruncated,
   REFUSAL_NARRATIVE,
 } from "../stop-reason";
-import { BatchStatus, Lane, LaneResult, ProviderAdapter, ProviderModels, SweepConfig, UsageCounts } from "../types";
+import { BatchLaneFailure, BatchStatus, Lane, LaneResult, ProviderAdapter, ProviderModels, SweepConfig, UsageCounts } from "../types";
 
 // Model-ID pinning policy (checked against platform.claude.com/docs, 2026-07):
 // every Claude model ID is a pinned snapshot, dated or not — Anthropic's docs
@@ -84,12 +84,42 @@ function usageCounts(input: { processing?: number; succeeded?: number; errored?:
   return { processing: input.processing || 0, succeeded: input.succeeded || 0, errored: input.errored || 0 };
 }
 
-// Shared by submitBatchLanes (full lane set) and, in a follow-up change, the
-// batch-recovery resubmission path — a single place that turns a lane subset
+// Shared by submitBatchLanes (full lane set) and submitBatchLanesSubset (the
+// --resubmit-failed recovery path) — a single place that turns a lane subset
 // into Messages Batches requests so both submit paths build them identically.
 export interface ClaudeBatchRequest {
   custom_id: Lane;
   params: Record<string, unknown>;
+}
+
+// Minimal shape pulled from a Messages Batches result item — just enough to
+// classify success/failure without pulling in the full Anthropic response
+// typing, so determineFailedLanes stays a pure function testable without a
+// mocked SDK client.
+export interface BatchResultTypeItem {
+  custom_id: string;
+  resultType: string;
+}
+
+// Batches API best practice: a completed batch can carry per-request results
+// of type "errored" | "expired" | "canceled" alongside "succeeded" — none of
+// those are billed, so the caller can resubmit exactly those custom_ids for
+// free. `lanes` scopes the check to the lanes the caller cares about (the
+// job manifest's lane list), ignoring any unknown/stale custom_ids the same
+// way collectBatchResults does. A lane with no result item at all (should not
+// happen for a completed batch, but defends against a malformed response) is
+// not flagged — there is nothing to resubmit a custom_id for that never
+// existed in the batch.
+export function determineFailedLanes(items: BatchResultTypeItem[], lanes: Lane[]): BatchLaneFailure[] {
+  const resultByLane = new Map(items.map((item) => [item.custom_id, item.resultType]));
+  const failures: BatchLaneFailure[] = [];
+  for (const lane of lanes) {
+    const resultType = resultByLane.get(lane);
+    if (resultType && resultType !== "succeeded") {
+      failures.push({ lane, resultType });
+    }
+  }
+  return failures;
 }
 
 export function buildLaneBatchRequests(config: SweepConfig, lanes: Lane[]): ClaudeBatchRequest[] {
@@ -419,6 +449,18 @@ export class ClaudeProvider implements ProviderAdapter {
     return batch.id;
   }
 
+  // --resubmit-failed recovery path: submit a follow-up batch covering only
+  // the lanes the caller has already determined failed (see
+  // getBatchLaneFailures). Requests are built identically to a fresh
+  // submission via buildLaneBatchRequests.
+  async submitBatchLanesSubset(config: SweepConfig, lanes: Lane[]): Promise<string> {
+    requireApiKeyModeOrThrow("claude", this.resolveAuthMode(config));
+    const client = this.getClient();
+    const requests = buildLaneBatchRequests(config, lanes);
+    const batch = await client.messages.batches.create({ requests } as unknown as Anthropic.Messages.BatchCreateParams);
+    return batch.id;
+  }
+
   async getBatchStatus(batchId: string): Promise<BatchStatus> {
     // Batch status is API-only — if the provider was constructed in claude_oauth
     // mode, guard here; otherwise read via the SDK client.
@@ -468,6 +510,22 @@ export class ClaudeProvider implements ProviderAdapter {
       }
     }
     throw new Error("Synthesis batch result not found or failed");
+  }
+
+  // --resubmit-failed recovery path: surface which of `lanes` did NOT succeed
+  // in a completed batch, and what result.type they carry (errored/expired/
+  // canceled), without paying the cost of fully parsing every succeeded
+  // lane's content the way collectBatchResults does.
+  async getBatchLaneFailures(batchId: string, lanes: Lane[]): Promise<BatchLaneFailure[]> {
+    if (this.authMode === "claude_oauth") {
+      requireApiKeyModeOrThrow("claude", this.authMode);
+    }
+    const client = this.getClient();
+    const items: BatchResultTypeItem[] = [];
+    for await (const item of await client.messages.batches.results(batchId)) {
+      items.push({ custom_id: item.custom_id, resultType: item.result.type });
+    }
+    return determineFailedLanes(items, lanes);
   }
 
   async collectBatchResults(batchId: string, lanes: Lane[], submittedModel?: string): Promise<LaneResult[]> {

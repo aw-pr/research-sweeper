@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildLaneBatchRequests } from "../providers/claude";
+import { buildLaneBatchRequests, determineFailedLanes } from "../providers/claude";
 import type { Lane, SweepConfig } from "../types";
 
 function makeConfig(lanes: Lane[]): SweepConfig {
@@ -48,5 +48,44 @@ describe("buildLaneBatchRequests", () => {
     const config = { ...makeConfig(["financial"]), test: true };
     const requests = buildLaneBatchRequests(config, config.lanes);
     expect(requests[0].params.model).toBe("claude-haiku-4-5-20251001");
+  });
+});
+
+describe("determineFailedLanes", () => {
+  it("flags non-succeeded custom_ids with their result type", () => {
+    const items = [
+      { custom_id: "financial", resultType: "succeeded" },
+      { custom_id: "frontier", resultType: "errored" },
+      { custom_id: "academic", resultType: "expired" },
+      { custom_id: "vc", resultType: "canceled" },
+    ];
+    const failures = determineFailedLanes(items, ["financial", "frontier", "academic", "vc"]);
+
+    expect(failures).toEqual([
+      { lane: "frontier", resultType: "errored" },
+      { lane: "academic", resultType: "expired" },
+      { lane: "vc", resultType: "canceled" },
+    ]);
+  });
+
+  it("returns an empty array when every lane succeeded", () => {
+    const items = [
+      { custom_id: "financial", resultType: "succeeded" },
+      { custom_id: "frontier", resultType: "succeeded" },
+    ];
+    expect(determineFailedLanes(items, ["financial", "frontier"])).toEqual([]);
+  });
+
+  it("ignores custom_ids outside the requested lane list", () => {
+    const items = [
+      { custom_id: "financial", resultType: "errored" },
+      { custom_id: "stale-lane", resultType: "errored" },
+    ];
+    expect(determineFailedLanes(items, ["financial"])).toEqual([{ lane: "financial", resultType: "errored" }]);
+  });
+
+  it("does not flag a lane that has no result item at all", () => {
+    const items = [{ custom_id: "financial", resultType: "succeeded" }];
+    expect(determineFailedLanes(items, ["financial", "frontier"])).toEqual([]);
   });
 });

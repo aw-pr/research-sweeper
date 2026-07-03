@@ -32,6 +32,10 @@ Use the secure helper path:
 ./list-batches.sh
 ./resume-batch.sh 1
 npm run auth:check:secure
+
+# if the batch came back with some lanes errored/expired/canceled:
+./run-secure-sweep.sh --resubmit-failed <batchId>
+./run-secure-sweep.sh --resume <newBatchId>
 ```
 
 - 1Password is optional. Without it, `run-secure-*.sh` detect that `op-fetch` or `op-refs.local.sh` is absent and exec the child directly; the in-process fill-only `.env`/`.env.local` loader (`src/env.ts`) supplies provider keys. See `.env.example`.
@@ -201,6 +205,7 @@ npx ts-node research-sweep.ts --re-synthesise <folder>
 - `--openai-auth api-key|codex` picks OpenAI's credential route. `codex` is sync-only; batch mode rejects it. All three detectors are now symmetric: when both routes' credentials are present and no explicit flag is given, detection throws ("Refusing to guess") rather than silently billing API credits.
 - Auth detection lives in `src/auth/detect.ts` (single source of truth for all providers). Batch guards call `requireApiKeyModeOrThrow()` from the same module. `buildRunStats()` lives in `src/stats.ts` (single copy).
 - `--re-synthesise <folder>` honours `--claude-auth` / `--gemini-auth` / `--openai-auth` overrides, so a run captured under one route (e.g. `claude-oauth`) can be re-synthesised on the API-key route when only that credential is present.
+- `--resubmit-failed <batchId>` recovers a completed batch that came back with some lanes errored/expired/canceled — Batches API best practice is to resend exactly those `custom_id`s (unbilled, so it's free), not re-run the whole sweep. Claude-only (`ProviderAdapter.getBatchLaneFailures` / `submitBatchLanesSubset` are optional; OpenAI/Gemini don't implement them yet and the CLI errors clearly if invoked on them). Requires the original job manifest (`jobs/<id>.json`) — it fails clearly if that's missing, and prints "nothing to resubmit" and exits cleanly if every lane succeeded. The new batch's job manifest records `resubmittedFrom: <oldBatchId>` and writes to a dedicated `<folder>-resubmit-<id>` output directory so `--resume` on it can never clobber the original run's files. There is no automatic merge of the resubmitted lane(s) back into the original output — `--resume` on a resubmission job prints guidance for combining the two folders by hand (copy the resubmitted `lanes/` files over the failed-lane placeholders, then `--re-synthesise <original-folder>`).
 
 ## Skills are canonical here
 

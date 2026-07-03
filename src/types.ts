@@ -85,6 +85,10 @@ export interface SweepJob {
   sourcesName: string;
   submittedAt: string;
   lanes: Lane[];
+  // Set on a job manifest created by `--resubmit-failed <oldBatchId>`. `lanes`
+  // on this manifest covers only the lanes that were resubmitted, not the
+  // original job's full lane set — see resumeBatch's merge-guidance output.
+  resubmittedFrom?: string;
 }
 
 export interface TokenBreakdown {
@@ -163,4 +167,17 @@ export interface ProviderAdapter {
   collectBatchResults(batchId: string, lanes: Lane[], submittedModel?: string): Promise<LaneResult[]>;
   submitBatchSynthesis?(config: SweepConfig, laneResults: LaneResult[], sourcesName: string): Promise<string>;
   collectBatchSynthesisResult?(batchId: string): Promise<{ markdown: string; tokensIn: number; tokensOut: number }>;
+  // Batch-recovery path (`--resubmit-failed`). Claude-only for now — the
+  // Batches API best practice of resubmitting exactly the failed custom_ids
+  // (errored/expired/canceled are unbilled) doesn't map onto the OpenAI/Gemini
+  // adapters' batch shapes yet. Both are optional so callers must feature-test
+  // rather than assume every provider supports recovery; the CLI prints a
+  // clear "provider does not support --resubmit-failed" error when absent.
+  getBatchLaneFailures?(batchId: string, lanes: Lane[]): Promise<BatchLaneFailure[]>;
+  submitBatchLanesSubset?(config: SweepConfig, lanes: Lane[]): Promise<string>;
+}
+
+export interface BatchLaneFailure {
+  lane: Lane;
+  resultType: string;
 }

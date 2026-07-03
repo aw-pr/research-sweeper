@@ -111,6 +111,21 @@ npm run auth:check:secure                       # resolves refs via op-fetch
 
 Use `./list-batches.sh` to inspect pending jobs and `./resume-batch.sh <n>` to collect results.
 
+If a completed batch comes back with some lanes errored/expired/canceled, resubmit just those
+lanes (Claude only — the Batches API best practice is to resend exactly the failed `custom_id`s,
+which is free since those requests were never billed):
+
+```bash
+npx ts-node research-sweep.ts --resubmit-failed <batchId>
+# prints the failed lanes, submits a follow-up batch, and saves a new job manifest
+npx ts-node research-sweep.ts --resume <newBatchId>
+```
+
+The resubmission writes to its own `<folder>-resubmit-<id>` output folder rather than merging
+into the original run automatically — combine the two by hand (see the guidance printed by
+`--resume` on a resubmitted job) or fold the resubmitted lane files into the original folder's
+`lanes/` directory and re-run `--re-synthesise <original-folder>`.
+
 ## Auth routes
 
 | Route | When to use | Credential source |

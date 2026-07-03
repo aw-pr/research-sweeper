@@ -313,6 +313,94 @@ Summary: ${output.summaryPath}
 Sources: ${output.sourcesPath}
 Lanes:   ${path.join(path.dirname(output.sourcesPath), "lanes")} (${output.lanesPaths.length} files + lanes JSON)
 `);
+
+  if (job.resubmittedFrom) {
+    console.log(`
+This was a --resubmit-failed run (resubmitted from ${job.resubmittedFrom}) covering only lane(s):
+  ${job.lanes.join(", ")}
+It was written to its own folder, not merged into the original run's output. To combine: copy the
+lane markdown/JSON files above into the original folder's lanes/ directory (replacing the failed-lane
+placeholders there), then re-run:
+  npx ts-node research-sweep.ts --re-synthesise <original-folder>
+`);
+  }
+}
+
+// Batches API best practice: resubmit only the custom_ids that came back
+// errored/expired/canceled — those requests were never billed, so
+// resubmitting them is free of double-cost. Builds and submits a follow-up
+// batch covering just those lanes, and saves a new job manifest pointed at a
+// dedicated output folder so `--resume <newBatchId>` can never clobber the
+// original run's already-written summary/sources/lane files. Combining the
+// two runs is left to the user (see the guidance printed here and in
+// resumeBatch) rather than an automatic merge — see CLAUDE.md.
+async function resubmitFailedBatch(batchId: string): Promise<void> {
+  const job = loadJob(batchId);
+  const provider = getProvider(job.provider);
+  if (!provider.getBatchLaneFailures || !provider.submitBatchLanesSubset) {
+    throw new Error(
+      `Error: provider "${job.provider}" does not support --resubmit-failed. This is currently Claude-only — ` +
+        `the Batches API best practice of resubmitting exactly the failed custom_ids doesn't map onto the ${job.provider} batch shape yet.`
+    );
+  }
+  provider.requireApiKey(job.config);
+
+  const status = await provider.getBatchStatus(batchId);
+  if (status.status !== "completed" && status.status !== "ended") {
+    console.log(`Batch ${batchId} — provider: ${job.provider} — status: ${status.status}`);
+    console.log(`  processing: ${status.counts.processing}, succeeded: ${status.counts.succeeded}, errored: ${status.counts.errored}`);
+    console.log(`\n--resubmit-failed requires a terminal batch. Wait for it to finish, or check progress with:\n  npx ts-node research-sweep.ts --resume ${batchId}`);
+    return;
+  }
+
+  console.log(`Batch complete — checking for failed lanes...`);
+  const failures = await provider.getBatchLaneFailures(batchId, job.lanes);
+
+  if (failures.length === 0) {
+    console.log(`No failed lanes in batch ${batchId} — every lane succeeded. Nothing to resubmit.`);
+    return;
+  }
+
+  console.log(`\nFailed lanes (${failures.length} of ${job.lanes.length}):`);
+  for (const failure of failures) {
+    const label = LANE_CONFIG[failure.lane]?.label || failure.lane;
+    console.log(`  • ${failure.lane} (${label}) — ${failure.resultType}`);
+  }
+
+  const failedLanes = failures.map((failure) => failure.lane);
+  const newBatchId = await provider.submitBatchLanesSubset(job.config, failedLanes);
+
+  // Dedicated folder — never the original job's outputDir — so resuming the
+  // resubmission can never overwrite the original run's summary/sources.
+  const resubmitDir = `${job.config.outputDir}-resubmit-${newBatchId.slice(-8).replace(/[^A-Za-z0-9]/g, "")}`;
+  const resubmitConfig: SweepConfig = { ...job.config, lanes: failedLanes, outputDir: resubmitDir, overwrite: true };
+  const files = computeFileNames(job.config.topic);
+  const newJob: SweepJob = {
+    provider: job.provider,
+    batchId: newBatchId,
+    config: resubmitConfig,
+    summaryName: files.summaryName,
+    sourcesName: files.sourcesName,
+    submittedAt: new Date().toISOString(),
+    lanes: failedLanes,
+    resubmittedFrom: batchId,
+  };
+  saveJob(newJob);
+
+  console.log(`
+Resubmitted ${failedLanes.length} failed lane${failedLanes.length === 1 ? "" : "s"} as a new batch: ${newBatchId}
+Resubmitted from: ${batchId} (original job manifest kept until you resolve it)
+Will write to:    ${resubmitDir} (kept separate from the original run's output)
+
+Resume with:
+  npx ts-node research-sweep.ts --resume ${newBatchId}
+
+The resumed output will cover only the resubmitted lane(s) (${failedLanes.join(", ")}). This CLI does not
+auto-merge lane results across batches — after both runs are collected, combine them yourself, e.g. by
+copying the resubmitted lane markdown/JSON files from ${resubmitDir}/lanes/ into the original folder's
+lanes/ directory (replacing the failed-lane placeholders) and re-running:
+  npx ts-node research-sweep.ts --re-synthesise <original-folder>
+`);
 }
 
 async function listBatches(): Promise<void> {
@@ -515,6 +603,14 @@ async function main(): Promise<void> {
     const batchId = rawArgs[resumeIndex + 1];
     if (!batchId || batchId.startsWith("--")) throw new Error("Error: --resume requires a batch ID");
     await resumeBatch(batchId);
+    return;
+  }
+
+  const resubmitFailedIndex = rawArgs.indexOf("--resubmit-failed");
+  if (resubmitFailedIndex !== -1) {
+    const batchId = rawArgs[resubmitFailedIndex + 1];
+    if (!batchId || batchId.startsWith("--")) throw new Error("Error: --resubmit-failed requires a batch ID");
+    await resubmitFailedBatch(batchId);
     return;
   }
 
