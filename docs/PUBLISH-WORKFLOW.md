@@ -30,11 +30,49 @@ own tip. There is nothing to rebase or cherry-pick. To publish you fast-forward
 > orphan seed (see "History note"). If a doc or memory still describes a
 > squash-merge step, it is stale.
 
-## Normal publish (the common case)
+## Default publish: PR-for-publish
+
+The default way to move `publish` onto `PUB/main` is a self-reviewed PR, not a
+direct ff-push. The final hop (`publish → PUB/main`) gets an explicit diff you
+look at before anything public changes — the same fail-closed private-file
+guard still runs underneath it, but the PR diff is the *visible* check.
 
 ```sh
 # 1. work on dev as usual — atomic commits, per-agent --author=
 # 2. when a batch is ready for the public mirror:
+git switch publish
+git merge --ff-only dev          # publish catches up to dev's tip; always a clean ff
+git publish-pr                   # backs up to origin, pushes publish as a non-default
+                                  # branch on aw-pr, then prints the gh pr create command
+git switch dev                   # back to the working branch
+```
+
+`git publish-pr` is the alias
+`git push origin publish && git push aw-pr publish:publish`, followed by an
+echoed reminder. Run the reminded command (or the equivalent):
+
+```sh
+gh pr create --repo aw-pr/research-sweeper --base main --head publish
+```
+
+Then **review the PR diff** — confirm no private-tier path (`HANDOFF.md`,
+`RUNBOOK.md`, `runs/`, `archive/`, anything under "What is private" below) is
+present — and merge on GitHub. Keep the merge fast-forward/clean (GitHub's
+"Rebase and merge" or "Create a merge commit" both work here since `publish`
+and `main` share linear history; avoid squash-merging on GitHub, which would
+rewrite the commits already reviewed in the PR).
+
+The `pre-push` gate allows `publish` to be pushed to `aw-pr` as a non-default
+branch (the PR source) without the `PUBLISH_GUARD_OK` sentinel — the PR review
+is the safeguard on that path — but it still runs the private-file tree scan,
+fail-closed, exactly as it does on the `main` path. See "The gate" below.
+
+## Fast path: `git publish` (ff-push, no PR)
+
+For trivial or already-reviewed batches, skip the PR and ff-push straight to
+`PUB/main`:
+
+```sh
 git switch publish
 git merge --ff-only dev          # publish catches up to dev's tip; always a clean ff
 git publish                      # backs up to origin, then ff-pushes PUB main behind the gate
@@ -59,11 +97,15 @@ The guard ships at `scripts/git-hooks/` and installs via
   in the gitignored `.publish-guard.local`, plus never-commit paths (`.env`,
   `*.local`, `op-refs.local.sh`, `.publish-guard.local`) regardless of
   `.gitignore` state.
-- `pre-push` — on `PUB` (matched by `publishguard.publicmatch`): only the default
-  branch (`main`/`master`) may be pushed, only when `PUBLISH_GUARD_OK=1` is set
+- `pre-push` — on `PUB` (matched by `publishguard.publicmatch`): the default
+  branch (`main`/`master`) may be pushed only when `PUBLISH_GUARD_OK=1` is set
   (which only `git publish` does), only as a **fast-forward**, and only if no
   `publishguard.privatefile` (e.g. `HANDOFF.md`) is present in the pushed tree.
-  Non-default refs, non-fast-forward pushes, and private-file leaks are rejected.
+  The PR-source branch (`publishguard.prsource`, default `publish`) may also be
+  pushed as a non-default ref — no sentinel required, but the same
+  private-file scan still runs, fail-closed. Any other non-default ref,
+  non-fast-forward pushes to the default branch, and private-file leaks are
+  rejected.
 
 Why fail-closed rather than a warning: publishing is effectively irreversible.
 Objects stay fetchable by SHA and content gets cached and indexed. A guard for an
@@ -85,14 +127,19 @@ git config publishguard.publishbranch 'publish'
 git config publishguard.sentinel      'PUBLISH_GUARD_OK'
 git config publishguard.historymode   'preserve'   # atomic commits; no per-batch squash
 git config publishguard.privatefile   'HANDOFF.md'
+git config publishguard.prsource      'publish'    # PR-source branch allowed on PUB
 ```
 
-`scripts/install-guards.sh` reads these and writes the `git publish` alias. If
-`publicmatch` or `publicremote` are unset, the alias is left inert and the
-pre-push hook is a no-op on all remotes — the correct state on a fresh clone
-before the operator has set the public-remote details. `historymode` is
-informational (surfaced in guard messages); it records the convention — `preserve`
-means atomic fast-forward, never a per-batch squash.
+`scripts/install-guards.sh` reads these and writes the `git publish` and
+`git publish-pr` aliases. If `publicmatch` or `publicremote` are unset, both
+aliases are left inert and the pre-push hook is a no-op on all remotes — the
+correct state on a fresh clone before the operator has set the public-remote
+details. `historymode` is informational (surfaced in guard messages); it
+records the convention — `preserve` means atomic fast-forward, never a
+per-batch squash. `prsource` is local-only config (never committed) — it is
+not one of the five keys `install-guards.sh` prompts for when unset, since it
+defaults sensibly to `publishbranch`; set it explicitly only if the PR-source
+branch should differ from `publish`.
 
 ## What is private, and how
 

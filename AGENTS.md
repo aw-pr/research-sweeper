@@ -8,10 +8,14 @@ A multi-lane research harness that writes Obsidian-ready outputs. It supports `c
 
 ## Publishing
 
-Private work → public mirror. Remotes: `origin` = private working remote
-(messy history fine), `aw-pr` = public mirror. Work on `wip/*` topic branches,
-squash-merge into the **`publish`** branch, run `git publish` (never hand-push
-to `aw-pr`; the fail-closed pre-push gate blocks it). Never rewrite commits
+Private work → public mirror, **linear and atomic** — no per-batch squash.
+Remotes: `origin` = private working remote, `aw-pr` = public mirror. Work on
+**`dev`** with atomic, per-agent-authored commits, fast-forward `publish` up to
+`dev` (`git switch publish && git merge --ff-only dev`), then publish. Default:
+`git publish-pr` — pushes `publish` to `aw-pr` as a non-default branch, then
+open/review a `publish → main` PR before merging. Fast path for trivial
+batches: `git publish` (ff-pushes straight to `PUB/main`). Never hand-push to
+`aw-pr`; the fail-closed pre-push gate blocks it. Never rewrite commits
 already on the public remote. Full model + setup: `docs/PUBLISH-WORKFLOW.md`.
 
 ## Canonical run paths
