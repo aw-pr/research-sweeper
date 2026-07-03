@@ -3,6 +3,7 @@ import { detectGeminiAuthMode, GeminiAuthMode, requireApiKeyModeOrThrow } from "
 import { DEPTH_CONFIG, LANE_CONFIG } from "../config";
 import { fallbackLaneResult, parseLaneResponse } from "../parsing";
 import { buildLanePrompt, buildSynthesisPrompt, SHARED_LANE_SCAFFOLDING } from "../prompts";
+import { withTransientRetry } from "../retry";
 import { BatchStatus, Lane, LaneResult, ProviderAdapter, ProviderModels, SweepConfig, UsageCounts } from "../types";
 
 // Model IDs verified May 2026 against ai.google.dev/gemini-api/docs/pricing.
@@ -81,21 +82,15 @@ function rethrowIfBillingGate(err: unknown, op: string): never | void {
 
 const RETRY_DELAYS_MS = [2000, 6000, 18000]; // 3 bounded retries, ~26s worst case
 
+// Thin wrapper around the shared retry helper (src/retry.ts) that reproduces
+// the original fixed delay schedule, predicate, and log line exactly.
 async function withRetry<T>(label: string, fn: () => Promise<T>): Promise<T> {
-  let lastErr: unknown;
-  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
-    try {
-      return await fn();
-    } catch (err) {
-      lastErr = err;
-      if (attempt === RETRY_DELAYS_MS.length || !isTransient(err)) break;
-      const wait = RETRY_DELAYS_MS[attempt];
-      const { status } = errInfo(err);
-      console.warn(`  [${label}] Transient error (${status || "?"}); retrying in ${wait / 1000}s (attempt ${attempt + 1}/${RETRY_DELAYS_MS.length})`);
-      await new Promise((r) => setTimeout(r, wait));
-    }
-  }
-  throw lastErr;
+  return withTransientRetry(fn, {
+    label,
+    delaysMs: RETRY_DELAYS_MS,
+    isTransient,
+    getStatus: (err) => errInfo(err).status || undefined,
+  });
 }
 
 /**
