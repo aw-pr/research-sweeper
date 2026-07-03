@@ -24,6 +24,7 @@ const MODEL_PRICING: Record<Provider, Record<string, { inPer1M: number; outPer1M
     "claude-opus-4-5": { inPer1M: 5.0, outPer1M: 25.0 },
     "claude-opus-4-7": { inPer1M: 5.0, outPer1M: 25.0 },
     "claude-opus-4-8": { inPer1M: 5.0, outPer1M: 25.0 },
+    "claude-fable-5": { inPer1M: 10.0, outPer1M: 50.0 },
   },
   openai: {
     "gpt-5.4-mini": { inPer1M: 0.75, outPer1M: 4.5 },
