@@ -27,7 +27,7 @@ Specifically:
 3. **Run sweep** — drive the secure CLI wrapper (see Command surface). Default mode is **batch** (submits and prints a `batchId`); add `--sync` for an immediate single-shot result. Always pass `--topic` — without it the CLI drops to an interactive prompt and stalls in a non-interactive shell; redirect `< /dev/null` as a guard.
 4. **Poll / collect** — for batch runs, list with `./list-batches.sh` and collect a finished batch with `./run-secure-sweep.sh --resume <id> --provider <p>`.
 5. **Verify outputs exist** — check the output folder before reporting success.
-6. **Synthesise** — default synthesis model is `claude-opus-4-8`; override via `--synthesis-model`. Rebuild a report from cached lane data without re-fetching via `--re-synthesise <folder>`.
+6. **Synthesise** — default synthesis model is `claude-opus-4-8`; override via `--synthesis-model`. Rebuild a report from cached lane data without re-fetching via `--re-synthesise <folder>`. A lane or synthesis call that hits `max_tokens` is flagged, not silently accepted: a truncated lane narrative is prefixed `[TRUNCATED at max_tokens — findings incomplete]`, and a truncated synthesis markdown carries a `> [!warning]` callout — both are generated markers, so treat them as a cue to rerun with fewer lanes or a deeper tier.
 
 ## Command surface
 
@@ -98,6 +98,8 @@ For Gemini: on `--gemini-auth gemini-oauth`, `run-secure-sweep.sh` injects no Ge
 **Reading a Gemini `429`:** two distinct causes, do not conflate them. `RESOURCE_EXHAUSTED` with *"Your prepayment credits are depleted"* means a **paid prepay project with a zero balance** — auth and billing are correctly wired, just top up credits in AI Studio; it is not a free-tier or auth fault. A `429` quoting an RPM/RPD quota is the **free-tier rate limit** below. If lanes retry 3× then all fail `RESOURCE_EXHAUSTED`, check the message before assuming the key is wrong.
 
 **Gemini known limitations:** Free-tier keys hit `generate_content` rate limits (~5 RPM flash / ~10 RPM flash-lite) — multi-lane sweeps require a paid-tier key. A GCP trial billing account does not unlock paid-tier limits. The Batch API and `gemini-2.5-pro` both require billing; free-tier returns `400 FAILED_PRECONDITION`. Google Search grounding and native JSON mode are mutually exclusive — the provider uses a tolerant parser. Some lanes may return empty output due to upstream safety/grounding blocks; this is benign. Collect batches via `./run-secure-sweep.sh --resume <id> --provider gemini` to avoid the Claude both-keys guard.
+
+**Claude 429s and other transients are handled too:** sync lane and synthesis calls on the API-key route retry 429/500/502/503/529 with backoff before degrading a lane, honouring the response's `retry-after` header on 429. This is not Gemini-only behaviour.
 
 ## Quality rules (synthesis pass)
 

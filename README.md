@@ -2,7 +2,7 @@
 
 **Multi-lane agentic research harness that runs parallel Claude, OpenAI, and Gemini agents, synthesises Obsidian-ready markdown, and scores each sweep with an LLM judge.**
 
-![Node](https://img.shields.io/badge/node-18%2B-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Tests](https://img.shields.io/badge/tests-78%20passed-brightgreen) ![Status](https://img.shields.io/badge/status-usable-brightgreen)
+![Node](https://img.shields.io/badge/node-18%2B-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Tests](https://img.shields.io/badge/tests-147%20passed-brightgreen) ![Status](https://img.shields.io/badge/status-usable-brightgreen)
 
 ## What it does
 
@@ -149,6 +149,10 @@ execs the child with a sanitised env. Without it, keys come from `.env`
 - **Empty / dropped lanes.** Upstream content-safety or grounding blocks can produce 0-source, 0-token lanes with `finishReason` other than `STOP`, and a batch item can error or fail to return. Both cases are now surfaced, not swallowed: the provider emits an explicit empty-lane placeholder and logs `Warning: no batch result for this lane …` rather than silently shrinking the lane set. Synthesis proceeds with the lanes that did return content and the lane count stays stable. If you see this warning, check the per-lane logs for a block reason or rerun that lane; a missing lane is expected behaviour, not a crash. The `--min-lanes` pre-flight still aborts if too few lanes returned real content.
 - **Batch collection.** Collect Gemini/Claude/OpenAI batches via `./run-secure-sweep.sh --resume <id> --provider <p>` rather than the all-keys helper to avoid tripping the Claude both-keys auth guard.
 
+### Claude provider — transient-error retries
+
+Sync lane and synthesis calls retry 429/500/502/503/529 with backoff (2s/6s/18s, 3 attempts) before degrading a lane; 429s honour the response's `retry-after` header. The SDK's own internal retry is disabled so the two layers don't multiply attempts.
+
 ## Evaluation
 
 Each sweep can be scored by an LLM judge harness using `claude-haiku-4-5-20251001`. The judge reads the summary, sources, and original brief, and returns four 1-5 dimension scores (coverage, source quality, synthesis, relevance), an overall mean, a 2-3 sentence verdict, and a list of unverifiable factual flags. Scores are computed from a single API call per sweep and persisted onto the matching `runId` in `runs/stats.json`, or written to `runs/eval-<runId>.json` if no run record exists. Run it via:
@@ -176,6 +180,8 @@ Each sweep writes to `<output-folder>/`:
 | `lanes/lanes-<slug>.json` | Structured lane payload for re-synthesis and eval |
 
 Existing `summary-*`, `sources-*`, and lane files are not overwritten unless `--overwrite` is passed. Re-synthesis is allowed to rewrite generated outputs.
+
+A Claude lane that hits `max_tokens` has its narrative prefixed with `[TRUNCATED at max_tokens — findings incomplete]`; a truncated synthesis carries a `> [!warning] Synthesis truncated at max_tokens — increase depth tier or reduce lane volume.` callout in the markdown. Both are generated markers, not model prose — treat them as a signal to rerun with a lower lane volume or higher depth tier.
 
 ## Security
 
