@@ -5,6 +5,12 @@ import { fallbackLaneResult, parseLaneResponse } from "../parsing";
 import { claudeLaneToolConfig, countClaudeSearches, extractClaudeLaneRaw } from "../lane-schema";
 import { buildLanePrompt, buildSynthesisPrompt, SHARED_LANE_SCAFFOLDING } from "../prompts";
 import { withTransientRetry } from "../retry";
+import {
+  appendSynthesisTruncationWarning,
+  classifyStopReason,
+  markNarrativeTruncated,
+  REFUSAL_NARRATIVE,
+} from "../stop-reason";
 import { BatchStatus, Lane, LaneResult, ProviderAdapter, ProviderModels, SweepConfig, UsageCounts } from "../types";
 
 // Model-ID pinning policy (checked against platform.claude.com/docs, 2026-07):
@@ -26,6 +32,24 @@ const LANE_MODEL_SONNET = "claude-sonnet-5";
 // lazily so .env.local, loaded in main() after import, still applies) to dial
 // it up or down without a code change. The high-volume lanes are unaffected.
 const SYNTHESIS_MODEL = "claude-opus-4-8";
+
+// Bound on pause_turn resend loops in runLaneViaApi (server-side web_search
+// loop hit its internal round cap and needs a resend to continue). 5 is
+// generous headroom over the depth tiers' own searchRounds config while
+// still guaranteeing termination.
+const MAX_PAUSE_TURN_CONTINUATIONS = 5;
+
+// Loosely-typed Messages API response shape used for the sync lane/synthesis
+// calls. The installed SDK's Anthropic.Message.stop_reason type predates
+// pause_turn/refusal (see stop-reason.ts), so requestParams and the response
+// are threaded through Record<string, unknown> / this interface rather than
+// Anthropic.Message to avoid fighting the SDK's stricter typing for a
+// runtime value the API can actually send.
+interface ClaudeMessageLike {
+  content: Array<{ type: string; name?: string; input?: unknown; text?: string }>;
+  usage: { input_tokens: number; output_tokens: number; cache_creation_input_tokens?: number; cache_read_input_tokens?: number };
+  stop_reason: string | null;
+}
 
 // Tool allow/deny lists for the Agent SDK OAuth route. Lanes run with
 // only WebSearch available; synthesis runs with no tools at all. Everything
@@ -211,29 +235,56 @@ export class ClaudeProvider implements ProviderAdapter {
       requestParams.tools = tools;
       requestParams.tool_choice = tool_choice;
 
-      const response = await withClaudeRetry(definition.label, () =>
-        (client.messages.create as unknown as (params: Record<string, unknown>) => Promise<Anthropic.Message>)(requestParams)
-      );
+      const createFn = client.messages.create as unknown as (params: Record<string, unknown>) => Promise<ClaudeMessageLike>;
 
-      const content = response.content as Array<{ type: string; name?: string; input?: unknown; text?: string }>;
+      let response = await withClaudeRetry(definition.label, () => createFn(requestParams));
+
+      // pause_turn: the server-side web_search loop hit its internal round
+      // cap (default 10) and can be resumed by resending the paused
+      // assistant response as-is — do NOT inject a "Continue." user message,
+      // the API detects the trailing server_tool_use block on its own.
+      // Bounded so a pathological loop can't hang the sweep.
+      let continuations = 0;
+      const messages = requestParams.messages as Array<Record<string, unknown>>;
+      while (classifyStopReason(response.stop_reason) === "pause_turn" && continuations < MAX_PAUSE_TURN_CONTINUATIONS) {
+        continuations++;
+        messages.push({ role: "assistant", content: response.content });
+        response = await withClaudeRetry(definition.label, () => createFn(requestParams));
+      }
+
+      const content = response.content;
       const searchesFired = countClaudeSearches(content);
       const rawText = extractClaudeLaneRaw(content);
       const parsed = parseLaneResponse(rawText);
       const tokensIn = response.usage.input_tokens;
       const tokensOut = response.usage.output_tokens;
-      const usageExt = response.usage as unknown as { cache_creation_input_tokens?: number; cache_read_input_tokens?: number };
-      const cacheCreateIn = usageExt.cache_creation_input_tokens || 0;
-      const cacheReadIn = usageExt.cache_read_input_tokens || 0;
+      const cacheCreateIn = response.usage.cache_creation_input_tokens || 0;
+      const cacheReadIn = response.usage.cache_read_input_tokens || 0;
+      const stopClass = classifyStopReason(response.stop_reason);
+      const continuationLabel = continuations > 0 ? `, ${continuations} pause_turn continuation${continuations !== 1 ? "s" : ""}` : "";
+
+      if (stopClass === "refusal") {
+        console.warn(`  [${definition.label}] Warning: model refused this lane request (stop_reason: refusal)`);
+        return { lane, label: definition.label, sources: [], narrative: REFUSAL_NARRATIVE, rawText, tokensIn, tokensOut, cacheCreateIn, cacheReadIn, model, searchesFired };
+      }
+
+      const truncated = stopClass === "max_tokens";
+      if (truncated) {
+        console.warn(`  [${definition.label}] Warning: response truncated at max_tokens — findings incomplete`);
+      }
 
       if (!parsed) {
         console.warn(`  [${definition.label}] Warning: could not parse JSON response, using fallback`);
-        return { ...fallbackLaneResult(lane, definition, rawText, tokensIn, tokensOut, model), cacheCreateIn, cacheReadIn };
+        const fallback = fallbackLaneResult(lane, definition, rawText, tokensIn, tokensOut, model);
+        if (truncated) fallback.narrative = markNarrativeTruncated(fallback.narrative);
+        return { ...fallback, cacheCreateIn, cacheReadIn, truncated: truncated || undefined };
       }
 
+      const narrative = truncated ? markNarrativeTruncated(parsed.narrative) : parsed.narrative;
       const searchLabel = config.noSearch ? "no search" : `${searchesFired} search${searchesFired !== 1 ? "es" : ""}`;
       const cacheLabel = cacheCreateIn || cacheReadIn ? `, cache ${cacheCreateIn.toLocaleString()} w / ${cacheReadIn.toLocaleString()} r` : "";
-      console.log(`  [${definition.label}] Complete — ${parsed.sources.length} sources, ${searchLabel} (${tokensIn.toLocaleString()} in / ${tokensOut.toLocaleString()} out${cacheLabel})`);
-      return { lane, label: definition.label, sources: parsed.sources, narrative: parsed.narrative, model_context: parsed.model_context, rawText, tokensIn, tokensOut, cacheCreateIn, cacheReadIn, model, searchesFired };
+      console.log(`  [${definition.label}] Complete — ${parsed.sources.length} sources, ${searchLabel} (${tokensIn.toLocaleString()} in / ${tokensOut.toLocaleString()} out${cacheLabel}${continuationLabel})`);
+      return { lane, label: definition.label, sources: parsed.sources, narrative, model_context: parsed.model_context, rawText, tokensIn, tokensOut, cacheCreateIn, cacheReadIn, model, searchesFired, truncated: truncated || undefined };
     } catch (error) {
       console.error(`  [${definition.label}] Error:`, error);
       return { lane, label: definition.label, sources: [], narrative: `Error during sweep: ${error}`, rawText: "", tokensIn: 0, tokensOut: 0, model };
@@ -298,7 +349,11 @@ export class ClaudeProvider implements ProviderAdapter {
         ],
       } as unknown as Anthropic.MessageCreateParamsNonStreaming)
     );
-    const markdown = response.content.filter((block) => block.type === "text").map((block) => block.text).join("\n");
+    let markdown = response.content.filter((block) => block.type === "text").map((block) => block.text).join("\n");
+    if (classifyStopReason(response.stop_reason) === "max_tokens") {
+      console.warn("  [Synthesis] Warning: response truncated at max_tokens — synthesis incomplete");
+      markdown = appendSynthesisTruncationWarning(markdown);
+    }
     console.log(`  [Synthesis] Complete (${response.usage.input_tokens.toLocaleString()} in / ${response.usage.output_tokens.toLocaleString()} out)`);
     return { markdown, tokensIn: response.usage.input_tokens, tokensOut: response.usage.output_tokens };
   }
@@ -392,7 +447,11 @@ export class ClaudeProvider implements ProviderAdapter {
     for await (const item of await client.messages.batches.results(batchId)) {
       if (item.custom_id === "synthesis" && item.result.type === "succeeded") {
         const message = item.result.message;
-        const markdown = message.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n");
+        let markdown = message.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n");
+        if (classifyStopReason(message.stop_reason) === "max_tokens") {
+          console.warn("  [Synthesis] Warning: batch response truncated at max_tokens — synthesis incomplete");
+          markdown = appendSynthesisTruncationWarning(markdown);
+        }
         return { markdown, tokensIn: message.usage.input_tokens, tokensOut: message.usage.output_tokens };
       }
     }
@@ -430,15 +489,31 @@ export class ClaudeProvider implements ProviderAdapter {
       const tokensOut = message.usage.output_tokens;
       const cacheCreateIn = message.usage.cache_creation_input_tokens || 0;
       const cacheReadIn = message.usage.cache_read_input_tokens || 0;
+      const stopClass = classifyStopReason(message.stop_reason);
+
+      if (stopClass === "refusal") {
+        console.warn(`  [${definition.label}] Warning: model refused this lane request (stop_reason: refusal)`);
+        laneResultMap.set(lane, { lane, label: definition.label, sources: [], narrative: REFUSAL_NARRATIVE, rawText, tokensIn, tokensOut, cacheCreateIn, cacheReadIn, model: batchModel, searchesFired });
+        continue;
+      }
+
+      const truncated = stopClass === "max_tokens";
+      if (truncated) {
+        console.warn(`  [${definition.label}] Warning: batch response truncated at max_tokens — findings incomplete`);
+      }
+
       const searchLabel = `${searchesFired} search${searchesFired !== 1 ? "es" : ""}`;
       const cacheLabel = cacheCreateIn || cacheReadIn ? `, cache ${cacheCreateIn.toLocaleString()} w / ${cacheReadIn.toLocaleString()} r` : "";
       console.log(`  [${definition.label}] Collected — ${parsed?.sources.length ?? 0} sources, ${searchLabel} (${tokensIn.toLocaleString()} in / ${tokensOut.toLocaleString()} out${cacheLabel})`);
-      laneResultMap.set(
-        lane,
-        parsed
-          ? { lane, label: definition.label, sources: parsed.sources, narrative: parsed.narrative, model_context: parsed.model_context, rawText, tokensIn, tokensOut, cacheCreateIn, cacheReadIn, model: batchModel, searchesFired }
-          : { ...fallbackLaneResult(lane, definition, rawText, tokensIn, tokensOut, batchModel), cacheCreateIn, cacheReadIn, searchesFired }
-      );
+
+      if (parsed) {
+        const narrative = truncated ? markNarrativeTruncated(parsed.narrative) : parsed.narrative;
+        laneResultMap.set(lane, { lane, label: definition.label, sources: parsed.sources, narrative, model_context: parsed.model_context, rawText, tokensIn, tokensOut, cacheCreateIn, cacheReadIn, model: batchModel, searchesFired, truncated: truncated || undefined });
+      } else {
+        const fallback = fallbackLaneResult(lane, definition, rawText, tokensIn, tokensOut, batchModel);
+        if (truncated) fallback.narrative = markNarrativeTruncated(fallback.narrative);
+        laneResultMap.set(lane, { ...fallback, cacheCreateIn, cacheReadIn, searchesFired, truncated: truncated || undefined });
+      }
     }
     return lanes.map((lane) => laneResultMap.get(lane)).filter((item): item is LaneResult => item !== undefined);
   }

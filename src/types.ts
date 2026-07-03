@@ -54,6 +54,11 @@ export interface LaneResult {
   reasoningOut?: number;
   model: string;
   searchesFired?: number;
+  // True when the Claude response hit stop_reason: "max_tokens" before the
+  // model finished — narrative carries stop-reason.ts's TRUNCATION_MARKER
+  // prefix so downstream synthesis can see the gap instead of treating a
+  // partial submit_lane_findings input as a complete lane.
+  truncated?: boolean;
 }
 
 export interface LaneDefinition {
