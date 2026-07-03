@@ -4,6 +4,7 @@ import { DEPTH_CONFIG, LANE_CONFIG } from "../config";
 import { fallbackLaneResult, parseLaneResponse } from "../parsing";
 import { claudeLaneToolConfig, countClaudeSearches, extractClaudeLaneRaw } from "../lane-schema";
 import { buildLanePrompt, buildSynthesisPrompt, SHARED_LANE_SCAFFOLDING } from "../prompts";
+import { withTransientRetry } from "../retry";
 import { BatchStatus, Lane, LaneResult, ProviderAdapter, ProviderModels, SweepConfig, UsageCounts } from "../types";
 
 // Model-ID pinning policy (checked against platform.claude.com/docs, 2026-07):
@@ -59,6 +60,56 @@ function usageCounts(input: { processing?: number; succeeded?: number; errored?:
   return { processing: input.processing || 0, succeeded: input.succeeded || 0, errored: input.errored || 0 };
 }
 
+// Transient Anthropic API errors worth a bounded retry: 429 (rate limit),
+// 500/502 (transient upstream failures), 503/529 (overloaded — 529 arrives as
+// InternalServerError since the SDK only special-cases 4xx status codes, but
+// its .status field is still the real 529). Anything else (400, 401, 403,
+// 404, 422) is a request/auth problem retrying won't fix.
+const TRANSIENT_STATUSES = new Set([429, 500, 502, 503, 529]);
+
+// Exported (alongside withClaudeRetry) for direct unit testing without
+// standing up a full mocked Anthropic client.
+export function claudeErrorStatus(err: unknown): number | undefined {
+  const status = (err as { status?: unknown } | undefined)?.status;
+  return typeof status === "number" ? status : undefined;
+}
+
+export function isTransientClaudeError(err: unknown): boolean {
+  const status = claudeErrorStatus(err);
+  return status !== undefined && TRANSIENT_STATUSES.has(status);
+}
+
+// Anthropic SDK errors expose `.headers` as Record<string, string | null |
+// undefined>. Only 429s carry a meaningful retry-after; other transient
+// statuses (500/502/503/529) fall back to the computed backoff schedule.
+export function claudeRetryAfterMs(err: unknown): number | undefined {
+  const status = claudeErrorStatus(err);
+  if (status !== 429) return undefined;
+  const headers = (err as { headers?: Record<string, string | null | undefined> } | undefined)?.headers;
+  const raw = headers?.["retry-after"];
+  if (!raw) return undefined;
+  const seconds = Number(raw);
+  return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : undefined;
+}
+
+// Bounded retry wrapper for Claude Messages API calls. The Anthropic SDK has
+// its own internal retry (maxRetries, default 2) for the same status codes;
+// getClient() sets maxRetries: 0 so the two retry layers don't multiply
+// (SDK-retries-of-3 x our-retries-of-3 would be up to 9 attempts per call).
+// This layer exists instead of the SDK's because it lets us honor a 429
+// retry-after hint and share the exact backoff/log shape with gemini.ts via
+// src/retry.ts.
+function withClaudeRetry<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  return withTransientRetry(fn, {
+    label,
+    isTransient: isTransientClaudeError,
+    maxAttempts: 3,
+    baseDelayMs: 2000,
+    getRetryAfterMs: claudeRetryAfterMs,
+    getStatus: claudeErrorStatus,
+  });
+}
+
 export class ClaudeProvider implements ProviderAdapter {
   readonly provider = "claude" as const;
   private client: Anthropic | null = null;
@@ -92,6 +143,13 @@ export class ClaudeProvider implements ProviderAdapter {
       if (!apiKey) throw new Error("Error: ANTHROPIC_API_KEY not set. Start via ./run-secure-sweep.sh or ./run-secure-command.sh so the helper injects it.");
       this.client = new Anthropic({
         apiKey,
+        // Our own withClaudeRetry() wraps the lane/synthesis calls with a
+        // bounded, retry-after-aware backoff (see withClaudeRetry above).
+        // The SDK's built-in retry (default maxRetries: 2) targets the same
+        // transient status codes, so leaving it enabled would let both
+        // layers retry the same failure — up to 3x more attempts and delay
+        // than intended. Disable it here; our layer is the only one that runs.
+        maxRetries: 0,
         defaultHeaders: {
           "anthropic-beta": "token-efficient-tools-2025-02-19,prompt-caching-2024-07-31",
         },
@@ -153,7 +211,9 @@ export class ClaudeProvider implements ProviderAdapter {
       requestParams.tools = tools;
       requestParams.tool_choice = tool_choice;
 
-      const response = await (client.messages.create as unknown as (params: Record<string, unknown>) => Promise<Anthropic.Message>)(requestParams);
+      const response = await withClaudeRetry(definition.label, () =>
+        (client.messages.create as unknown as (params: Record<string, unknown>) => Promise<Anthropic.Message>)(requestParams)
+      );
 
       const content = response.content as Array<{ type: string; name?: string; input?: unknown; text?: string }>;
       const searchesFired = countClaudeSearches(content);
@@ -226,16 +286,18 @@ export class ClaudeProvider implements ProviderAdapter {
   private async runSynthesisViaApi(config: SweepConfig, laneResults: LaneResult[], sourcesName: string): Promise<{ markdown: string; tokensIn: number; tokensOut: number }> {
     const client = this.getClient();
     console.log("\n  [Synthesis] Assembling research brief...");
-    const response = await client.messages.create({
-      model: this.getModels(config, "sync").synthesis,
-      max_tokens: DEPTH_CONFIG[config.depth].synthesisMaxTokens,
-      // Deliberately uncached: the synthesis prompt has no shared prefix
-      // across a sweep (see stats.ts), so a cache_control breakpoint here
-      // would only pay the 1.25x write premium for ~zero reads.
-      messages: [
-        { role: "user", content: buildSynthesisPrompt(config, laneResults, sourcesName) },
-      ],
-    } as unknown as Anthropic.MessageCreateParamsNonStreaming);
+    const response = await withClaudeRetry("Synthesis", () =>
+      client.messages.create({
+        model: this.getModels(config, "sync").synthesis,
+        max_tokens: DEPTH_CONFIG[config.depth].synthesisMaxTokens,
+        // Deliberately uncached: the synthesis prompt has no shared prefix
+        // across a sweep (see stats.ts), so a cache_control breakpoint here
+        // would only pay the 1.25x write premium for ~zero reads.
+        messages: [
+          { role: "user", content: buildSynthesisPrompt(config, laneResults, sourcesName) },
+        ],
+      } as unknown as Anthropic.MessageCreateParamsNonStreaming)
+    );
     const markdown = response.content.filter((block) => block.type === "text").map((block) => block.text).join("\n");
     console.log(`  [Synthesis] Complete (${response.usage.input_tokens.toLocaleString()} in / ${response.usage.output_tokens.toLocaleString()} out)`);
     return { markdown, tokensIn: response.usage.input_tokens, tokensOut: response.usage.output_tokens };
