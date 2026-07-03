@@ -6,6 +6,18 @@ import { claudeLaneToolConfig, countClaudeSearches, extractClaudeLaneRaw } from 
 import { buildLanePrompt, buildSynthesisPrompt, SHARED_LANE_SCAFFOLDING } from "../prompts";
 import { BatchStatus, Lane, LaneResult, ProviderAdapter, ProviderModels, SweepConfig, UsageCounts } from "../types";
 
+// Model-ID pinning policy (checked against platform.claude.com/docs, 2026-07):
+// every Claude model ID is a pinned snapshot, dated or not — Anthropic's docs
+// are explicit that starting with the 4.6 generation, dateless IDs are pinned
+// snapshots too, not evergreen pointers. LANE_MODEL_HAIKU carries a date
+// suffix because it predates that 4.6-generation naming change and the
+// Claude API ID for Haiku 4.5 has always been `claude-haiku-4-5-20251001`
+// (`claude-haiku-4-5` is the alias). LANE_MODEL_SONNET and SYNTHESIS_MODEL
+// are undated because `claude-sonnet-5` / `claude-opus-4-8` ARE the
+// documented canonical Claude API IDs for those models — there is no dated
+// snapshot variant to pin to instead, so the undated/dated split below is
+// deliberate, not an oversight. Re-check platform.claude.com/docs/en/about-
+// claude/models/overview if a future release reintroduces dated IDs.
 const LANE_MODEL_HAIKU = "claude-haiku-4-5-20251001";
 const LANE_MODEL_SONNET = "claude-sonnet-5";
 // Synthesis is a single reasoning-dominated call per sweep, so it runs a tier
