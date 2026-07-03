@@ -55,6 +55,20 @@ else
   else
     echo "install-guards: 'git publish' alias already current — left untouched"
   fi
+
+  # PR-for-publish fast path: push publish as a non-default branch on the
+  # public remote, then open (and review) a PR instead of ff-pushing to main
+  # directly. `pr_source` defaults to `pub_branch` (mirrors the pre-push hook's
+  # publishguard.prsource default) so this stays in sync without extra config.
+  pr_source="$(git config --get publishguard.prsource || true)"
+  [ -z "$pr_source" ] && pr_source="$pub_branch"
+  want_pr_alias="!git push ${priv_remote} ${pub_branch} && git push ${pub_remote} ${pub_branch}:${pr_source} && echo 'install-guards: pushed. Next: gh pr create --repo ${pub_match} --base main --head ${pr_source}  (review the diff for private-tier paths before merging)'"
+  if [ "$(git config --get alias.publish-pr || true)" != "$want_pr_alias" ]; then
+    git config alias.publish-pr "$want_pr_alias"
+    echo "install-guards: set 'git publish-pr' alias (${priv_remote} ${pub_branch} → ${pub_remote} ${pr_source}, then gh pr create)"
+  else
+    echo "install-guards: 'git publish-pr' alias already current — left untouched"
+  fi
 fi
 
 echo "install-guards: done."
