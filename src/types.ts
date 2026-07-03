@@ -90,7 +90,8 @@ export interface TokenBreakdown {
   totalIn: number;
   totalOut: number;
   // Anthropic prompt-caching tokens. Cache writes bill at 1.25x input price,
-  // cache reads at 0.10x input price. Aggregated across lanes + synthesis.
+  // cache reads at 0.10x input price. Aggregated across lanes only — the
+  // synthesis pass is deliberately uncached (see providers/claude.ts).
   cacheCreateIn?: number;
   cacheReadIn?: number;
   // OpenAI Responses API reasoning tokens. Billed at the same rate as output

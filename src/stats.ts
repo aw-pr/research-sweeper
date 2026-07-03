@@ -71,8 +71,9 @@ export function computeRunCost(provider: Provider, tokens: TokenBreakdown, model
   const laneCost = ((tokens.lanesIn / 1e6) * lanePricing.inPer1M + (tokens.lanesOut / 1e6) * lanePricing.outPer1M) * discount;
   const synthesisCost = (tokens.synthesisIn / 1e6) * synthesisPricing.inPer1M + (tokens.synthesisOut / 1e6) * synthesisPricing.outPer1M;
   // Anthropic prompt-caching adjustments. The aggregated cache token counts
-  // come from lanes only (synthesis pass currently has no shared prefix to
-  // cache), priced at the lane-model's input rate.
+  // come from lanes only — the synthesis pass is deliberately uncached (no
+  // shared prefix across a sweep to cache; see providers/claude.ts), priced
+  // at the lane-model's input rate.
   const cacheCreate = ((tokens.cacheCreateIn || 0) / 1e6) * lanePricing.inPer1M * CACHE_WRITE_MULT * discount;
   const cacheRead = ((tokens.cacheReadIn || 0) / 1e6) * lanePricing.inPer1M * CACHE_READ_MULT * discount;
   // OpenAI Responses API reasoning tokens bill at the output rate. Most of

@@ -217,13 +217,11 @@ export class ClaudeProvider implements ProviderAdapter {
     const response = await client.messages.create({
       model: this.getModels(config, "sync").synthesis,
       max_tokens: DEPTH_CONFIG[config.depth].synthesisMaxTokens,
+      // Deliberately uncached: the synthesis prompt has no shared prefix
+      // across a sweep (see stats.ts), so a cache_control breakpoint here
+      // would only pay the 1.25x write premium for ~zero reads.
       messages: [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: buildSynthesisPrompt(config, laneResults, sourcesName), cache_control: { type: "ephemeral" } },
-          ],
-        },
+        { role: "user", content: buildSynthesisPrompt(config, laneResults, sourcesName) },
       ],
     } as unknown as Anthropic.MessageCreateParamsNonStreaming);
     const markdown = response.content.filter((block) => block.type === "text").map((block) => block.text).join("\n");
@@ -301,13 +299,9 @@ export class ClaudeProvider implements ProviderAdapter {
         params: {
           model,
           max_tokens: DEPTH_CONFIG[config.depth].synthesisMaxTokens,
+          // Deliberately uncached — see runSynthesisViaApi and stats.ts.
           messages: [
-            {
-              role: "user",
-              content: [
-                { type: "text", text: buildSynthesisPrompt(config, laneResults, sourcesName), cache_control: { type: "ephemeral" } },
-              ],
-            },
+            { role: "user", content: buildSynthesisPrompt(config, laneResults, sourcesName) },
           ],
         },
       },
