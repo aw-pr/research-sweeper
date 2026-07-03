@@ -84,6 +84,32 @@ function usageCounts(input: { processing?: number; succeeded?: number; errored?:
   return { processing: input.processing || 0, succeeded: input.succeeded || 0, errored: input.errored || 0 };
 }
 
+// Shared by submitBatchLanes (full lane set) and, in a follow-up change, the
+// batch-recovery resubmission path — a single place that turns a lane subset
+// into Messages Batches requests so both submit paths build them identically.
+export interface ClaudeBatchRequest {
+  custom_id: Lane;
+  params: Record<string, unknown>;
+}
+
+export function buildLaneBatchRequests(config: SweepConfig, lanes: Lane[]): ClaudeBatchRequest[] {
+  return lanes.map((lane) => {
+    const params: Record<string, unknown> = {
+      model: config.test ? LANE_MODEL_HAIKU : resolveLaneModel(config),
+      max_tokens: DEPTH_CONFIG[config.depth].laneMaxTokens,
+      system: [
+        { type: "text", text: SHARED_LANE_SCAFFOLDING, cache_control: { type: "ephemeral" } },
+        { type: "text", text: LANE_CONFIG[lane].systemPrompt, cache_control: { type: "ephemeral" } },
+      ],
+      messages: [{ role: "user", content: buildLanePrompt(lane, config) }],
+    };
+    const { tools, tool_choice } = claudeLaneToolConfig(!!config.noSearch);
+    params.tools = tools;
+    params.tool_choice = tool_choice;
+    return { custom_id: lane, params };
+  });
+}
+
 // Transient Anthropic API errors worth a bounded retry: 429 (rate limit),
 // 500/502 (transient upstream failures), 503/529 (overloaded — 529 arrives as
 // InternalServerError since the SDK only special-cases 4xx status codes, but
@@ -383,21 +409,7 @@ export class ClaudeProvider implements ProviderAdapter {
   async submitBatchLanes(config: SweepConfig): Promise<string> {
     requireApiKeyModeOrThrow("claude", this.resolveAuthMode(config));
     const client = this.getClient();
-    const requests = config.lanes.map((lane) => {
-      const params: Record<string, unknown> = {
-        model: config.test ? LANE_MODEL_HAIKU : resolveLaneModel(config),
-        max_tokens: DEPTH_CONFIG[config.depth].laneMaxTokens,
-        system: [
-          { type: "text", text: SHARED_LANE_SCAFFOLDING, cache_control: { type: "ephemeral" } },
-          { type: "text", text: LANE_CONFIG[lane].systemPrompt, cache_control: { type: "ephemeral" } },
-        ],
-        messages: [{ role: "user", content: buildLanePrompt(lane, config) }],
-      };
-      const { tools, tool_choice } = claudeLaneToolConfig(!!config.noSearch);
-      params.tools = tools;
-      params.tool_choice = tool_choice;
-      return { custom_id: lane, params };
-    });
+    const requests = buildLaneBatchRequests(config, config.lanes);
     // `requests[].params` is built from Record<string, unknown> above because
     // claudeLaneToolConfig()'s tools/tool_choice are loosely typed (see
     // lane-schema.ts) — the same boundary cast used for the sync path's
