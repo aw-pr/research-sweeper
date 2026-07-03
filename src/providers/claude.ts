@@ -271,8 +271,13 @@ export class ClaudeProvider implements ProviderAdapter {
       params.tool_choice = tool_choice;
       return { custom_id: lane, params };
     });
-    const batch = await (client.messages.batches as any).create({ requests });
-    return batch.id as string;
+    // `requests[].params` is built from Record<string, unknown> above because
+    // claudeLaneToolConfig()'s tools/tool_choice are loosely typed (see
+    // lane-schema.ts) — the same boundary cast used for the sync path's
+    // client.messages.create call just above. batches.create itself is fully
+    // typed; only this one cast is needed.
+    const batch = await client.messages.batches.create({ requests } as unknown as Anthropic.Messages.BatchCreateParams);
+    return batch.id;
   }
 
   async getBatchStatus(batchId: string): Promise<BatchStatus> {
@@ -282,8 +287,8 @@ export class ClaudeProvider implements ProviderAdapter {
       requireApiKeyModeOrThrow("claude", this.authMode);
     }
     const client = this.getClient();
-    const batch = await (client.messages.batches as any).retrieve(batchId);
-    return { id: batchId, status: batch.processing_status as string, counts: usageCounts(batch.request_counts) };
+    const batch = await client.messages.batches.retrieve(batchId);
+    return { id: batchId, status: batch.processing_status, counts: usageCounts(batch.request_counts) };
   }
 
   async submitBatchSynthesis(config: SweepConfig, laneResults: LaneResult[], sourcesName: string): Promise<string> {
@@ -307,8 +312,8 @@ export class ClaudeProvider implements ProviderAdapter {
         },
       },
     ];
-    const batch = await (client.messages.batches as any).create({ requests });
-    return batch.id as string;
+    const batch = await client.messages.batches.create({ requests } as unknown as Anthropic.Messages.BatchCreateParams);
+    return batch.id;
   }
 
   async collectBatchSynthesisResult(batchId: string): Promise<{ markdown: string; tokensIn: number; tokensOut: number }> {
@@ -316,10 +321,10 @@ export class ClaudeProvider implements ProviderAdapter {
       requireApiKeyModeOrThrow("claude", this.authMode);
     }
     const client = this.getClient();
-    for await (const item of await (client.messages.batches as any).results(batchId)) {
+    for await (const item of await client.messages.batches.results(batchId)) {
       if (item.custom_id === "synthesis" && item.result.type === "succeeded") {
         const message = item.result.message;
-        const markdown = message.content.filter((b: { type: string }) => b.type === "text").map((b: { text: string }) => b.text).join("\n");
+        const markdown = message.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n");
         return { markdown, tokensIn: message.usage.input_tokens, tokensOut: message.usage.output_tokens };
       }
     }
@@ -335,7 +340,7 @@ export class ClaudeProvider implements ProviderAdapter {
     // Fallback model used only when a non-succeeded result gives us nothing to read
     // and the caller didn't pass the submitted model — keep this honest, not Sonnet.
     const fallbackModel = submittedModel || LANE_MODEL_HAIKU;
-    for await (const item of await (client.messages.batches as any).results(batchId)) {
+    for await (const item of await client.messages.batches.results(batchId)) {
       const lane = item.custom_id as Lane;
       const definition = LANE_CONFIG[lane];
       if (!definition) {
@@ -348,16 +353,15 @@ export class ClaudeProvider implements ProviderAdapter {
       }
       const message = item.result.message;
       // Anthropic batch results include the actual model used per-result in message.model
-      const batchModel: string = (message.model as string | undefined) || submittedModel || fallbackModel;
-      const content = message.content as Array<{ type: string; name?: string; input?: unknown; text?: string }>;
+      const batchModel: string = message.model || submittedModel || fallbackModel;
+      const content = message.content;
       const searchesFired = countClaudeSearches(content);
       const rawText = extractClaudeLaneRaw(content);
       const parsed = parseLaneResponse(rawText);
       const tokensIn = message.usage.input_tokens;
       const tokensOut = message.usage.output_tokens;
-      const usageExt = message.usage as { cache_creation_input_tokens?: number; cache_read_input_tokens?: number };
-      const cacheCreateIn = usageExt.cache_creation_input_tokens || 0;
-      const cacheReadIn = usageExt.cache_read_input_tokens || 0;
+      const cacheCreateIn = message.usage.cache_creation_input_tokens || 0;
+      const cacheReadIn = message.usage.cache_read_input_tokens || 0;
       const searchLabel = `${searchesFired} search${searchesFired !== 1 ? "es" : ""}`;
       const cacheLabel = cacheCreateIn || cacheReadIn ? `, cache ${cacheCreateIn.toLocaleString()} w / ${cacheReadIn.toLocaleString()} r` : "";
       console.log(`  [${definition.label}] Collected — ${parsed?.sources.length ?? 0} sources, ${searchLabel} (${tokensIn.toLocaleString()} in / ${tokensOut.toLocaleString()} out${cacheLabel})`);
