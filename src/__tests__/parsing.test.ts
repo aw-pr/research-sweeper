@@ -62,6 +62,38 @@ describe("parseLaneResponse", () => {
     expect(result!.model_context).toBeUndefined();
   });
 
+  it("recovers sources despite unescaped control characters inside string values", () => {
+    // Literal newline inside a JSON string is invalid; the object should still
+    // parse once in-string control chars are escaped.
+    const raw = `{"sources":[{"title":"T","significance":"why this source matters"}],"narrative":"paragraph one.\nspurious break continues"}`;
+    const result = parseLaneResponse(raw);
+    expect(result).not.toBeNull();
+    expect(result!.sources).toHaveLength(1);
+    expect(result!.narrative).toContain("paragraph one");
+  });
+
+  it("recovers sources serialised as an XML <item> string instead of a JSON array", () => {
+    const raw = `{"sources":"<item><title>Paper X</title><url>https://x</url><date>2026-01</date><outlet>arXiv</outlet><significance>why this matters and is long enough</significance></item>","narrative":"n"}`;
+    const result = parseLaneResponse(raw);
+    expect(result).not.toBeNull();
+    expect(result!.sources).toHaveLength(1);
+    expect(result!.sources[0].title).toBe("Paper X");
+    expect(result!.sources[0].url).toBe("https://x");
+  });
+
+  it("salvages the sources array and clean narrative when unescaped quotes break the object", () => {
+    // The inner quotes around "quoted" make the whole object unparseable, but
+    // the sources array is valid on its own and the prose is recoverable.
+    const raw = `{"lane":"vc","sources":[{"title":"Keep","significance":"a clean significance"}],"narrative":"The phrase "quoted" breaks JSON but the prose is recovered.","model_context":"ctx"}`;
+    const result = parseLaneResponse(raw);
+    expect(result).not.toBeNull();
+    expect(result!.sources).toHaveLength(1);
+    expect(result!.sources[0].title).toBe("Keep");
+    expect(result!.narrative).toContain("quoted");
+    expect(result!.narrative).not.toContain('"sources"');
+    expect(result!.model_context).toBe("ctx");
+  });
+
   it("recovers a narrative emitted under research_summary or synthesis_signals", () => {
     const financial = parseLaneResponse(
       `{"lane":"financial","sources":[{"title":"A","significance":"x"}],"research_summary":"Enterprise adoption accelerated."}`

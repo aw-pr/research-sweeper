@@ -122,23 +122,143 @@ function resolveNarrative(parsed: Record<string, unknown>, sourceCount: number):
   return best;
 }
 
+// Models occasionally emit raw newlines/tabs inside JSON string values, which
+// is invalid per spec — JSON.parse rejects the whole object and an otherwise
+// complete lane loses every source. Escape control characters that fall inside
+// a string literal, leaving the structural whitespace between tokens untouched.
+function escapeControlCharsInStrings(text: string): string {
+  let out = "";
+  let inStr = false;
+  let esc = false;
+  for (const ch of text) {
+    if (inStr) {
+      if (esc) { out += ch; esc = false; continue; }
+      if (ch === "\\") { out += ch; esc = true; continue; }
+      if (ch === '"') { out += ch; inStr = false; continue; }
+      const code = ch.charCodeAt(0);
+      out += code < 0x20 ? "\\u" + code.toString(16).padStart(4, "0") : ch;
+      continue;
+    }
+    if (ch === '"') inStr = true;
+    out += ch;
+  }
+  return out;
+}
+
+// Some lanes serialise `sources` as an XML-ish string (<item><title>…</item>)
+// rather than a JSON array. Recover the items so a formatting slip on one lane
+// doesn't strand its entire source list.
+function parseXmlSourceItems(xml: string): Array<Record<string, string>> {
+  const items: Array<Record<string, string>> = [];
+  const itemRe = /<item>([\s\S]*?)<\/item>/g;
+  let match: RegExpExecArray | null;
+  while ((match = itemRe.exec(xml)) !== null) {
+    const block = match[1];
+    const record: Record<string, string> = {};
+    for (const name of ["title", "url", "date", "outlet", "significance"]) {
+      const tag = new RegExp(`<${name}>([\\s\\S]*?)</${name}>`).exec(block);
+      const value = tag ? tag[1].trim() : "";
+      if (value) record[name] = value;
+    }
+    if (Object.keys(record).length) items.push(record);
+  }
+  return items;
+}
+
+// String-aware extraction of a `"key": [ ... ]` array value. Used to salvage
+// the sources array when the enclosing object is unparseable (typically an
+// unescaped quote in a prose field) but the array itself is valid JSON.
+function extractArrayValue(text: string, key: string): string | null {
+  const m = new RegExp(`"${key}"\\s*:\\s*\\[`).exec(text);
+  if (!m) return null;
+  const start = text.indexOf("[", m.index);
+  let depth = 0, inStr = false, esc = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === "\\") esc = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') inStr = true;
+    else if (ch === "[") depth++;
+    else if (ch === "]" && --depth === 0) return text.slice(start, i + 1);
+  }
+  return null;
+}
+
+const LANE_STOP_KEYS = ["lane", "label", "sources", "narrative", "model_context", "searches_used"];
+
+// Lenient extraction of a string field's prose, tolerant of unescaped quotes in
+// the value (which defeat JSON.parse). The value's end is anchored on the next
+// known key rather than on a closing quote that may be ambiguous. Spurious
+// mid-sentence newlines are collapsed to spaces; a break is treated as a
+// paragraph only after sentence-ending punctuation before a new sentence.
+function extractStringFieldLoose(text: string, key: string): string | undefined {
+  const m = new RegExp(`"${key}"\\s*:\\s*"`).exec(text);
+  if (!m) return undefined;
+  const start = m.index + m[0].length;
+  let end = text.length;
+  for (const stop of LANE_STOP_KEYS) {
+    if (stop === key) continue;
+    const anchor = new RegExp(`"${stop}"\\s*:`).exec(text.slice(start));
+    if (anchor) end = Math.min(end, start + anchor.index);
+  }
+  let raw = text.slice(start, end).replace(/[\s"\],}]+$/, "");
+  raw = raw.replace(/\\n/g, "\n").replace(/\\t/g, "\t").replace(/\\"/g, '"').replace(/\\\//g, "/").replace(/\\\\/g, "\\");
+  raw = raw.replace(/\s*\n\s*([.,;:])/g, "$1");
+  const segs = raw.split(/[ \t]*\n[ \t]*/).map((s) => s.trim()).filter(Boolean);
+  if (!segs.length) return undefined;
+  let out = segs[0];
+  for (const seg of segs.slice(1)) {
+    out += /[.!?:]$/.test(out) && /^["“A-Z]/.test(seg) ? `\n\n${seg}` : ` ${seg}`;
+  }
+  return out;
+}
+
 export function parseLaneResponse(rawText: string): { sources: SourceItem[]; narrative: string; model_context?: string } | null {
   // Strip ```json / ``` fences some models wrap the object in.
   const unfenced = rawText.replace(/```(?:json)?/gi, "");
   let parsed: Record<string, unknown> | null = null;
   // 1) greedy outer-brace match (fast path, unchanged behaviour)
   // 2) balanced-brace fallback for prose-wrapped / multi-block replies
+  // Each candidate is tried as-is, then with in-string control chars escaped.
   for (const candidate of [unfenced.match(/\{[\s\S]*\}/)?.[0], extractBalancedObject(unfenced)]) {
     if (!candidate) continue;
-    try {
-      parsed = JSON.parse(candidate) as Record<string, unknown>;
-      break;
-    } catch {
-      /* try next strategy */
+    for (const variant of [candidate, escapeControlCharsInStrings(candidate)]) {
+      try {
+        parsed = JSON.parse(variant) as Record<string, unknown>;
+        break;
+      } catch {
+        /* try next strategy */
+      }
     }
+    if (parsed) break;
   }
-  if (!parsed) return null;
-  const sourceValues = Array.isArray(parsed.sources) ? parsed.sources : [];
+  if (!parsed) {
+    // Object as a whole is unparseable (commonly an unescaped quote in prose).
+    // Salvage the sources array on its own, and extract the prose fields loosely
+    // so a formatting slip drops neither the lane's sources nor its narrative.
+    const arr = extractArrayValue(unfenced, "sources");
+    if (!arr) return null;
+    let salvaged: unknown[];
+    try {
+      salvaged = JSON.parse(escapeControlCharsInStrings(arr)) as unknown[];
+    } catch {
+      return null;
+    }
+    return {
+      sources: salvaged.map(coerceSourceItem).filter((item): item is SourceItem => item !== null),
+      narrative: extractStringFieldLoose(unfenced, "narrative") ?? "",
+      model_context: extractStringFieldLoose(unfenced, "model_context"),
+    };
+  }
+  const sourceValues = Array.isArray(parsed.sources)
+    ? parsed.sources
+    : typeof parsed.sources === "string" && parsed.sources.includes("<item>")
+      ? parseXmlSourceItems(parsed.sources)
+      : [];
   const narrative = resolveNarrative(parsed, sourceValues.length);
   return {
     sources: sourceValues.map(coerceSourceItem).filter((item): item is SourceItem => item !== null),
