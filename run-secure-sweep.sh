@@ -9,7 +9,9 @@
 #                                     Agent SDK cannot fall back to API billing)
 #   --provider openai --sync        → fetch nothing op-based; the Codex CLI uses
 #                                     ~/.codex/auth.json. Keeps OPENAI_API_KEY
-#                                     out of the child env.
+#                                     out of the child env. Overridden by an
+#                                     explicit --openai-auth api-key, which
+#                                     fetches the API key like the default route.
 #   default (API-key path, batch)   → fetch ANTHROPIC_API_KEY + OPENAI_API_KEY
 set -euo pipefail
 
@@ -17,6 +19,7 @@ cd "$(dirname "$0")"
 
 claude_oauth=0
 openai_sync=0
+openai_api_key=0
 gemini_oauth=0
 provider_gemini=0
 for ((i = 1; i <= $#; i++)); do
@@ -36,6 +39,16 @@ for ((i = 1; i <= $#; i++)); do
       case "${!next}" in
         gemini-oauth|gemini_oauth)
           gemini_oauth=1
+          ;;
+      esac
+    fi
+  fi
+  if [[ "${!i}" == "--openai-auth" ]]; then
+    next=$((i + 1))
+    if [[ $next -le $# ]]; then
+      case "${!next}" in
+        api-key|api_key)
+          openai_api_key=1
           ;;
       esac
     fi
@@ -70,7 +83,7 @@ if [[ "$claude_oauth" == "1" ]]; then
     -- npx ts-node research-sweep.ts "$@"
 fi
 
-if [[ "$openai_sync" == "1" && " $* " == *" --sync "* ]]; then
+if [[ "$openai_sync" == "1" && " $* " == *" --sync "* && "$openai_api_key" != "1" ]]; then
   # Codex auth route: no op refs needed. Still go through op-fetch with no pairs
   # so we get the same sanitized child env (no inherited OPENAI_API_KEY etc.).
   exec op-fetch -- npx ts-node research-sweep.ts "$@"
