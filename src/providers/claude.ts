@@ -291,7 +291,7 @@ export class ClaudeProvider implements ProviderAdapter {
       requestParams.tools = tools;
       requestParams.tool_choice = tool_choice;
 
-      const createFn = client.messages.create as unknown as (params: Record<string, unknown>) => Promise<ClaudeMessageLike>;
+      const createFn = client.messages.create.bind(client.messages) as unknown as (params: Record<string, unknown>) => Promise<ClaudeMessageLike>;
 
       let response = await withClaudeRetry(definition.label, () => createFn(requestParams));
 
