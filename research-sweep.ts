@@ -1,104 +1,101 @@
 #!/usr/bin/env npx ts-node
 
-import * as fs from "fs";
 import * as path from "path";
 import * as readline from "readline";
 import { parseBriefFile } from "./src/brief";
 import { DEPTH_CONFIG, LANE_CONFIG } from "./src/config";
 import { runAuthCheck } from "./src/auth-check";
 import { loadDotEnv, researchRoot } from "./src/env";
-import { deleteJob, jobsDir, loadJob, saveJob } from "./src/jobs";
+import { saveJob } from "./src/jobs";
 import { classifyLaneOutcomes, defaultMinLanes } from "./src/lane-outcomes";
 import { computeFileNames, prepareOutputTarget, writeOutput } from "./src/output";
 import { getProvider } from "./src/providers";
 import { appendRunStats, buildRunStats, displayStats } from "./src/stats";
 import { LaneResult, Provider, SweepConfig, SweepJob, TokenBreakdown } from "./src/types";
+import { applyAuthFlag, parseAuthOverrides } from "./src/cli/auth-flags";
+import { getPollIntervalMs, listBatches, resumeBatch, resubmitFailedBatch, waitAllBatches } from "./src/cli/batches";
+import { capLaneSourcesByDepth, reSynthesise } from "./src/cli/synthesis";
+
+type FlagHandler = (config: Partial<SweepConfig>, nextArg: () => string) => void;
+
+function authFlagHandler(flag: string): FlagHandler {
+  return (config, nextArg) => {
+    applyAuthFlag(config, flag, nextArg());
+  };
+}
+
+// Every run-mode flag in one place: parseArgs dispatches on this table and
+// main() derives its hasRunArgs check from the keys, so adding a flag is a
+// single-entry change. Mode selectors (--sync/--batch/--wait/--poll/...) are
+// deliberately absent — they are read directly off rawArgs in main().
+const RUN_FLAG_HANDLERS: Record<string, FlagHandler> = {
+  "--provider": (config, nextArg) => {
+    config.provider = nextArg() as Provider;
+  },
+  "--topic": (config, nextArg) => {
+    config.topic = nextArg();
+  },
+  "--brief-file": (config, nextArg) => {
+    config.briefFile = nextArg();
+  },
+  "--from": (config, nextArg) => {
+    config.fromYear = parseInt(nextArg(), 10);
+  },
+  "--to": (config, nextArg) => {
+    config.toYear = parseInt(nextArg(), 10);
+  },
+  "--lanes": (config, nextArg) => {
+    config.lanes = nextArg().split(",").map((lane) => lane.trim()) as SweepConfig["lanes"];
+  },
+  "--depth": (config, nextArg) => {
+    config.depth = nextArg() as SweepConfig["depth"];
+  },
+  "--folder": (config, nextArg) => {
+    config.outputDir = path.join(researchRoot(), nextArg());
+  },
+  "--output": (config, nextArg) => {
+    config.outputDir = nextArg();
+  },
+  "--breadth": (config) => {
+    config.depth = "shallow";
+  },
+  "--test": (config) => {
+    config.test = true;
+  },
+  "--overwrite": (config) => {
+    config.overwrite = true;
+  },
+  "--no-search": (config) => {
+    config.noSearch = true;
+  },
+  "--lane-model": (config, nextArg) => {
+    config.laneModel = nextArg() as SweepConfig["laneModel"];
+  },
+  "--lane-model-id": (config, nextArg) => {
+    config.laneModelId = nextArg();
+  },
+  "--synthesis-model": (config, nextArg) => {
+    config.synthesisModel = nextArg();
+  },
+  "--min-lanes": (config, nextArg) => {
+    const raw = nextArg();
+    const value = parseInt(raw, 10);
+    if (Number.isNaN(value) || value < 0) throw new Error(`Error: --min-lanes expects a non-negative integer, got "${raw}"`);
+    (config as { minLanes?: number }).minLanes = value;
+  },
+  "--claude-auth": authFlagHandler("--claude-auth"),
+  "--gemini-auth": authFlagHandler("--gemini-auth"),
+  "--openai-auth": authFlagHandler("--openai-auth"),
+};
 
 function parseArgs(): Partial<SweepConfig> {
   const args = process.argv.slice(2);
   const config: Partial<SweepConfig> = { provider: "claude", overwrite: false };
-
-  for (let i = 0; i < args.length; i++) {
-    switch (args[i]) {
-      case "--provider":
-        config.provider = args[++i] as Provider;
-        break;
-      case "--topic":
-        config.topic = args[++i];
-        break;
-      case "--brief-file":
-        config.briefFile = args[++i];
-        break;
-      case "--from":
-        config.fromYear = parseInt(args[++i], 10);
-        break;
-      case "--to":
-        config.toYear = parseInt(args[++i], 10);
-        break;
-      case "--lanes":
-        config.lanes = args[++i].split(",").map((lane) => lane.trim()) as SweepConfig["lanes"];
-        break;
-      case "--depth":
-        config.depth = args[++i] as SweepConfig["depth"];
-        break;
-      case "--folder":
-        config.outputDir = path.join(researchRoot(), args[++i]);
-        break;
-      case "--output":
-        config.outputDir = args[++i];
-        break;
-      case "--breadth":
-        config.depth = "shallow";
-        break;
-      case "--test":
-        config.test = true;
-        break;
-      case "--overwrite":
-        config.overwrite = true;
-        break;
-      case "--no-search":
-        config.noSearch = true;
-        break;
-      case "--lane-model":
-        config.laneModel = args[++i] as SweepConfig["laneModel"];
-        break;
-      case "--lane-model-id":
-        config.laneModelId = args[++i];
-        break;
-      case "--synthesis-model":
-        config.synthesisModel = args[++i];
-        break;
-      case "--min-lanes": {
-        const raw = args[++i];
-        const value = parseInt(raw, 10);
-        if (Number.isNaN(value) || value < 0) throw new Error(`Error: --min-lanes expects a non-negative integer, got "${raw}"`);
-        (config as { minLanes?: number }).minLanes = value;
-        break;
-      }
-      case "--claude-auth": {
-        const raw = args[++i];
-        if (raw === "api-key" || raw === "api_key") config.claudeAuth = "api_key";
-        else if (raw === "claude-oauth" || raw === "claude_oauth" || raw === "agent-sdk" || raw === "agent_sdk" || raw === "claude-cli" || raw === "claude_cli") config.claudeAuth = "claude_oauth";
-        else throw new Error(`Error: --claude-auth expects "api-key" or "claude-oauth", got "${raw}"`);
-        break;
-      }
-      case "--gemini-auth": {
-        const raw = args[++i];
-        if (raw === "api-key" || raw === "api_key") config.geminiAuth = "api_key";
-        else if (raw === "gemini-oauth" || raw === "gemini_oauth" || raw === "oauth") config.geminiAuth = "gemini_oauth";
-        else throw new Error(`Error: --gemini-auth expects "api-key" or "gemini-oauth", got "${raw}"`);
-        break;
-      }
-      case "--openai-auth": {
-        const raw = args[++i];
-        if (raw === "api-key" || raw === "api_key") config.openaiAuth = "api_key";
-        else if (raw === "codex" || raw === "codex-cli" || raw === "codex_cli" || raw === "chatgpt") config.openaiAuth = "codex_cli";
-        else throw new Error(`Error: --openai-auth expects "api-key" or "codex", got "${raw}"`);
-        break;
-      }
-    }
+  let i = 0;
+  const nextArg = () => args[++i];
+  for (i = 0; i < args.length; i++) {
+    RUN_FLAG_HANDLERS[args[i]]?.(config, nextArg);
   }
-
   return config;
 }
 
@@ -164,405 +161,10 @@ async function resolveConfig(partial: Partial<SweepConfig>): Promise<SweepConfig
   };
 }
 
-function getPollIntervalMs(rawArgs: string[]): number {
-  const idx = rawArgs.indexOf("--poll");
-  if (idx !== -1 && rawArgs[idx + 1]) return parseInt(rawArgs[idx + 1], 10) * 1000;
-  return 30_000;
-}
-
-function readFolderConfig(outputDir: string): SweepConfig {
-  const files = fs.readdirSync(outputDir).filter((file) => file.startsWith("summary-") && file.endsWith(".md"));
-  if (files.length === 0) throw new Error(`No summary file found in: ${outputDir}`);
-  const raw = fs.readFileSync(path.join(outputDir, files[0]), "utf-8");
-  const fmMatch = raw.match(/^---\n([\s\S]*?)\n---/);
-  if (!fmMatch) throw new Error("Could not parse frontmatter");
-  const frontmatter = fmMatch[1];
-  const get = (key: string) => {
-    const match = frontmatter.match(new RegExp(`^${key}:\\s*(.+)$`, "m"));
-    return match ? match[1].trim() : "";
-  };
-
-  const provider = (get("provider") || "claude") as Provider;
-  const topic = unquoteYamlScalar(get("topic"));
-  const briefTitleRaw = get("brief_title");
-  const briefFileRaw = get("brief_file");
-  const fromYear = parseInt(get("from"), 10) || 2021;
-  const toRaw = get("to");
-  const toYear = toRaw === "present" ? null : parseInt(toRaw, 10);
-  const depth = (get("depth") || "standard") as SweepConfig["depth"];
-  const lanes = get("lanes").replace(/[\[\]]/g, "").split(",").map((lane) => lane.trim()).filter(Boolean) as SweepConfig["lanes"];
-  return {
-    provider,
-    topic,
-    briefFile: briefFileRaw ? unquoteYamlScalar(briefFileRaw) : undefined,
-    briefTitle: briefTitleRaw ? unquoteYamlScalar(briefTitleRaw) : undefined,
-    briefing: undefined,
-    fromYear,
-    toYear,
-    lanes,
-    depth,
-    outputDir,
-    test: false,
-    overwrite: false,
-  };
-}
-
-function unquoteYamlScalar(raw: string): string {
-  const value = raw.trim();
-  if (value.length >= 2 && value.startsWith("'") && value.endsWith("'")) {
-    return value.slice(1, -1).replace(/''/g, "'");
-  }
-  if (value.length >= 2 && value.startsWith("\"") && value.endsWith("\"")) {
-    return value.slice(1, -1).replace(/\\"/g, "\"");
-  }
-  return value;
-}
-
-function capLaneSourcesByDepth(config: SweepConfig, laneResults: LaneResult[]): LaneResult[] {
-  const maxSources = DEPTH_CONFIG[config.depth].sourcesPerLane;
-  return laneResults.map((result) => ({
-    ...result,
-    sources: result.sources.slice(0, maxSources),
-  }));
-}
-
-async function runSynthesisOptimised(
-  provider: ReturnType<typeof getProvider>,
-  config: SweepConfig,
-  laneResults: LaneResult[],
-  sourcesName: string
-): Promise<{ markdown: string; tokensIn: number; tokensOut: number }> {
-  if (!provider.submitBatchSynthesis || !provider.collectBatchSynthesisResult) {
-    return provider.runSynthesis(config, laneResults, sourcesName);
-  }
-
-  console.log("\n  [Synthesis] Submitting as batch job...");
-  const synthBatchId = await provider.submitBatchSynthesis(config, laneResults, sourcesName);
-  const pollMs = 10_000;
-
-  while (true) {
-    await new Promise((resolve) => setTimeout(resolve, pollMs));
-    const status = await provider.getBatchStatus(synthBatchId);
-    if (status.status === "completed" || status.status === "ended") break;
-    console.log(`  [Synthesis] Waiting... (${status.status})`);
-  }
-
-  console.log("  [Synthesis] Collecting result...");
-  const result = await provider.collectBatchSynthesisResult(synthBatchId);
-  console.log(`  [Synthesis] Complete (${result.tokensIn.toLocaleString()} in / ${result.tokensOut.toLocaleString()} out)`);
-  return result;
-}
-
-async function resumeBatch(batchId: string): Promise<void> {
-  const job = loadJob(batchId);
-  const provider = getProvider(job.provider);
-  provider.requireApiKey(job.config);
-  const status = await provider.getBatchStatus(batchId);
-
-  if (status.status !== "completed" && status.status !== "ended") {
-    console.log(`Batch ${batchId} — provider: ${job.provider} — status: ${status.status}`);
-    console.log(`  processing: ${status.counts.processing}, succeeded: ${status.counts.succeeded}, errored: ${status.counts.errored}`);
-    console.log(`  submitted: ${job.submittedAt}`);
-    console.log(`\nResume with:\n  npx ts-node research-sweep.ts --resume ${batchId}`);
-    return;
-  }
-
-  console.log(`Batch complete — retrieving results...`);
-  const submittedLaneModel = provider.getModels(job.config, "batch").lane;
-  const laneResults = capLaneSourcesByDepth(job.config, await provider.collectBatchResults(batchId, job.lanes, submittedLaneModel));
-  const successCount = laneResults.filter((result) => result.sources.length > 0).length;
-  const minLanes = job.config.minLanes !== undefined ? job.config.minLanes : defaultMinLanes(job.lanes.length);
-  if (successCount < minLanes) {
-    throw new Error(
-      `Aborting before synthesis: only ${successCount} of ${job.lanes.length} batch lanes returned sources (need >=${minLanes}). ` +
-        `The batch job has been retained so collection can be retried after fixing the parser.`
-    );
-  }
-  const laneTotals = laneResults.reduce(
-    (acc, result) => ({
-      in: acc.in + result.tokensIn,
-      out: acc.out + result.tokensOut,
-      cacheCreate: acc.cacheCreate + (result.cacheCreateIn || 0),
-      cacheRead: acc.cacheRead + (result.cacheReadIn || 0),
-      reasoning: acc.reasoning + (result.reasoningOut || 0),
-    }),
-    { in: 0, out: 0, cacheCreate: 0, cacheRead: 0, reasoning: 0 }
-  );
-  const synthesis = await runSynthesisOptimised(provider, job.config, laneResults, job.sourcesName);
-  const files = computeFileNames(job.config.topic);
-  const synthModel = provider.getModels(job.config, "batch").synthesis;
-  const output = writeOutput(job.config, synthesis.markdown, laneResults, files, synthModel, { allowOverwrite: job.config.overwrite });
-  deleteJob(batchId);
-
-  const tokens: TokenBreakdown = {
-    lanesIn: laneTotals.in,
-    lanesOut: laneTotals.out,
-    synthesisIn: synthesis.tokensIn,
-    synthesisOut: synthesis.tokensOut,
-    totalIn: laneTotals.in + synthesis.tokensIn,
-    totalOut: laneTotals.out + synthesis.tokensOut,
-    cacheCreateIn: laneTotals.cacheCreate,
-    cacheReadIn: laneTotals.cacheRead,
-    reasoningOut: laneTotals.reasoning,
-  };
-  appendRunStats(buildRunStats(job.config, "batch", null, job.submittedAt, tokens, [output.summaryPath, output.sourcesPath, ...output.lanesPaths], "api_key"));
-
-  console.log(`
-Tokens:  ${tokens.totalIn.toLocaleString()} in / ${tokens.totalOut.toLocaleString()} out (total)
-Summary: ${output.summaryPath}
-Sources: ${output.sourcesPath}
-Lanes:   ${path.join(path.dirname(output.sourcesPath), "lanes")} (${output.lanesPaths.length} files + lanes JSON)
-`);
-
-  if (job.resubmittedFrom) {
-    console.log(`
-This was a --resubmit-failed run (resubmitted from ${job.resubmittedFrom}) covering only lane(s):
-  ${job.lanes.join(", ")}
-It was written to its own folder, not merged into the original run's output. To combine: copy the
-lane markdown/JSON files above into the original folder's lanes/ directory (replacing the failed-lane
-placeholders there), then re-run:
-  npx ts-node research-sweep.ts --re-synthesise <original-folder>
-`);
-  }
-}
-
-// Batches API best practice: resubmit only the custom_ids that came back
-// errored/expired/canceled — those requests were never billed, so
-// resubmitting them is free of double-cost. Builds and submits a follow-up
-// batch covering just those lanes, and saves a new job manifest pointed at a
-// dedicated output folder so `--resume <newBatchId>` can never clobber the
-// original run's already-written summary/sources/lane files. Combining the
-// two runs is left to the user (see the guidance printed here and in
-// resumeBatch) rather than an automatic merge — see CLAUDE.md.
-async function resubmitFailedBatch(batchId: string): Promise<void> {
-  const job = loadJob(batchId);
-  const provider = getProvider(job.provider);
-  if (!provider.getBatchLaneFailures || !provider.submitBatchLanesSubset) {
-    throw new Error(
-      `Error: provider "${job.provider}" does not support --resubmit-failed. This is currently Claude-only — ` +
-        `the Batches API best practice of resubmitting exactly the failed custom_ids doesn't map onto the ${job.provider} batch shape yet.`
-    );
-  }
-  provider.requireApiKey(job.config);
-
-  const status = await provider.getBatchStatus(batchId);
-  if (status.status !== "completed" && status.status !== "ended") {
-    console.log(`Batch ${batchId} — provider: ${job.provider} — status: ${status.status}`);
-    console.log(`  processing: ${status.counts.processing}, succeeded: ${status.counts.succeeded}, errored: ${status.counts.errored}`);
-    console.log(`\n--resubmit-failed requires a terminal batch. Wait for it to finish, or check progress with:\n  npx ts-node research-sweep.ts --resume ${batchId}`);
-    return;
-  }
-
-  console.log(`Batch complete — checking for failed lanes...`);
-  const failures = await provider.getBatchLaneFailures(batchId, job.lanes);
-
-  if (failures.length === 0) {
-    console.log(`No failed lanes in batch ${batchId} — every lane succeeded. Nothing to resubmit.`);
-    return;
-  }
-
-  console.log(`\nFailed lanes (${failures.length} of ${job.lanes.length}):`);
-  for (const failure of failures) {
-    const label = LANE_CONFIG[failure.lane]?.label || failure.lane;
-    console.log(`  • ${failure.lane} (${label}) — ${failure.resultType}`);
-  }
-
-  const failedLanes = failures.map((failure) => failure.lane);
-  const newBatchId = await provider.submitBatchLanesSubset(job.config, failedLanes);
-
-  // Dedicated folder — never the original job's outputDir — so resuming the
-  // resubmission can never overwrite the original run's summary/sources.
-  const resubmitDir = `${job.config.outputDir}-resubmit-${newBatchId.slice(-8).replace(/[^A-Za-z0-9]/g, "")}`;
-  const resubmitConfig: SweepConfig = { ...job.config, lanes: failedLanes, outputDir: resubmitDir, overwrite: true };
-  const files = computeFileNames(job.config.topic);
-  const newJob: SweepJob = {
-    provider: job.provider,
-    batchId: newBatchId,
-    config: resubmitConfig,
-    summaryName: files.summaryName,
-    sourcesName: files.sourcesName,
-    submittedAt: new Date().toISOString(),
-    lanes: failedLanes,
-    resubmittedFrom: batchId,
-  };
-  saveJob(newJob);
-
-  console.log(`
-Resubmitted ${failedLanes.length} failed lane${failedLanes.length === 1 ? "" : "s"} as a new batch: ${newBatchId}
-Resubmitted from: ${batchId} (original job manifest kept until you resolve it)
-Will write to:    ${resubmitDir} (kept separate from the original run's output)
-
-Resume with:
-  npx ts-node research-sweep.ts --resume ${newBatchId}
-
-The resumed output will cover only the resubmitted lane(s) (${failedLanes.join(", ")}). This CLI does not
-auto-merge lane results across batches — after both runs are collected, combine them yourself, e.g. by
-copying the resubmitted lane markdown/JSON files from ${resubmitDir}/lanes/ into the original folder's
-lanes/ directory (replacing the failed-lane placeholders) and re-running:
-  npx ts-node research-sweep.ts --re-synthesise <original-folder>
-`);
-}
-
-async function listBatches(): Promise<void> {
-  const dir = jobsDir();
-  if (!fs.existsSync(dir)) {
-    console.log("No batch jobs found.");
-    return;
-  }
-
-  const files = fs
-    .readdirSync(dir)
-    .filter((file) => file.endsWith(".json"))
-    .sort((a, b) => fs.statSync(path.join(dir, b)).mtime.getTime() - fs.statSync(path.join(dir, a)).mtime.getTime());
-
-  if (files.length === 0) {
-    console.log("No batch jobs found.");
-    return;
-  }
-
-  console.log(`\nBatch Jobs (${files.length})\n`);
-  console.log(`${"#".padEnd(3)}  ${"Provider".padEnd(8)}  ${"ID".padEnd(32)}  ${"Submitted".padEnd(19)}  ${"Status".padEnd(12)}  ${"ok/err/run".padEnd(12)}  Topic`);
-  console.log("─".repeat(120));
-
-  let index = 1;
-  for (const file of files) {
-    const job = JSON.parse(fs.readFileSync(path.join(dir, file), "utf-8")) as SweepJob;
-    let status = "unknown";
-    let counts = "";
-    try {
-      const provider = getProvider(job.provider);
-      provider.requireApiKey(job.config);
-      const batchStatus = await provider.getBatchStatus(job.batchId);
-      status = batchStatus.status === "ended" ? "complete" : batchStatus.status;
-      counts = `${batchStatus.counts.succeeded}/${batchStatus.counts.errored}/${batchStatus.counts.processing}`;
-    } catch {
-      status = "fetch error";
-    }
-    console.log(`${String(index).padEnd(3)}  ${job.provider.padEnd(8)}  ${job.batchId.padEnd(32)}  ${job.submittedAt.replace("T", " ").slice(0, 19).padEnd(19)}  ${status.padEnd(12)}  ${counts.padEnd(12)}  ${job.config.topic.slice(0, 45)}`);
-    index++;
-  }
-  console.log();
-}
-
-async function waitAllBatches(pollIntervalMs: number): Promise<void> {
-  const dir = jobsDir();
-  const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((file) => file.endsWith(".json")) : [];
-  if (files.length === 0) {
-    console.log("No pending batch jobs.");
-    return;
-  }
-
-  const pending = new Map<string, SweepJob>();
-  for (const file of files) {
-    // Use the real batchId from file content, not the (sanitised) filename —
-    // Gemini ids contain "/" so filename != batchId.
-    const job = JSON.parse(fs.readFileSync(path.join(dir, file), "utf-8")) as SweepJob;
-    pending.set(job.batchId, job);
-  }
-
-  console.log(`\nMonitoring ${pending.size} batch ${pending.size === 1 ? "job" : "jobs"} — polling every ${Math.round(pollIntervalMs / 1000)}s`);
-  for (const [batchId, job] of pending) {
-    console.log(`  • [${batchId.slice(-8)}] (${job.provider}) ${job.config.topic.slice(0, 60)}`);
-  }
-
-  const waitStart = Date.now();
-  while (pending.size > 0) {
-    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
-    const elapsed = Math.round((Date.now() - waitStart) / 1000);
-    const ts = new Date().toISOString().slice(11, 19);
-
-    for (const [batchId, job] of [...pending.entries()]) {
-      const provider = getProvider(job.provider);
-      provider.requireApiKey(job.config);
-      const status = await provider.getBatchStatus(batchId);
-      const label = job.config.topic.slice(0, 34).padEnd(34);
-      console.log(`  [${ts}] +${String(elapsed).padStart(5)}s  [${batchId.slice(-8)}] (${job.provider}) ${label}  ${status.status}  (${status.counts.processing} active / ${status.counts.succeeded} done)`);
-      if (status.status === "completed" || status.status === "ended") {
-        console.log(`\n  Resuming: ${job.config.topic}`);
-        await resumeBatch(batchId);
-        pending.delete(batchId);
-        if (pending.size > 0) console.log(`\n  ${pending.size} job(s) still pending...\n`);
-      }
-    }
-  }
-
-  console.log("\nAll batches complete.");
-}
-
-type AuthOverrides = Pick<Partial<SweepConfig>, "claudeAuth" | "geminiAuth" | "openaiAuth">;
-
-function parseAuthOverrides(args: string[]): AuthOverrides {
-  const overrides: AuthOverrides = {};
-  for (let i = 0; i < args.length; i++) {
-    const raw = args[i + 1];
-    if (args[i] === "--claude-auth") {
-      if (raw === "api-key" || raw === "api_key") overrides.claudeAuth = "api_key";
-      else if (raw === "claude-oauth" || raw === "claude_oauth" || raw === "agent-sdk" || raw === "agent_sdk" || raw === "claude-cli" || raw === "claude_cli") overrides.claudeAuth = "claude_oauth";
-      else throw new Error(`Error: --claude-auth expects "api-key" or "claude-oauth", got "${raw}"`);
-    } else if (args[i] === "--gemini-auth") {
-      if (raw === "api-key" || raw === "api_key") overrides.geminiAuth = "api_key";
-      else if (raw === "gemini-oauth" || raw === "gemini_oauth" || raw === "oauth") overrides.geminiAuth = "gemini_oauth";
-      else throw new Error(`Error: --gemini-auth expects "api-key" or "gemini-oauth", got "${raw}"`);
-    } else if (args[i] === "--openai-auth") {
-      if (raw === "api-key" || raw === "api_key") overrides.openaiAuth = "api_key";
-      else if (raw === "codex" || raw === "codex-cli" || raw === "codex_cli" || raw === "chatgpt") overrides.openaiAuth = "codex_cli";
-      else throw new Error(`Error: --openai-auth expects "api-key" or "codex", got "${raw}"`);
-    }
-  }
-  return overrides;
-}
-
-async function reSynthesise(folder: string, batchId?: string, authOverrides: AuthOverrides = {}): Promise<void> {
-  const outputDir = path.join(researchRoot(), folder);
-  const lanesDir = path.join(outputDir, "lanes");
-  let config: SweepConfig;
-  let lanes: LaneResult[];
-  let source: string;
-
-  const jsonFiles = fs.existsSync(lanesDir) ? fs.readdirSync(lanesDir).filter((file) => file.startsWith("lanes-") && file.endsWith(".json")) : [];
-  if (jsonFiles.length > 0) {
-    ({ config, lanes } = JSON.parse(fs.readFileSync(path.join(lanesDir, jsonFiles[0]), "utf-8")));
-    config.provider = config.provider || "claude";
-    source = "local cache";
-  } else if (batchId) {
-    const job = loadJob(batchId);
-    const provider = getProvider(job.provider);
-    config = readFolderConfig(outputDir);
-    lanes = capLaneSourcesByDepth(config, await provider.collectBatchResults(batchId, config.lanes, provider.getModels(config, "batch").lane));
-    source = `${job.provider} API (cached locally for future use)`;
-  } else {
-    throw new Error(`No lane cache found for "${folder}". Provide --from-batch <batchId> for pre-cache runs.`);
-  }
-
-  lanes = capLaneSourcesByDepth(config, lanes);
-  if (authOverrides.claudeAuth) config.claudeAuth = authOverrides.claudeAuth;
-  if (authOverrides.geminiAuth) config.geminiAuth = authOverrides.geminiAuth;
-  if (authOverrides.openaiAuth) config.openaiAuth = authOverrides.openaiAuth;
-  const provider = getProvider(config.provider);
-  const files = computeFileNames(config.topic);
-  const synthesisModel = provider.getModels(config, "sync").synthesis;
-  console.log(`
-Re-synthesise
--------------
-Provider: ${config.provider}
-Topic:    ${config.topic}
-Folder:   ${folder}
-Lanes:    ${lanes.length} (${lanes.map((lane) => lane.label).join(", ")})
-Depth:    ${config.depth}
-Source:   ${source}
-`);
-  const synthesis = await runSynthesisOptimised(provider, config, lanes, files.sourcesName);
-  const output = writeOutput(config, synthesis.markdown, lanes, files, synthesisModel, { allowOverwrite: true });
-  console.log(`Done (${synthesis.tokensIn.toLocaleString()} in / ${synthesis.tokensOut.toLocaleString()} out)`);
-  console.log(`Summary: ${output.summaryPath}`);
-}
-
 async function main(): Promise<void> {
   loadDotEnv();
   const rawArgs = process.argv.slice(2);
-  const hasRunArgs = ["--topic", "--brief-file", "--from", "--to", "--lanes", "--depth", "--folder", "--output", "--provider", "--test", "--breadth", "--overwrite", "--claude-auth", "--gemini-auth", "--openai-auth", "--no-search", "--lane-model", "--lane-model-id", "--synthesis-model", "--min-lanes"].some((flag) =>
-    rawArgs.includes(flag)
-  );
+  const hasRunArgs = Object.keys(RUN_FLAG_HANDLERS).some((flag) => rawArgs.includes(flag));
 
   if (rawArgs.includes("--auth-check")) {
     const envFileIndex = rawArgs.indexOf("--env-file");
