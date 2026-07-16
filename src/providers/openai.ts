@@ -6,7 +6,7 @@ import * as path from "path";
 import { detectOpenAIAuthMode, OpenAIAuthMode, requireApiKeyModeOrThrow } from "../auth/detect";
 import { DEPTH_CONFIG, LANE_CONFIG } from "../config";
 import { fallbackLaneResult, parseLaneResponse } from "../parsing";
-import { OPENAI_LANE_TEXT_FORMAT } from "../lane-schema";
+import { OPENAI_LANE_SCHEMA, OPENAI_LANE_TEXT_FORMAT } from "../lane-schema";
 import { buildLanePrompt, buildSynthesisPrompt, SHARED_LANE_SCAFFOLDING } from "../prompts";
 import { BatchStatus, Lane, LaneResult, ProviderAdapter, ProviderModels, SweepConfig, UsageCounts } from "../types";
 
@@ -45,8 +45,8 @@ export function extractOutputText(response: OpenAI.Responses.Response): string {
     .join("");
 }
 
-function tempBatchFilePath(): string {
-  return path.join(os.tmpdir(), `research-sweeper-openai-batch-${Date.now()}.jsonl`);
+function tempFilePath(suffix: string): string {
+  return path.join(os.tmpdir(), `research-sweeper-openai-${Date.now()}${suffix}`);
 }
 
 export class OpenAIProvider implements ProviderAdapter {
@@ -107,16 +107,18 @@ export class OpenAIProvider implements ProviderAdapter {
     return { tokensIn, tokensOut };
   }
 
-  private async runViaCodexCli(prompt: string, model: string, useSearch: boolean, reasoningEffort: string): Promise<CodexExecResult> {
+  private async runViaCodexCli(prompt: string, model: string, useSearch: boolean, reasoningEffort: string, outputSchema?: object): Promise<CodexExecResult> {
     const allowedEfforts = ["minimal", "low", "medium", "high", "xhigh", "max"];
     if (!allowedEfforts.includes(reasoningEffort)) {
       throw new Error(
         `Invalid reasoning effort "${reasoningEffort}"; expected one of ${allowedEfforts.join(", ")}. ` +
-          "Check config/depths.json — this value is interpolated into the codex argv."
+          "This value is interpolated into the codex argv."
       );
     }
     delete process.env.OPENAI_API_KEY;
-    const outputPath = tempBatchFilePath() + ".out.txt";
+    const outputPath = tempFilePath(".out.txt");
+    const schemaPath = outputSchema ? tempFilePath("-schema.json") : null;
+    if (schemaPath && outputSchema) fs.writeFileSync(schemaPath, JSON.stringify(outputSchema), "utf-8");
     const args = [
       ...(useSearch ? ["--search"] : []),
       "exec",
@@ -128,6 +130,7 @@ export class OpenAIProvider implements ProviderAdapter {
       "--sandbox",
       "read-only",
       "--skip-git-repo-check",
+      ...(schemaPath ? ["--output-schema", schemaPath] : []),
       "--output-last-message",
       outputPath,
       prompt,
@@ -160,11 +163,10 @@ export class OpenAIProvider implements ProviderAdapter {
       });
       const text = fs.existsSync(outputPath) ? fs.readFileSync(outputPath, "utf-8") : "";
       const usage = this.parseCodexUsage(stdout || "");
-      if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
       return { text, tokensIn: usage.tokensIn, tokensOut: usage.tokensOut };
-    } catch (error) {
+    } finally {
       if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
-      throw error;
+      if (schemaPath && fs.existsSync(schemaPath)) fs.unlinkSync(schemaPath);
     }
   }
 
@@ -205,7 +207,7 @@ export class OpenAIProvider implements ProviderAdapter {
         searchesFired = outputItems.filter((o) => typeof o.type === "string" && o.type.startsWith("web_search")).length;
       } else {
         const combinedPrompt = `${SHARED_LANE_SCAFFOLDING}\n\n${definition.systemPrompt}\n\n${buildLanePrompt(lane, config)}`;
-        const result = await this.runViaCodexCli(combinedPrompt, model, true, LANE_REASONING_EFFORT);
+        const result = await this.runViaCodexCli(combinedPrompt, model, true, LANE_REASONING_EFFORT, OPENAI_LANE_SCHEMA);
         rawText = result.text;
         tokensIn = result.tokensIn;
         tokensOut = result.tokensOut;
@@ -277,7 +279,7 @@ export class OpenAIProvider implements ProviderAdapter {
         max_output_tokens: DEPTH_CONFIG[config.depth].laneMaxTokens,
       },
     }));
-    const batchFilePath = tempBatchFilePath();
+    const batchFilePath = tempFilePath("-batch.jsonl");
     fs.writeFileSync(batchFilePath, requests.map((request) => JSON.stringify(request)).join("\n") + "\n", "utf-8");
     const uploadedFile = await client.files.create({ file: fs.createReadStream(batchFilePath), purpose: "batch" });
     fs.unlinkSync(batchFilePath);

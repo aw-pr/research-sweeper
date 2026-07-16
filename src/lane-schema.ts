@@ -3,16 +3,19 @@
 // Field-name drift (the model renaming `narrative` -> `research_summary`, or a
 // source's `significance` -> `core_relevance`) caused two silent-failure bugs.
 // Enforcing a schema at the model layer fixes the contract so the parser stops
-// guessing. This is wired into the API-key paths of OpenAI and Claude only:
+// guessing. Wiring:
 //
-//   - OpenAI: Responses API `text.format` json_schema (strict).
-//   - Claude: a forced `submit_lane_findings` tool whose input_schema is the
-//     contract (web_search runs first, then the model returns via the tool).
+//   - OpenAI api-key: Responses API `text.format` json_schema (strict).
+//   - OpenAI codex-cli: the same schema passed via `codex exec --output-schema`
+//     (verified available on codex-cli 0.144.4).
+//   - Claude api-key: a forced `submit_lane_findings` tool whose input_schema
+//     is the contract (web_search runs first, then the model returns via the
+//     tool).
 //
 // Gemini is excluded: Google Search grounding and JSON structured output are
-// mutually exclusive in the Gemini API. The tolerant parser in parsing.ts
-// stays as the cross-provider safety net (and covers the codex-cli / Agent SDK
-// subscription routes, which cannot carry a schema).
+// mutually exclusive in the Gemini API. The Claude OAuth / Agent SDK route is
+// excluded: the SDK query cannot carry a response schema. The tolerant parser
+// in parsing.ts stays as the safety net for those two routes.
 
 const NARRATIVE_DESC = "The lane's prose narrative synthesising the findings. Required, non-empty. Use this exact field name.";
 const SOURCES_DESC = "The retrieved sources. Each item MUST use the exact field names below.";
