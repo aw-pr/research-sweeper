@@ -39,10 +39,11 @@ describe("parseLaneResponse parseMode", () => {
     expect(parseLaneResponse(drifted)?.parseMode).toBe("repaired");
   });
 
-  it("reports salvaged when only the sources array is recoverable", () => {
+  it("repairs an unescaped quote in prose, preserving the full narrative", () => {
     const broken = '{"narrative": "an "unescaped" quote breaks this", "sources": [{"title": "T", "significance": "S"}]}';
     const result = parseLaneResponse(broken);
-    expect(result?.parseMode).toBe("salvaged");
+    expect(result?.parseMode).toBe("repaired");
+    expect(result?.narrative).toBe('an "unescaped" quote breaks this');
     expect(result?.sources).toHaveLength(1);
   });
 

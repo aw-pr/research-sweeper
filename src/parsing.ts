@@ -1,3 +1,4 @@
+import { jsonrepair } from "jsonrepair";
 import { Lane, LaneDefinition, LaneParseMode, LaneResult, SourceItem } from "./types";
 
 export function extractText(blocks: Array<{ type?: string; text?: string }>): string {
@@ -122,27 +123,17 @@ function resolveNarrative(parsed: Record<string, unknown>, sourceCount: number):
   return best;
 }
 
-// Models occasionally emit raw newlines/tabs inside JSON string values, which
-// is invalid per spec — JSON.parse rejects the whole object and an otherwise
-// complete lane loses every source. Escape control characters that fall inside
-// a string literal, leaving the structural whitespace between tokens untouched.
-function escapeControlCharsInStrings(text: string): string {
-  let out = "";
-  let inStr = false;
-  let esc = false;
-  for (const ch of text) {
-    if (inStr) {
-      if (esc) { out += ch; esc = false; continue; }
-      if (ch === "\\") { out += ch; esc = true; continue; }
-      if (ch === '"') { out += ch; inStr = false; continue; }
-      const code = ch.charCodeAt(0);
-      out += code < 0x20 ? "\\u" + code.toString(16).padStart(4, "0") : ch;
-      continue;
-    }
-    if (ch === '"') inStr = true;
-    out += ch;
+// Models occasionally emit invalid JSON — raw newlines/tabs inside string
+// values, unescaped quotes in prose, trailing commas. Repair with the
+// jsonrepair library (a tolerant parser, not regex — regex cannot reliably
+// disambiguate structural quotes/newlines from content). Returns null when
+// even jsonrepair gives up on the text.
+function repairJson(text: string): string | null {
+  try {
+    return jsonrepair(text);
+  } catch {
+    return null;
   }
-  return out;
 }
 
 // Some lanes serialise `sources` as an XML-ish string (<item><title>…</item>)
@@ -226,15 +217,17 @@ export function parseLaneResponse(rawText: string): { sources: SourceItem[]; nar
   let repaired = false;
   // 1) greedy outer-brace match (fast path, unchanged behaviour)
   // 2) balanced-brace fallback for prose-wrapped / multi-block replies
-  // Each candidate is tried as-is, then with in-string control chars escaped.
+  // Each candidate is tried as-is, then through jsonrepair.
   const candidates = [unfenced.match(/\{[\s\S]*\}/)?.[0], extractBalancedObject(unfenced)];
   for (let c = 0; c < candidates.length && !parsed; c++) {
     const candidate = candidates[c];
     if (!candidate) continue;
-    const variants = [candidate, escapeControlCharsInStrings(candidate)];
+    const variants = [candidate, repairJson(candidate)];
     for (let v = 0; v < variants.length; v++) {
+      const variant = variants[v];
+      if (variant === null) continue;
       try {
-        parsed = JSON.parse(variants[v]) as Record<string, unknown>;
+        parsed = JSON.parse(variant) as Record<string, unknown>;
         if (c > 0 || v > 0) repaired = true;
         break;
       } catch {
@@ -248,9 +241,11 @@ export function parseLaneResponse(rawText: string): { sources: SourceItem[]; nar
     // so a formatting slip drops neither the lane's sources nor its narrative.
     const arr = extractArrayValue(unfenced, "sources");
     if (!arr) return null;
+    const repairedArr = repairJson(arr);
+    if (repairedArr === null) return null;
     let salvaged: unknown[];
     try {
-      salvaged = JSON.parse(escapeControlCharsInStrings(arr)) as unknown[];
+      salvaged = JSON.parse(repairedArr) as unknown[];
     } catch {
       return null;
     }
