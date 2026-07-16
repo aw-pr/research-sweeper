@@ -21,10 +21,12 @@ const NARRATIVE_DESC = "The lane's prose narrative synthesising the findings. Re
 const SOURCES_DESC = "The retrieved sources. Each item MUST use the exact field names below.";
 const SIGNIFICANCE_DESC = "Why this source matters to the topic. Use this exact field name (not core_relevance / why_it_matters / etc.).";
 
-// OpenAI Responses API strict json_schema: every property must appear in
-// `required` and `additionalProperties` must be false; genuinely-optional
-// fields are expressed as nullable unions.
-export const OPENAI_LANE_SCHEMA = {
+// The single lane-response schema, shared by every schema-capable route:
+// OpenAI Responses `text.format` (strict), `codex exec --output-schema`, and
+// the Claude strict tool below. Strict-mode constraints: every property in
+// `required`, `additionalProperties: false`; genuinely-optional fields are
+// expressed as nullable unions.
+export const LANE_RESPONSE_SCHEMA = {
   type: "object",
   additionalProperties: false,
   required: ["narrative", "model_context", "sources"],
@@ -52,7 +54,7 @@ export const OPENAI_LANE_SCHEMA = {
 
 // Responses API structured-output wrapper.
 export const OPENAI_LANE_TEXT_FORMAT = {
-  format: { type: "json_schema" as const, name: "lane_response", strict: true, schema: OPENAI_LANE_SCHEMA },
+  format: { type: "json_schema" as const, name: "lane_response", strict: true, schema: LANE_RESPONSE_SCHEMA },
 };
 
 // OpenAI tools/tool_choice for a lane request. With search on, web_search is
@@ -69,35 +71,15 @@ export function openaiLaneToolConfig(noSearch: boolean): { tools?: unknown[]; to
 
 export const CLAUDE_LANE_TOOL_NAME = "submit_lane_findings";
 
-// Anthropic tool input_schema: standard JSON Schema (not strict-mode
-// constrained), so genuinely-optional fields are simply omitted from
-// `required` rather than made nullable.
+// Anthropic strict tool use (GA, no beta header): `strict: true` guarantees
+// `tool_use.input` validates against the schema exactly, closing the last
+// field-drift/invalid-JSON gap on the Claude api-key route. Same schema as
+// the OpenAI routes.
 export const CLAUDE_LANE_TOOL = {
   name: CLAUDE_LANE_TOOL_NAME,
   description: "Return the lane's researched findings. Call this exactly once, AFTER you have finished searching the web.",
-  input_schema: {
-    type: "object",
-    required: ["narrative", "sources"],
-    properties: {
-      narrative: { type: "string", description: NARRATIVE_DESC },
-      model_context: { type: "string", description: "Structured background knowledge from the model, separate from retrieved sources." },
-      sources: {
-        type: "array",
-        description: SOURCES_DESC,
-        items: {
-          type: "object",
-          required: ["title", "significance"],
-          properties: {
-            title: { type: "string", description: "Source title or headline." },
-            significance: { type: "string", description: SIGNIFICANCE_DESC },
-            url: { type: "string", description: "Canonical https URL." },
-            date: { type: "string", description: "Publication date or year." },
-            outlet: { type: "string", description: "Publication / outlet / venue." },
-          },
-        },
-      },
-    },
-  },
+  strict: true,
+  input_schema: LANE_RESPONSE_SCHEMA,
 } as const;
 
 type ContentBlock = { type: string; name?: string; input?: unknown; text?: string };

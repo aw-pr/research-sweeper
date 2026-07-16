@@ -6,7 +6,7 @@ import * as path from "path";
 import { detectOpenAIAuthMode, OpenAIAuthMode, requireApiKeyModeOrThrow } from "../auth/detect";
 import { DEPTH_CONFIG, LANE_CONFIG } from "../config";
 import { fallbackLaneResult, parseLaneResponse } from "../parsing";
-import { OPENAI_LANE_SCHEMA, OPENAI_LANE_TEXT_FORMAT, openaiLaneToolConfig } from "../lane-schema";
+import { LANE_RESPONSE_SCHEMA, OPENAI_LANE_TEXT_FORMAT, openaiLaneToolConfig } from "../lane-schema";
 import { buildLanePrompt, buildSynthesisPrompt, SHARED_LANE_SCAFFOLDING } from "../prompts";
 import { BatchStatus, Lane, LaneResult, ProviderAdapter, ProviderModels, SweepConfig, UsageCounts } from "../types";
 
@@ -207,7 +207,7 @@ export class OpenAIProvider implements ProviderAdapter {
         searchesFired = outputItems.filter((o) => typeof o.type === "string" && o.type.startsWith("web_search")).length;
       } else {
         const combinedPrompt = `${SHARED_LANE_SCAFFOLDING}\n\n${definition.systemPrompt}\n\n${buildLanePrompt(lane, config)}`;
-        const result = await this.runViaCodexCli(combinedPrompt, model, !config.noSearch, LANE_REASONING_EFFORT, OPENAI_LANE_SCHEMA);
+        const result = await this.runViaCodexCli(combinedPrompt, model, !config.noSearch, LANE_REASONING_EFFORT, LANE_RESPONSE_SCHEMA);
         rawText = result.text;
         tokensIn = result.tokensIn;
         tokensOut = result.tokensOut;

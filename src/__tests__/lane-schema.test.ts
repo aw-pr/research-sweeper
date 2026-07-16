@@ -1,23 +1,29 @@
 import { describe, expect, it } from "vitest";
 import { parseLaneResponse } from "../parsing";
 import {
+  CLAUDE_LANE_TOOL,
   CLAUDE_LANE_TOOL_NAME,
   claudeLaneToolConfig,
   countClaudeSearches,
   extractClaudeLaneRaw,
-  OPENAI_LANE_SCHEMA,
+  LANE_RESPONSE_SCHEMA,
   OPENAI_LANE_TEXT_FORMAT,
 } from "../lane-schema";
 
-describe("OpenAI lane schema", () => {
+describe("lane response schema", () => {
   it("is strict-mode compliant: additionalProperties false and every property required", () => {
     expect(OPENAI_LANE_TEXT_FORMAT.format.strict).toBe(true);
-    const obj = OPENAI_LANE_SCHEMA;
+    const obj = LANE_RESPONSE_SCHEMA;
     expect(obj.additionalProperties).toBe(false);
     expect([...obj.required].sort()).toEqual(Object.keys(obj.properties).sort());
     const item = obj.properties.sources.items;
     expect(item.additionalProperties).toBe(false);
     expect([...item.required].sort()).toEqual(Object.keys(item.properties).sort());
+  });
+
+  it("is shared by the Claude strict tool", () => {
+    expect(CLAUDE_LANE_TOOL.strict).toBe(true);
+    expect(CLAUDE_LANE_TOOL.input_schema).toBe(LANE_RESPONSE_SCHEMA);
   });
 });
 
