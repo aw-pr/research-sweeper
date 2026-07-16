@@ -55,6 +55,18 @@ export const OPENAI_LANE_TEXT_FORMAT = {
   format: { type: "json_schema" as const, name: "lane_response", strict: true, schema: OPENAI_LANE_SCHEMA },
 };
 
+// OpenAI tools/tool_choice for a lane request. With search on, web_search is
+// offered and forced, mirroring the Claude lane contract below — without
+// forcing, the model may answer from parametric knowledge and skip searching.
+// The strict text.format above still shapes the final message. With search
+// off, no tools are attached. tool_choice `{ type: "web_search" }` is accepted
+// by the API but missing from the SDK's ToolChoiceTypes union — call sites
+// cast where the request object is SDK-typed.
+export function openaiLaneToolConfig(noSearch: boolean): { tools?: unknown[]; tool_choice?: unknown } {
+  if (noSearch) return {};
+  return { tools: [{ type: "web_search" }], tool_choice: { type: "web_search" } };
+}
+
 export const CLAUDE_LANE_TOOL_NAME = "submit_lane_findings";
 
 // Anthropic tool input_schema: standard JSON Schema (not strict-mode

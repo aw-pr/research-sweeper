@@ -6,7 +6,7 @@ import * as path from "path";
 import { detectOpenAIAuthMode, OpenAIAuthMode, requireApiKeyModeOrThrow } from "../auth/detect";
 import { DEPTH_CONFIG, LANE_CONFIG } from "../config";
 import { fallbackLaneResult, parseLaneResponse } from "../parsing";
-import { OPENAI_LANE_SCHEMA, OPENAI_LANE_TEXT_FORMAT } from "../lane-schema";
+import { OPENAI_LANE_SCHEMA, OPENAI_LANE_TEXT_FORMAT, openaiLaneToolConfig } from "../lane-schema";
 import { buildLanePrompt, buildSynthesisPrompt, SHARED_LANE_SCAFFOLDING } from "../prompts";
 import { BatchStatus, Lane, LaneResult, ProviderAdapter, ProviderModels, SweepConfig, UsageCounts } from "../types";
 
@@ -194,7 +194,7 @@ export class OpenAIProvider implements ProviderAdapter {
           model,
           input: responseInputItem(buildLanePrompt(lane, config)),
           instructions: `${SHARED_LANE_SCAFFOLDING}\n\n${definition.systemPrompt}`,
-          tools: [{ type: "web_search" }],
+          ...(openaiLaneToolConfig(!!config.noSearch) as Pick<OpenAI.Responses.ResponseCreateParamsNonStreaming, "tools" | "tool_choice">),
           text: OPENAI_LANE_TEXT_FORMAT,
           reasoning: { effort: LANE_REASONING_EFFORT },
           max_output_tokens: DEPTH_CONFIG[config.depth].laneMaxTokens,
@@ -207,7 +207,7 @@ export class OpenAIProvider implements ProviderAdapter {
         searchesFired = outputItems.filter((o) => typeof o.type === "string" && o.type.startsWith("web_search")).length;
       } else {
         const combinedPrompt = `${SHARED_LANE_SCAFFOLDING}\n\n${definition.systemPrompt}\n\n${buildLanePrompt(lane, config)}`;
-        const result = await this.runViaCodexCli(combinedPrompt, model, true, LANE_REASONING_EFFORT, OPENAI_LANE_SCHEMA);
+        const result = await this.runViaCodexCli(combinedPrompt, model, !config.noSearch, LANE_REASONING_EFFORT, OPENAI_LANE_SCHEMA);
         rawText = result.text;
         tokensIn = result.tokensIn;
         tokensOut = result.tokensOut;
@@ -273,7 +273,7 @@ export class OpenAIProvider implements ProviderAdapter {
         model: config.test ? TEST_MODEL : LANE_MODEL_BATCH,
         input: responseInputItem(buildLanePrompt(lane, config)),
         instructions: `${SHARED_LANE_SCAFFOLDING}\n\n${LANE_CONFIG[lane].systemPrompt}`,
-        tools: [{ type: "web_search" }],
+        ...openaiLaneToolConfig(!!config.noSearch),
         text: OPENAI_LANE_TEXT_FORMAT,
         reasoning: { effort: LANE_REASONING_EFFORT },
         max_output_tokens: DEPTH_CONFIG[config.depth].laneMaxTokens,
