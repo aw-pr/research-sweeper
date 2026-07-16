@@ -38,12 +38,22 @@ export interface SourceItem {
   significance: string;
 }
 
+// How the lane's raw response became a LaneResult. "clean" = first JSON.parse
+// succeeded with canonical field shapes; "repaired" = one of the parser's
+// repair strategies fired (control-char escaping, balanced-brace re-extraction,
+// XML-string sources, narrative key drift); "salvaged" = whole-object parse
+// failed and fields were recovered loosely; "fallback" = nothing parsed, the
+// raw text was dumped into narrative. Recorded per lane in runs/stats.json so
+// repair frequency per provider/route stays observable.
+export type LaneParseMode = "clean" | "repaired" | "salvaged" | "fallback";
+
 export interface LaneResult {
   lane: Lane;
   label: string;
   sources: SourceItem[];
   narrative: string;
   model_context?: string;
+  parseMode?: LaneParseMode;
   rawText: string;
   tokensIn: number;
   tokensOut: number;
@@ -126,6 +136,7 @@ export interface RunStats {
   estimatedCostUSD: number;
   outputFiles: string[];
   authMode?: "api_key" | "claude_oauth" | "codex_cli" | "gemini_oauth";
+  parseModes?: Partial<Record<Lane, LaneParseMode>>;
 }
 
 export interface FileNames {

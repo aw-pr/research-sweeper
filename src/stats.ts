@@ -12,7 +12,7 @@ function toHomeRelative(filePath: string): string {
   return filePath;
 }
 import { getProvider } from "./providers";
-import { Provider, ProviderModels, RunStats, SweepConfig, TokenBreakdown } from "./types";
+import { LaneResult, Provider, ProviderModels, RunStats, SweepConfig, TokenBreakdown } from "./types";
 
 const MODEL_PRICING: Record<Provider, Record<string, { inPer1M: number; outPer1M: number }>> = {
   claude: {
@@ -87,6 +87,16 @@ export function computeRunCost(provider: Provider, tokens: TokenBreakdown, model
   return Math.round((laneCost + synthesisCost + cacheCreate + cacheRead + reasoningCost) * 1_000_000) / 1_000_000;
 }
 
+// Per-lane parse modes for the run record, so how often the tolerant parser's
+// repair/salvage strategies fire stays observable per provider/route.
+export function collectParseModes(laneResults: LaneResult[]): RunStats["parseModes"] {
+  const modes: NonNullable<RunStats["parseModes"]> = {};
+  for (const result of laneResults) {
+    if (result.parseMode) modes[result.lane] = result.parseMode;
+  }
+  return Object.keys(modes).length > 0 ? modes : undefined;
+}
+
 export function buildRunStats(
   config: SweepConfig,
   mode: "sync" | "batch",
@@ -94,7 +104,8 @@ export function buildRunStats(
   submittedAt: string | null,
   tokens: TokenBreakdown,
   outputFiles: string[],
-  authMode?: RunStats["authMode"]
+  authMode?: RunStats["authMode"],
+  parseModes?: RunStats["parseModes"]
 ): RunStats {
   const provider = getProvider(config.provider);
   const models = provider.getModels(config, mode);
@@ -116,6 +127,7 @@ export function buildRunStats(
     estimatedCostUSD: computeRunCost(config.provider, tokens, models, mode === "batch"),
     outputFiles: outputFiles.map(toHomeRelative),
     authMode,
+    parseModes,
   };
 }
 

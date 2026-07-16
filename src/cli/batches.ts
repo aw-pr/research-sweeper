@@ -7,7 +7,7 @@ import { deleteJob, jobsDir, loadJob, saveJob } from "../jobs";
 import { defaultMinLanes } from "../lane-outcomes";
 import { computeFileNames, writeOutput } from "../output";
 import { getProvider } from "../providers";
-import { appendRunStats, buildRunStats } from "../stats";
+import { appendRunStats, buildRunStats, collectParseModes } from "../stats";
 import { SweepConfig, SweepJob, TokenBreakdown } from "../types";
 import { capLaneSourcesByDepth, runSynthesisOptimised } from "./synthesis";
 
@@ -69,7 +69,7 @@ export async function resumeBatch(batchId: string): Promise<void> {
     cacheReadIn: laneTotals.cacheRead,
     reasoningOut: laneTotals.reasoning,
   };
-  appendRunStats(buildRunStats(job.config, "batch", null, job.submittedAt, tokens, [output.summaryPath, output.sourcesPath, ...output.lanesPaths], "api_key"));
+  appendRunStats(buildRunStats(job.config, "batch", null, job.submittedAt, tokens, [output.summaryPath, output.sourcesPath, ...output.lanesPaths], "api_key", collectParseModes(laneResults)));
 
   console.log(`
 Tokens:  ${tokens.totalIn.toLocaleString()} in / ${tokens.totalOut.toLocaleString()} out (total)

@@ -340,7 +340,7 @@ export class ClaudeProvider implements ProviderAdapter {
       const searchLabel = config.noSearch ? "no search" : `${searchesFired} search${searchesFired !== 1 ? "es" : ""}`;
       const cacheLabel = cacheCreateIn || cacheReadIn ? `, cache ${cacheCreateIn.toLocaleString()} w / ${cacheReadIn.toLocaleString()} r` : "";
       console.log(`  [${definition.label}] Complete — ${parsed.sources.length} sources, ${searchLabel} (${tokensIn.toLocaleString()} in / ${tokensOut.toLocaleString()} out${cacheLabel}${continuationLabel})`);
-      return { lane, label: definition.label, sources: parsed.sources, narrative, model_context: parsed.model_context, rawText, tokensIn, tokensOut, cacheCreateIn, cacheReadIn, model, searchesFired, truncated: truncated || undefined };
+      return { lane, label: definition.label, sources: parsed.sources, narrative, model_context: parsed.model_context, parseMode: parsed.parseMode, rawText, tokensIn, tokensOut, cacheCreateIn, cacheReadIn, model, searchesFired, truncated: truncated || undefined };
     } catch (error) {
       console.error(`  [${definition.label}] Error:`, error);
       return { lane, label: definition.label, sources: [], narrative: `Error during sweep: ${error}`, rawText: "", tokensIn: 0, tokensOut: 0, model };
@@ -383,7 +383,7 @@ export class ClaudeProvider implements ProviderAdapter {
 
       const searchLabel = config.noSearch ? "no search" : `${searchesFired} search${searchesFired !== 1 ? "es" : ""}`;
       console.log(`  [${definition.label}] Complete — ${parsed.sources.length} sources, ${searchLabel} (${tokensIn.toLocaleString()} in / ${tokensOut.toLocaleString()} out)`);
-      return { lane, label: definition.label, sources: parsed.sources, narrative: parsed.narrative, model_context: parsed.model_context, rawText, tokensIn, tokensOut, model, searchesFired };
+      return { lane, label: definition.label, sources: parsed.sources, narrative: parsed.narrative, model_context: parsed.model_context, parseMode: parsed.parseMode, rawText, tokensIn, tokensOut, model, searchesFired };
     } catch (error) {
       console.error(`  [${definition.label}] Error:`, error);
       return { lane, label: definition.label, sources: [], narrative: `Error during sweep: ${error}`, rawText: "", tokensIn: 0, tokensOut: 0, model };
@@ -578,7 +578,7 @@ export class ClaudeProvider implements ProviderAdapter {
 
       if (parsed) {
         const narrative = truncated ? markNarrativeTruncated(parsed.narrative) : parsed.narrative;
-        laneResultMap.set(lane, { lane, label: definition.label, sources: parsed.sources, narrative, model_context: parsed.model_context, rawText, tokensIn, tokensOut, cacheCreateIn, cacheReadIn, model: batchModel, searchesFired, truncated: truncated || undefined });
+        laneResultMap.set(lane, { lane, label: definition.label, sources: parsed.sources, narrative, model_context: parsed.model_context, parseMode: parsed.parseMode, rawText, tokensIn, tokensOut, cacheCreateIn, cacheReadIn, model: batchModel, searchesFired, truncated: truncated || undefined });
       } else {
         const fallback = fallbackLaneResult(lane, definition, rawText, tokensIn, tokensOut, batchModel);
         if (truncated) fallback.narrative = markNarrativeTruncated(fallback.narrative);

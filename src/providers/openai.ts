@@ -223,7 +223,7 @@ export class OpenAIProvider implements ProviderAdapter {
       const searchLabel = searchesFired === undefined ? "" : `, ${searchesFired} search${searchesFired !== 1 ? "es" : ""}`;
       const reasoningLabel = reasoningOut ? `, ${reasoningOut.toLocaleString()} reasoning` : "";
       console.log(`  [${definition.label}] Complete — ${parsed.sources.length} sources${searchLabel} (${tokensIn.toLocaleString()} in / ${tokensOut.toLocaleString()} out${reasoningLabel})`);
-      return { lane, label: definition.label, sources: parsed.sources, narrative: parsed.narrative, rawText, tokensIn, tokensOut, reasoningOut, model, searchesFired };
+      return { lane, label: definition.label, sources: parsed.sources, narrative: parsed.narrative, parseMode: parsed.parseMode, rawText, tokensIn, tokensOut, reasoningOut, model, searchesFired };
     } catch (error) {
       console.error(`  [${definition.label}] Error:`, error);
       return { lane, label: definition.label, sources: [], narrative: `Error during sweep: ${error}`, rawText: "", tokensIn: 0, tokensOut: 0, model: config.test ? TEST_MODEL : LANE_MODEL };
@@ -338,7 +338,7 @@ export class OpenAIProvider implements ProviderAdapter {
       laneMap.set(
         lane,
         parsed
-          ? { lane, label: definition.label, sources: parsed.sources, narrative: parsed.narrative, rawText, tokensIn, tokensOut, reasoningOut, model: batchModel, searchesFired }
+          ? { lane, label: definition.label, sources: parsed.sources, narrative: parsed.narrative, parseMode: parsed.parseMode, rawText, tokensIn, tokensOut, reasoningOut, model: batchModel, searchesFired }
           : { ...fallbackLaneResult(lane, definition, rawText, tokensIn, tokensOut, batchModel), reasoningOut, searchesFired }
       );
     }

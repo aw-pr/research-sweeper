@@ -10,7 +10,7 @@ import { saveJob } from "./src/jobs";
 import { classifyLaneOutcomes, defaultMinLanes } from "./src/lane-outcomes";
 import { computeFileNames, prepareOutputTarget, writeOutput } from "./src/output";
 import { getProvider } from "./src/providers";
-import { appendRunStats, buildRunStats, displayStats } from "./src/stats";
+import { appendRunStats, buildRunStats, collectParseModes, displayStats } from "./src/stats";
 import { LaneResult, Provider, SweepConfig, SweepJob, TokenBreakdown } from "./src/types";
 import { applyAuthFlag, parseAuthOverrides } from "./src/cli/auth-flags";
 import { getPollIntervalMs, listBatches, resumeBatch, resubmitFailedBatch, waitAllBatches } from "./src/cli/batches";
@@ -380,7 +380,7 @@ Starting parallel lane sweeps...
   }
 
   const runAuthMode = provider.getAuthMode?.() ?? undefined;
-  appendRunStats(buildRunStats(config, "sync", totalTime, null, tokens, [output.summaryPath, output.sourcesPath, ...output.lanesPaths], runAuthMode));
+  appendRunStats(buildRunStats(config, "sync", totalTime, null, tokens, [output.summaryPath, output.sourcesPath, ...output.lanesPaths], runAuthMode, collectParseModes(laneResults)));
 
   console.log(`
 Done in ${totalTime}s
