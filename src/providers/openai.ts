@@ -10,10 +10,10 @@ import { OPENAI_LANE_TEXT_FORMAT } from "../lane-schema";
 import { buildLanePrompt, buildSynthesisPrompt, SHARED_LANE_SCAFFOLDING } from "../prompts";
 import { BatchStatus, Lane, LaneResult, ProviderAdapter, ProviderModels, SweepConfig, UsageCounts } from "../types";
 
-const LANE_MODEL = "gpt-5.4";
-const LANE_MODEL_BATCH = "gpt-5.4";
-const SYNTHESIS_MODEL = "gpt-5.5";
-const TEST_MODEL = "gpt-5-mini";
+const LANE_MODEL = "gpt-5.6-terra";
+const LANE_MODEL_BATCH = "gpt-5.6-terra";
+const SYNTHESIS_MODEL = "gpt-5.6-sol";
+const TEST_MODEL = "gpt-5.6-luna";
 const LANE_REASONING_EFFORT = "low";
 const SYNTHESIS_REASONING_EFFORT = "high";
 const EXEC_MAX_BUFFER = 1024 * 1024 * 128; // 128MB
@@ -108,7 +108,7 @@ export class OpenAIProvider implements ProviderAdapter {
   }
 
   private async runViaCodexCli(prompt: string, model: string, useSearch: boolean, reasoningEffort: string): Promise<CodexExecResult> {
-    const allowedEfforts = ["minimal", "low", "medium", "high"];
+    const allowedEfforts = ["minimal", "low", "medium", "high", "xhigh", "max"];
     if (!allowedEfforts.includes(reasoningEffort)) {
       throw new Error(
         `Invalid reasoning effort "${reasoningEffort}"; expected one of ${allowedEfforts.join(", ")}. ` +

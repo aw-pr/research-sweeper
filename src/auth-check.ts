@@ -9,8 +9,8 @@ import { CODEX_AUTH_FILE, hasClaudeOAuthToken, hasGeminiOAuthToken } from "./aut
 import { parseEnvFile } from "./env";
 
 const ANTHROPIC_TEST_MODEL = "claude-haiku-4-5-20251001";
-const OPENAI_TEST_MODEL = "gpt-5-mini";
-const CODEX_TEST_MODEL = "gpt-5.4-mini";
+const OPENAI_TEST_MODEL = "gpt-5.6-luna";
+const CODEX_TEST_MODEL = "gpt-5.6-luna";
 const CLAUDE_OAUTH_TEST_MODEL = "claude-haiku-4-5-20251001";
 const GEMINI_TEST_MODEL = "gemini-2.5-flash-lite";
 const MIN_OUTPUT_TOKENS = 16;

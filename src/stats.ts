@@ -27,6 +27,9 @@ const MODEL_PRICING: Record<Provider, Record<string, { inPer1M: number; outPer1M
     "claude-fable-5": { inPer1M: 10.0, outPer1M: 50.0 },
   },
   openai: {
+    "gpt-5.6-sol": { inPer1M: 2.5, outPer1M: 15.0 },
+    "gpt-5.6-terra": { inPer1M: 1.25, outPer1M: 7.5 },
+    "gpt-5.6-luna": { inPer1M: 0.5, outPer1M: 3.0 },
     "gpt-5.4-mini": { inPer1M: 0.75, outPer1M: 4.5 },
     "gpt-5-mini": { inPer1M: 0.25, outPer1M: 2.0 },
     "gpt-5.4": { inPer1M: 2.5, outPer1M: 15.0 },
@@ -78,7 +81,7 @@ export function computeRunCost(provider: Provider, tokens: TokenBreakdown, model
   const cacheCreate = ((tokens.cacheCreateIn || 0) / 1e6) * lanePricing.inPer1M * CACHE_WRITE_MULT * discount;
   const cacheRead = ((tokens.cacheReadIn || 0) / 1e6) * lanePricing.inPer1M * CACHE_READ_MULT * discount;
   // OpenAI Responses API reasoning tokens bill at the output rate. Most of
-  // the reasoning spend comes from the synthesis pass (gpt-5.5 with
+  // the reasoning spend comes from the synthesis pass (gpt-5.6-sol with
   // reasoning.effort=high), so price reasoning at the synthesis output rate.
   const reasoningCost = ((tokens.reasoningOut || 0) / 1e6) * synthesisPricing.outPer1M;
   return Math.round((laneCost + synthesisCost + cacheCreate + cacheRead + reasoningCost) * 1_000_000) / 1_000_000;

@@ -46,7 +46,7 @@ describe("computeRunCost", () => {
   it("returns 0 for zero tokens", () => {
     const zero: TokenBreakdown = { lanesIn: 0, lanesOut: 0, synthesisIn: 0, synthesisOut: 0, totalIn: 0, totalOut: 0 };
     expect(computeRunCost("claude", zero, haikuModels, false)).toBe(0);
-    expect(computeRunCost("openai", zero, { lane: "gpt-5.4-mini", synthesis: "gpt-5.5" }, true)).toBe(0);
+    expect(computeRunCost("openai", zero, { lane: "gpt-5.6-luna", synthesis: "gpt-5.6-sol" }, true)).toBe(0);
   });
 
   it("prices Anthropic cache writes at 1.25x and cache reads at 0.10x lane input rate", () => {
@@ -64,8 +64,8 @@ describe("computeRunCost", () => {
   });
 
   it("prices OpenAI reasoning tokens at synthesis output rate", () => {
-    // gpt-5.4-mini lane (irrelevant here), gpt-5.5 synth out = 30/MTok.
-    // reasoningOut = 100k -> 100k/1e6 * 30 = 3.0
+    // gpt-5.6-luna lane (irrelevant here), gpt-5.6-sol synth out = 15/MTok.
+    // reasoningOut = 100k -> 100k/1e6 * 15 = 1.5
     const tokens: TokenBreakdown = {
       lanesIn: 0,
       lanesOut: 0,
@@ -75,8 +75,8 @@ describe("computeRunCost", () => {
       totalOut: 0,
       reasoningOut: 100_000,
     };
-    const cost = computeRunCost("openai", tokens, { lane: "gpt-5.4-mini", synthesis: "gpt-5.5" }, false);
-    expect(cost).toBeCloseTo(3.0, 6);
+    const cost = computeRunCost("openai", tokens, { lane: "gpt-5.6-luna", synthesis: "gpt-5.6-sol" }, false);
+    expect(cost).toBeCloseTo(1.5, 6);
   });
 
   it("applies batch discount to cache create/read pricing", () => {
