@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { computeRunCost, generateRunId } from "../stats";
+import * as os from "os";
+import * as path from "path";
+import { computeRunCost, generateRunId, toHomeRelative } from "../stats";
 import type { SweepConfig, TokenBreakdown, ProviderModels } from "../types";
 
 const baseTokens: TokenBreakdown = {
@@ -146,6 +148,28 @@ describe("computeRunCost", () => {
     expect(cost).toBe(0);
   });
 
+});
+
+describe("toHomeRelative", () => {
+  const home = os.homedir();
+
+  it("rewrites a path under $HOME to a ~-relative path", () => {
+    const p = path.join(home, "obsidian", "research", "x", "summary.md");
+    expect(toHomeRelative(p)).toBe("~" + path.sep + path.join("obsidian", "research", "x", "summary.md"));
+  });
+
+  it("collapses $HOME itself to ~", () => {
+    expect(toHomeRelative(home)).toBe("~");
+  });
+
+  it("reduces an absolute path outside $HOME to its basename so no machine prefix leaks", () => {
+    const p = "/private/tmp/claude-501/-Users-AnthonyWest-repos-research-sweeper/abc/scratchpad/lane-blogs-smoke.md";
+    expect(toHomeRelative(p)).toBe("lane-blogs-smoke.md");
+  });
+
+  it("leaves a relative path untouched", () => {
+    expect(toHomeRelative("lanes/lane-blogs.md")).toBe("lanes/lane-blogs.md");
+  });
 });
 
 describe("generateRunId", () => {

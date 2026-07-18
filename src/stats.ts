@@ -5,11 +5,14 @@ import * as path from "path";
 // Store output paths relative to the home dir so runs/stats.json stays
 // publish-safe regardless of whether the output dir resolved to an absolute
 // path or a literal "~". Without this, runs under $HOME leak machine paths.
-function toHomeRelative(filePath: string): string {
+export function toHomeRelative(filePath: string): string {
   const home = os.homedir();
   if (filePath === home) return "~";
   if (filePath.startsWith(home + path.sep)) return "~" + filePath.slice(home.length);
-  return filePath;
+  // Paths outside $HOME (e.g. a scratchpad under /private/tmp) carry a
+  // machine-specific, often uid-tagged prefix. Keep only the basename so run
+  // records never leak the absolute location.
+  return path.isAbsolute(filePath) ? path.basename(filePath) : filePath;
 }
 import { getProvider } from "./providers";
 import { LaneResult, Provider, ProviderModels, RunStats, SweepConfig, TokenBreakdown } from "./types";
