@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   appendSynthesisTruncationWarning,
   classifyStopReason,
+  isGeminiResponseTruncated,
+  isOpenAIResponseTruncated,
   markNarrativeTruncated,
   REFUSAL_NARRATIVE,
   SYNTHESIS_TRUNCATION_WARNING,
@@ -53,6 +55,40 @@ describe("appendSynthesisTruncationWarning", () => {
     const once = appendSynthesisTruncationWarning("content");
     const twice = appendSynthesisTruncationWarning(once);
     expect(twice).toBe(once);
+  });
+});
+
+describe("isOpenAIResponseTruncated", () => {
+  it("is true only when status is incomplete and reason is max_output_tokens", () => {
+    expect(isOpenAIResponseTruncated({ status: "incomplete", incomplete_details: { reason: "max_output_tokens" } })).toBe(true);
+  });
+
+  it("is false for a completed response", () => {
+    expect(isOpenAIResponseTruncated({ status: "completed", incomplete_details: null })).toBe(false);
+  });
+
+  it("is false when incomplete for a different reason (e.g. content_filter)", () => {
+    expect(isOpenAIResponseTruncated({ status: "incomplete", incomplete_details: { reason: "content_filter" } })).toBe(false);
+  });
+
+  it("is false for null/undefined or a response missing the fields", () => {
+    expect(isOpenAIResponseTruncated(null)).toBe(false);
+    expect(isOpenAIResponseTruncated(undefined)).toBe(false);
+    expect(isOpenAIResponseTruncated({})).toBe(false);
+  });
+});
+
+describe("isGeminiResponseTruncated", () => {
+  it("is true only for a MAX_TOKENS finishReason", () => {
+    expect(isGeminiResponseTruncated("MAX_TOKENS")).toBe(true);
+  });
+
+  it("is false for STOP, SAFETY, RECITATION, null, and undefined", () => {
+    expect(isGeminiResponseTruncated("STOP")).toBe(false);
+    expect(isGeminiResponseTruncated("SAFETY")).toBe(false);
+    expect(isGeminiResponseTruncated("RECITATION")).toBe(false);
+    expect(isGeminiResponseTruncated(null)).toBe(false);
+    expect(isGeminiResponseTruncated(undefined)).toBe(false);
   });
 });
 

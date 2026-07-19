@@ -4,6 +4,7 @@ import { DEPTH_CONFIG, LANE_CONFIG } from "../config";
 import { fallbackLaneResult, parseLaneResponse } from "../parsing";
 import { buildLanePrompt, buildSynthesisPrompt, SHARED_LANE_SCAFFOLDING } from "../prompts";
 import { withTransientRetry } from "../retry";
+import { appendSynthesisTruncationWarning, isGeminiResponseTruncated, markNarrativeTruncated } from "../stop-reason";
 import { BatchStatus, Lane, LaneResult, ProviderAdapter, ProviderModels, SweepConfig, UsageCounts } from "../types";
 
 // Model IDs verified May 2026 against ai.google.dev/gemini-api/docs/pricing.
@@ -191,6 +192,8 @@ export class GeminiProvider implements ProviderAdapter {
       const rawText = response.text ?? "";
       const tokensIn = response.usageMetadata?.promptTokenCount ?? 0;
       const tokensOut = response.usageMetadata?.candidatesTokenCount ?? 0;
+      const truncated = isGeminiResponseTruncated(response.candidates?.[0]?.finishReason);
+      if (truncated) console.warn(`  [${definition.label}] Hit maxOutputTokens — marking narrative truncated`);
 
       // Grounding citations — map groundingChunks to SourceItems if parseLaneResponse fails
       const groundingChunks =
@@ -218,6 +221,7 @@ export class GeminiProvider implements ProviderAdapter {
               significance: "Grounding citation from Google Search",
             }));
         }
+        if (truncated) fallback.narrative = markNarrativeTruncated(fallback.narrative);
         return { ...fallback, searchesFired };
       }
 
@@ -227,7 +231,7 @@ export class GeminiProvider implements ProviderAdapter {
         lane,
         label: definition.label,
         sources: parsed.sources,
-        narrative: parsed.narrative,
+        narrative: truncated ? markNarrativeTruncated(parsed.narrative) : parsed.narrative,
         model_context: parsed.model_context,
         parseMode: parsed.parseMode,
         rawText,
@@ -269,9 +273,12 @@ export class GeminiProvider implements ProviderAdapter {
       })
     );
 
-    const markdown = response.text ?? "";
+    let markdown = response.text ?? "";
     const tokensIn = response.usageMetadata?.promptTokenCount ?? 0;
     const tokensOut = response.usageMetadata?.candidatesTokenCount ?? 0;
+    if (isGeminiResponseTruncated(response.candidates?.[0]?.finishReason)) {
+      markdown = appendSynthesisTruncationWarning(markdown);
+    }
     console.log(`  [Synthesis] Complete (${tokensIn.toLocaleString()} in / ${tokensOut.toLocaleString()} out)`);
     return { markdown, tokensIn, tokensOut };
   }

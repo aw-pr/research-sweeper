@@ -1,7 +1,10 @@
-// Pure decision logic for Anthropic Messages API `stop_reason` handling.
-// Extracted so it's unit-testable without a mocked SDK client, and so every
-// call site in providers/claude.ts (sync lane, sync synthesis, batch lanes,
-// batch synthesis) classifies stop_reason the same way.
+// Pure decision logic for provider stop/finish-reason handling. Extracted so
+// it's unit-testable without a mocked SDK client, and so every call site
+// classifies the same way: providers/claude.ts (Anthropic `stop_reason`),
+// providers/openai.ts (Responses `status`/`incomplete_details`), and
+// providers/gemini.ts (candidate `finishReason`) all route their native
+// truncation signal through the shared markNarrativeTruncated /
+// appendSynthesisTruncationWarning helpers so the marker is provider-agnostic.
 //
 // Note: the installed @anthropic-ai/sdk version types `stop_reason` as only
 // 'end_turn' | 'max_tokens' | 'stop_sequence' | 'tool_use' | null — it
@@ -17,6 +20,21 @@ export function classifyStopReason(stopReason: string | null | undefined): StopR
   if (stopReason === "max_tokens") return "max_tokens";
   if (stopReason === "refusal") return "refusal";
   return "normal";
+}
+
+// OpenAI Responses API truncation: the call returns status "incomplete" with
+// incomplete_details.reason === "max_output_tokens" when it hit the output cap.
+export function isOpenAIResponseTruncated(
+  response: { status?: string | null; incomplete_details?: { reason?: string | null } | null } | null | undefined
+): boolean {
+  return !!response && response.status === "incomplete" && response.incomplete_details?.reason === "max_output_tokens";
+}
+
+// Gemini truncation: the top candidate's finishReason is "MAX_TOKENS" when the
+// model hit the output cap. (SAFETY/RECITATION stops are handled as benign
+// empty-lane output elsewhere, not as truncation.)
+export function isGeminiResponseTruncated(finishReason: string | null | undefined): boolean {
+  return finishReason === "MAX_TOKENS";
 }
 
 export const TRUNCATION_MARKER = "[TRUNCATED at max_tokens — findings incomplete]";

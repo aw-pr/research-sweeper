@@ -8,6 +8,7 @@ import { DEPTH_CONFIG, LANE_CONFIG } from "../config";
 import { fallbackLaneResult, parseLaneResponse } from "../parsing";
 import { LANE_RESPONSE_SCHEMA, OPENAI_LANE_TEXT_FORMAT, openaiLaneToolConfig } from "../lane-schema";
 import { withTransientRetry } from "../retry";
+import { appendSynthesisTruncationWarning, isOpenAIResponseTruncated, markNarrativeTruncated } from "../stop-reason";
 import { buildLanePrompt, buildSynthesisPrompt, SHARED_LANE_SCAFFOLDING } from "../prompts";
 import { BatchStatus, Lane, LaneResult, ProviderAdapter, ProviderModels, SweepConfig, UsageCounts } from "../types";
 
@@ -233,6 +234,7 @@ export class OpenAIProvider implements ProviderAdapter {
       let tokensIn = 0;
       let tokensOut = 0;
       let searchesFired: number | undefined;
+      let truncated = false;
 
       let reasoningOut = 0;
       if (this.resolveAuthMode(config) === "api_key") {
@@ -252,6 +254,8 @@ export class OpenAIProvider implements ProviderAdapter {
         reasoningOut = (response.usage as unknown as { output_tokens_details?: { reasoning_tokens?: number } })?.output_tokens_details?.reasoning_tokens || 0;
         const outputItems = (response.output ?? []) as Array<{ type?: string }>;
         searchesFired = outputItems.filter((o) => typeof o.type === "string" && o.type.startsWith("web_search")).length;
+        truncated = isOpenAIResponseTruncated(response);
+        if (truncated) console.warn(`  [${definition.label}] Hit max_output_tokens — marking narrative truncated`);
       } else {
         const combinedPrompt = `${SHARED_LANE_SCAFFOLDING}\n\n${definition.systemPrompt}\n\n${buildLanePrompt(lane, config)}`;
         const result = await this.runViaCodexCli(combinedPrompt, model, !config.noSearch, LANE_REASONING_EFFORT, LANE_RESPONSE_SCHEMA);
@@ -264,13 +268,15 @@ export class OpenAIProvider implements ProviderAdapter {
 
       if (!parsed) {
         console.warn(`  [${definition.label}] Warning: could not parse JSON response, using fallback`);
-        return { ...fallbackLaneResult(lane, definition, rawText, tokensIn, tokensOut, model), reasoningOut, searchesFired };
+        const fallback = fallbackLaneResult(lane, definition, rawText, tokensIn, tokensOut, model);
+        if (truncated) fallback.narrative = markNarrativeTruncated(fallback.narrative);
+        return { ...fallback, reasoningOut, searchesFired };
       }
 
       const searchLabel = searchesFired === undefined ? "" : `, ${searchesFired} search${searchesFired !== 1 ? "es" : ""}`;
       const reasoningLabel = reasoningOut ? `, ${reasoningOut.toLocaleString()} reasoning` : "";
       console.log(`  [${definition.label}] Complete — ${parsed.sources.length} sources${searchLabel} (${tokensIn.toLocaleString()} in / ${tokensOut.toLocaleString()} out${reasoningLabel})`);
-      return { lane, label: definition.label, sources: parsed.sources, narrative: parsed.narrative, parseMode: parsed.parseMode, rawText, tokensIn, tokensOut, reasoningOut, model, searchesFired };
+      return { lane, label: definition.label, sources: parsed.sources, narrative: truncated ? markNarrativeTruncated(parsed.narrative) : parsed.narrative, parseMode: parsed.parseMode, rawText, tokensIn, tokensOut, reasoningOut, model, searchesFired };
     } catch (error) {
       console.error(`  [${definition.label}] Error:`, error);
       return { lane, label: definition.label, sources: [], narrative: `Error during sweep: ${error}`, rawText: "", tokensIn: 0, tokensOut: 0, model: config.test ? TEST_MODEL : LANE_MODEL };
@@ -297,6 +303,7 @@ export class OpenAIProvider implements ProviderAdapter {
       tokensIn = response.usage?.input_tokens || 0;
       tokensOut = response.usage?.output_tokens || 0;
       reasoningOut = (response.usage as unknown as { output_tokens_details?: { reasoning_tokens?: number } })?.output_tokens_details?.reasoning_tokens || 0;
+      if (isOpenAIResponseTruncated(response)) markdown = appendSynthesisTruncationWarning(markdown);
     } else {
       const result = await this.runViaCodexCli(buildSynthesisPrompt(config, laneResults, sourcesName), model, false, SYNTHESIS_REASONING_EFFORT);
       markdown = result.text;
