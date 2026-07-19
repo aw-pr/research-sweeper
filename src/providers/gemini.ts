@@ -229,6 +229,7 @@ export class GeminiProvider implements ProviderAdapter {
         sources: parsed.sources,
         narrative: parsed.narrative,
         model_context: parsed.model_context,
+        parseMode: parsed.parseMode,
         rawText,
         tokensIn,
         tokensOut,
@@ -403,7 +404,7 @@ export class GeminiProvider implements ProviderAdapter {
       laneResultMap.set(
         lane,
         parsed
-          ? { lane, label: definition.label, sources: parsed.sources, narrative: parsed.narrative, model_context: parsed.model_context, rawText, tokensIn, tokensOut, model: fallbackModel, searchesFired }
+          ? { lane, label: definition.label, sources: parsed.sources, narrative: parsed.narrative, model_context: parsed.model_context, parseMode: parsed.parseMode, rawText, tokensIn, tokensOut, model: fallbackModel, searchesFired }
           : { ...fallbackLaneResult(lane, definition, rawText, tokensIn, tokensOut, fallbackModel), searchesFired }
       );
     }

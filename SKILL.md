@@ -91,7 +91,7 @@ The retired MCP server was launched with an empty environment and never called `
 
 **Do not** run Claude OAuth sync as raw `npx ts-node research-sweep.ts ...` unless `CLAUDE_CODE_OAUTH_TOKEN` is exported as a real token in that shell. Raw invocations bypass `.env` and `op://` hydration.
 
-For OpenAI: `--sync --provider openai` strips `OPENAI_API_KEY` before invoking `codex exec`.
+For OpenAI: `--sync --provider openai` strips `OPENAI_API_KEY` before invoking `codex exec` (lane output is schema-enforced via `codex exec --output-schema`). An explicit `--openai-auth api-key` overrides the codex default and fetches the API key instead.
 
 For Gemini: on `--gemini-auth gemini-oauth`, `run-secure-sweep.sh` injects no Gemini key via `op-fetch`; `GOOGLE_ACCESS_TOKEN` must be present in the caller environment. The provider strips `GEMINI_API_KEY` in-process as a belt-and-suspenders guard. Note: the `gemini-oauth` route is **GCP-billed** — it is not a free or subscription-quota path. Batch mode hard-fails with `gemini-oauth`; use the API-key route for batch.
 

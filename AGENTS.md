@@ -50,7 +50,9 @@ npx ts-node research-sweep.ts --sync --provider openai --brief-file "prompts/exa
 
 Do not remove this route.
 
-When OpenAI sync is launched through `./run-secure-sweep.sh --sync --provider openai ...`, the wrapper and provider remove `OPENAI_API_KEY` before `codex exec` runs. This keeps the route on Codex/ChatGPT auth instead of silently using API-key billing.
+When OpenAI sync is launched through `./run-secure-sweep.sh --sync --provider openai ...`, the wrapper and provider remove `OPENAI_API_KEY` before `codex exec` runs. This keeps the route on Codex/ChatGPT auth instead of silently using API-key billing. An explicit `--openai-auth api-key` with `--sync` overrides this: the wrapper then fetches `OPENAI_API_KEY` like the default route.
+
+Codex lanes carry the lane JSON schema via `codex exec --output-schema` (available on codex-cli 0.144+), so lane output is schema-enforced on this route too; synthesis stays free markdown by design.
 
 ### Claude Agent SDK OAuth route (Claude sync, Max/Pro quota)
 
@@ -140,7 +142,10 @@ Files written to `$RESEARCH_SWEEPER_OUTPUT_DIR/<folder>/` (defaults to `~/obsidi
 
 Core files:
 
-- `research-sweep.ts` — CLI entrypoint
+- `research-sweep.ts` — CLI entrypoint (arg parsing + dispatch)
+- `src/cli/` — CLI subsystems: auth-route flags, batch flows (resume/resubmit/list/wait), synthesis orchestration, folder-config
+- `src/lane-schema.ts` — lane response schema, wired per provider/route
+- `src/parsing.ts` — tolerant parser safety net (Claude OAuth + Gemini routes)
 - `src/providers/claude.ts`
 - `src/providers/openai.ts`
 - `src/providers/gemini.ts`
@@ -151,7 +156,7 @@ Flows:
 
 1. CLI resolves config and auth mode.
 2. `prepareOutputTarget()` creates the stub and blocks accidental overwrite.
-3. Lanes run in parallel or submit as batch jobs. Each lane uses `web_search_20250305` (forced via `tool_choice: any`) for claude/openai, and Google Search grounding (model-decided, not forced) for gemini. Each lane returns `sources`, `narrative`, and `model_context` (structured background knowledge separate from retrieved sources).
+3. Lanes run in parallel or submit as batch jobs. Search is forced where the API allows it: claude offers `web_search_20250305` plus a forced `submit_lane_findings` tool (`tool_choice: any`); openai forces `web_search` via `tool_choice: {type: "web_search"}`; gemini uses Google Search grounding (model-decided, cannot be forced). Lane output is schema-enforced wherever the route can carry a schema — OpenAI api-key via Responses `text.format` json_schema (strict), OpenAI codex via `codex exec --output-schema`, Claude api-key via the forced tool's `input_schema` with `strict: true` (one shared `LANE_RESPONSE_SCHEMA` in `src/lane-schema.ts` backs all three); the tolerant parser (`src/parsing.ts`, repairs via the `jsonrepair` library) remains the safety net for the Claude OAuth and Gemini routes. Each lane returns `sources`, `narrative`, and `model_context` (structured background knowledge separate from retrieved sources), and records how it parsed as `parseMode` (`clean`/`repaired`/`salvaged`/`fallback`).
 4. Synthesis (Opus / gemini-2.5-pro) combines sourced findings and `model_context`. In batch/resume mode, synthesis is itself submitted as a batch job for 50% cost discount (Gemini batch requires API-key auth).
 5. `appendRunStats()` records run metadata in `runs/stats.json`.
 
@@ -171,8 +176,8 @@ Model defaults:
 - Claude shallow/standard lanes: `claude-haiku-4-5-20251001`
 - Claude deep lanes: `claude-sonnet-5` (truncation risk at 25 sources)
 - Claude synthesis: `claude-opus-4-8` by default (batched for 50% discount)
-- OpenAI lanes: `gpt-5.4` with `reasoning.effort=low` (mini was underpowered for lane synopses vs the Claude Sonnet path)
-- OpenAI synthesis: `gpt-5.5` with `reasoning.effort=high`
+- OpenAI lanes: `gpt-5.6-terra` with `reasoning.effort=low` (Luna is reserved for health checks)
+- OpenAI synthesis: `gpt-5.6-sol` with `reasoning.effort=high`
 - Gemini shallow/standard lanes: `gemini-2.5-flash-lite` ($0.10/$0.40 per 1M tokens)
 - Gemini deep lanes: `gemini-2.5-flash` ($0.30/$2.50 per 1M tokens)
 - Gemini synthesis: `gemini-2.5-pro` ($1.25/$10.00 per 1M tokens)
@@ -198,6 +203,7 @@ npx ts-node research-sweep.ts --re-synthesise <folder>
 - The in-process MCP server (`src/mcp-server.ts`, `research-sweeper-mcp`) was retired on 2026-06-08. It launched with an empty environment, never used `op-fetch`, and could not authenticate any provider, so it had drifted behind the CLI. The secure CLI wrappers and the `research-sweep` skill are the supported surfaces. Git history retains the old server; do not reintroduce it.
 - Do not reintroduce OpenAI API-key reads from `~/.codex/auth.json`.
 - `--no-search` disables `web_search` tool and `tool_choice` forcing for claude/openai; for gemini it omits the grounding tool entirely — use for fast/cheap model-knowledge-only runs.
+- `runs/stats.json` records per-lane `parseModes` (`clean`/`repaired`/`salvaged`/`fallback`) alongside `authMode`, so how often the tolerant parser's repair heuristics fire per provider/route stays observable.
 - `--lane-model haiku|sonnet` overrides the depth-based Claude default lane model for that run. Has no effect on Gemini or OpenAI.
 - `--claude-auth api-key|claude-oauth` picks Claude's credential route. Sync-only; batch mode rejects `claude-oauth`. The legacy alias `claude-cli` is still accepted.
 - `--gemini-auth api-key|gemini-oauth` picks Gemini's credential route. `gemini-oauth` is sync-only and GCP-billed (not a consumer-subscription quota). Batch mode rejects `gemini-oauth`.

@@ -5,14 +5,17 @@ import * as path from "path";
 // Store output paths relative to the home dir so runs/stats.json stays
 // publish-safe regardless of whether the output dir resolved to an absolute
 // path or a literal "~". Without this, runs under $HOME leak machine paths.
-function toHomeRelative(filePath: string): string {
+export function toHomeRelative(filePath: string): string {
   const home = os.homedir();
   if (filePath === home) return "~";
   if (filePath.startsWith(home + path.sep)) return "~" + filePath.slice(home.length);
-  return filePath;
+  // Paths outside $HOME (e.g. a scratchpad under /private/tmp) carry a
+  // machine-specific, often uid-tagged prefix. Keep only the basename so run
+  // records never leak the absolute location.
+  return path.isAbsolute(filePath) ? path.basename(filePath) : filePath;
 }
 import { getProvider } from "./providers";
-import { Provider, ProviderModels, RunStats, SweepConfig, TokenBreakdown } from "./types";
+import { LaneResult, Provider, ProviderModels, RunStats, SweepConfig, TokenBreakdown } from "./types";
 
 const MODEL_PRICING: Record<Provider, Record<string, { inPer1M: number; outPer1M: number }>> = {
   claude: {
@@ -27,6 +30,9 @@ const MODEL_PRICING: Record<Provider, Record<string, { inPer1M: number; outPer1M
     "claude-fable-5": { inPer1M: 10.0, outPer1M: 50.0 },
   },
   openai: {
+    "gpt-5.6-sol": { inPer1M: 2.5, outPer1M: 15.0 },
+    "gpt-5.6-terra": { inPer1M: 1.25, outPer1M: 7.5 },
+    "gpt-5.6-luna": { inPer1M: 0.5, outPer1M: 3.0 },
     "gpt-5.4-mini": { inPer1M: 0.75, outPer1M: 4.5 },
     "gpt-5-mini": { inPer1M: 0.25, outPer1M: 2.0 },
     "gpt-5.4": { inPer1M: 2.5, outPer1M: 15.0 },
@@ -78,10 +84,20 @@ export function computeRunCost(provider: Provider, tokens: TokenBreakdown, model
   const cacheCreate = ((tokens.cacheCreateIn || 0) / 1e6) * lanePricing.inPer1M * CACHE_WRITE_MULT * discount;
   const cacheRead = ((tokens.cacheReadIn || 0) / 1e6) * lanePricing.inPer1M * CACHE_READ_MULT * discount;
   // OpenAI Responses API reasoning tokens bill at the output rate. Most of
-  // the reasoning spend comes from the synthesis pass (gpt-5.5 with
+  // the reasoning spend comes from the synthesis pass (gpt-5.6-sol with
   // reasoning.effort=high), so price reasoning at the synthesis output rate.
   const reasoningCost = ((tokens.reasoningOut || 0) / 1e6) * synthesisPricing.outPer1M;
   return Math.round((laneCost + synthesisCost + cacheCreate + cacheRead + reasoningCost) * 1_000_000) / 1_000_000;
+}
+
+// Per-lane parse modes for the run record, so how often the tolerant parser's
+// repair/salvage strategies fire stays observable per provider/route.
+export function collectParseModes(laneResults: LaneResult[]): RunStats["parseModes"] {
+  const modes: NonNullable<RunStats["parseModes"]> = {};
+  for (const result of laneResults) {
+    if (result.parseMode) modes[result.lane] = result.parseMode;
+  }
+  return Object.keys(modes).length > 0 ? modes : undefined;
 }
 
 export function buildRunStats(
@@ -91,7 +107,8 @@ export function buildRunStats(
   submittedAt: string | null,
   tokens: TokenBreakdown,
   outputFiles: string[],
-  authMode?: RunStats["authMode"]
+  authMode?: RunStats["authMode"],
+  parseModes?: RunStats["parseModes"]
 ): RunStats {
   const provider = getProvider(config.provider);
   const models = provider.getModels(config, mode);
@@ -113,6 +130,7 @@ export function buildRunStats(
     estimatedCostUSD: computeRunCost(config.provider, tokens, models, mode === "batch"),
     outputFiles: outputFiles.map(toHomeRelative),
     authMode,
+    parseModes,
   };
 }
 

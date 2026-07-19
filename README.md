@@ -6,7 +6,7 @@
 
 ## What it does
 
-- Runs up to 6 parallel research lanes (`financial`, `frontier`, `academic`, `vc`, `blogs`, `tech`) as independent Claude, OpenAI, or Gemini agent calls. Claude and OpenAI lanes force `web_search_20250305` tool use on the API path; Gemini lanes use Google Search grounding (model-decided, not forced).
+- Runs up to 6 parallel research lanes (`financial`, `frontier`, `academic`, `vc`, `blogs`, `tech`) as independent Claude, OpenAI, or Gemini agent calls. Claude lanes force `web_search_20250305` tool use on the API path, OpenAI lanes force the `web_search` tool via `tool_choice`; Gemini lanes use Google Search grounding (model-decided, not forced). Lane output is schema-enforced wherever the route can carry a schema (OpenAI api-key strict JSON schema, `codex exec --output-schema`, Claude api-key forced tool with `strict: true`); a tolerant parser covers the Claude OAuth and Gemini routes, and each run records per-lane `parseModes` in `runs/stats.json`.
 - Synthesises lane outputs into a single Obsidian-ready summary plus a deduplicated sources file, with optional async submission through the Anthropic and OpenAI Batch APIs for cost reduction.
 - Evaluates each sweep with an LLM-as-judge harness using `claude-haiku-4-5-20251001` across coverage, source quality, synthesis, and relevance, and persists scores back to the run record.
 

@@ -62,3 +62,4 @@ runs/*.log
 
 # macOS
 .DS_Store
+.codegraph/

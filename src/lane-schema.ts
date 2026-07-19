@@ -3,25 +3,30 @@
 // Field-name drift (the model renaming `narrative` -> `research_summary`, or a
 // source's `significance` -> `core_relevance`) caused two silent-failure bugs.
 // Enforcing a schema at the model layer fixes the contract so the parser stops
-// guessing. This is wired into the API-key paths of OpenAI and Claude only:
+// guessing. Wiring:
 //
-//   - OpenAI: Responses API `text.format` json_schema (strict).
-//   - Claude: a forced `submit_lane_findings` tool whose input_schema is the
-//     contract (web_search runs first, then the model returns via the tool).
+//   - OpenAI api-key: Responses API `text.format` json_schema (strict).
+//   - OpenAI codex-cli: the same schema passed via `codex exec --output-schema`
+//     (verified available on codex-cli 0.144.4).
+//   - Claude api-key: a forced `submit_lane_findings` tool whose input_schema
+//     is the contract (web_search runs first, then the model returns via the
+//     tool).
 //
 // Gemini is excluded: Google Search grounding and JSON structured output are
-// mutually exclusive in the Gemini API. The tolerant parser in parsing.ts
-// stays as the cross-provider safety net (and covers the codex-cli / Agent SDK
-// subscription routes, which cannot carry a schema).
+// mutually exclusive in the Gemini API. The Claude OAuth / Agent SDK route is
+// excluded: the SDK query cannot carry a response schema. The tolerant parser
+// in parsing.ts stays as the safety net for those two routes.
 
 const NARRATIVE_DESC = "The lane's prose narrative synthesising the findings. Required, non-empty. Use this exact field name.";
 const SOURCES_DESC = "The retrieved sources. Each item MUST use the exact field names below.";
 const SIGNIFICANCE_DESC = "Why this source matters to the topic. Use this exact field name (not core_relevance / why_it_matters / etc.).";
 
-// OpenAI Responses API strict json_schema: every property must appear in
-// `required` and `additionalProperties` must be false; genuinely-optional
-// fields are expressed as nullable unions.
-export const OPENAI_LANE_SCHEMA = {
+// The single lane-response schema, shared by every schema-capable route:
+// OpenAI Responses `text.format` (strict), `codex exec --output-schema`, and
+// the Claude strict tool below. Strict-mode constraints: every property in
+// `required`, `additionalProperties: false`; genuinely-optional fields are
+// expressed as nullable unions.
+export const LANE_RESPONSE_SCHEMA = {
   type: "object",
   additionalProperties: false,
   required: ["narrative", "model_context", "sources"],
@@ -49,40 +54,32 @@ export const OPENAI_LANE_SCHEMA = {
 
 // Responses API structured-output wrapper.
 export const OPENAI_LANE_TEXT_FORMAT = {
-  format: { type: "json_schema" as const, name: "lane_response", strict: true, schema: OPENAI_LANE_SCHEMA },
+  format: { type: "json_schema" as const, name: "lane_response", strict: true, schema: LANE_RESPONSE_SCHEMA },
 };
+
+// OpenAI tools/tool_choice for a lane request. With search on, web_search is
+// offered and forced, mirroring the Claude lane contract below — without
+// forcing, the model may answer from parametric knowledge and skip searching.
+// The strict text.format above still shapes the final message. With search
+// off, no tools are attached. tool_choice `{ type: "web_search" }` is accepted
+// by the API but missing from the SDK's ToolChoiceTypes union — call sites
+// cast where the request object is SDK-typed.
+export function openaiLaneToolConfig(noSearch: boolean): { tools?: unknown[]; tool_choice?: unknown } {
+  if (noSearch) return {};
+  return { tools: [{ type: "web_search" }], tool_choice: { type: "web_search" } };
+}
 
 export const CLAUDE_LANE_TOOL_NAME = "submit_lane_findings";
 
-// Anthropic tool input_schema: standard JSON Schema (not strict-mode
-// constrained), so genuinely-optional fields are simply omitted from
-// `required` rather than made nullable.
+// Anthropic strict tool use (GA, no beta header): `strict: true` guarantees
+// `tool_use.input` validates against the schema exactly, closing the last
+// field-drift/invalid-JSON gap on the Claude api-key route. Same schema as
+// the OpenAI routes.
 export const CLAUDE_LANE_TOOL = {
   name: CLAUDE_LANE_TOOL_NAME,
   description: "Return the lane's researched findings. Call this exactly once, AFTER you have finished searching the web.",
-  input_schema: {
-    type: "object",
-    required: ["narrative", "sources"],
-    properties: {
-      narrative: { type: "string", description: NARRATIVE_DESC },
-      model_context: { type: "string", description: "Structured background knowledge from the model, separate from retrieved sources." },
-      sources: {
-        type: "array",
-        description: SOURCES_DESC,
-        items: {
-          type: "object",
-          required: ["title", "significance"],
-          properties: {
-            title: { type: "string", description: "Source title or headline." },
-            significance: { type: "string", description: SIGNIFICANCE_DESC },
-            url: { type: "string", description: "Canonical https URL." },
-            date: { type: "string", description: "Publication date or year." },
-            outlet: { type: "string", description: "Publication / outlet / venue." },
-          },
-        },
-      },
-    },
-  },
+  strict: true,
+  input_schema: LANE_RESPONSE_SCHEMA,
 } as const;
 
 type ContentBlock = { type: string; name?: string; input?: unknown; text?: string };

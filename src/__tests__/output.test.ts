@@ -38,11 +38,11 @@ describe("writeOutput", () => {
           rawText: "",
           tokensIn: 1,
           tokensOut: 1,
-          model: "gpt-5.4-mini",
+          model: "gpt-5.6-luna",
         },
       ];
 
-      const output = writeOutput(config, "# Code intelligence stopped being a search feature\n\nFirst paragraph.", laneResults, files, "gpt-5.5");
+      const output = writeOutput(config, "# Code intelligence stopped being a search feature\n\nFirst paragraph.", laneResults, files, "gpt-5.6-sol");
       const summary = readFileSync(output.summaryPath, "utf8");
 
       expect(summary).toContain("# Code intelligence stopped being a search feature\n\n## Overview\n\nFirst paragraph.");
@@ -74,7 +74,7 @@ describe("writeLaneFiles", () => {
     rawText: "",
     tokensIn: 1,
     tokensOut: 1,
-    model: "gpt-5.4-mini",
+    model: "gpt-5.6-luna",
     ...overrides,
   });
 
@@ -128,7 +128,7 @@ describe("findDegradedLanes", () => {
     rawText: "",
     tokensIn: 1,
     tokensOut: 1,
-    model: "gpt-5.4-mini",
+    model: "gpt-5.6-luna",
     ...overrides,
   });
 

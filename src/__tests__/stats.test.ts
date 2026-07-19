@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { computeRunCost, generateRunId } from "../stats";
+import * as os from "os";
+import * as path from "path";
+import { computeRunCost, generateRunId, toHomeRelative } from "../stats";
 import type { SweepConfig, TokenBreakdown, ProviderModels } from "../types";
 
 const baseTokens: TokenBreakdown = {
@@ -46,7 +48,7 @@ describe("computeRunCost", () => {
   it("returns 0 for zero tokens", () => {
     const zero: TokenBreakdown = { lanesIn: 0, lanesOut: 0, synthesisIn: 0, synthesisOut: 0, totalIn: 0, totalOut: 0 };
     expect(computeRunCost("claude", zero, haikuModels, false)).toBe(0);
-    expect(computeRunCost("openai", zero, { lane: "gpt-5.4-mini", synthesis: "gpt-5.5" }, true)).toBe(0);
+    expect(computeRunCost("openai", zero, { lane: "gpt-5.6-luna", synthesis: "gpt-5.6-sol" }, true)).toBe(0);
   });
 
   it("prices Anthropic cache writes at 1.25x and cache reads at 0.10x lane input rate", () => {
@@ -64,8 +66,8 @@ describe("computeRunCost", () => {
   });
 
   it("prices OpenAI reasoning tokens at synthesis output rate", () => {
-    // gpt-5.4-mini lane (irrelevant here), gpt-5.5 synth out = 30/MTok.
-    // reasoningOut = 100k -> 100k/1e6 * 30 = 3.0
+    // gpt-5.6-luna lane (irrelevant here), gpt-5.6-sol synth out = 15/MTok.
+    // reasoningOut = 100k -> 100k/1e6 * 15 = 1.5
     const tokens: TokenBreakdown = {
       lanesIn: 0,
       lanesOut: 0,
@@ -75,8 +77,8 @@ describe("computeRunCost", () => {
       totalOut: 0,
       reasoningOut: 100_000,
     };
-    const cost = computeRunCost("openai", tokens, { lane: "gpt-5.4-mini", synthesis: "gpt-5.5" }, false);
-    expect(cost).toBeCloseTo(3.0, 6);
+    const cost = computeRunCost("openai", tokens, { lane: "gpt-5.6-luna", synthesis: "gpt-5.6-sol" }, false);
+    expect(cost).toBeCloseTo(1.5, 6);
   });
 
   it("applies batch discount to cache create/read pricing", () => {
@@ -146,6 +148,28 @@ describe("computeRunCost", () => {
     expect(cost).toBe(0);
   });
 
+});
+
+describe("toHomeRelative", () => {
+  const home = os.homedir();
+
+  it("rewrites a path under $HOME to a ~-relative path", () => {
+    const p = path.join(home, "obsidian", "research", "x", "summary.md");
+    expect(toHomeRelative(p)).toBe("~" + path.sep + path.join("obsidian", "research", "x", "summary.md"));
+  });
+
+  it("collapses $HOME itself to ~", () => {
+    expect(toHomeRelative(home)).toBe("~");
+  });
+
+  it("reduces an absolute path outside $HOME to its basename so no machine prefix leaks", () => {
+    const p = "/private/tmp/claude-501/-Users-AnthonyWest-repos-research-sweeper/abc/scratchpad/lane-blogs-smoke.md";
+    expect(toHomeRelative(p)).toBe("lane-blogs-smoke.md");
+  });
+
+  it("leaves a relative path untouched", () => {
+    expect(toHomeRelative("lanes/lane-blogs.md")).toBe("lanes/lane-blogs.md");
+  });
 });
 
 describe("generateRunId", () => {
