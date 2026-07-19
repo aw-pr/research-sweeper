@@ -7,6 +7,7 @@ import { detectOpenAIAuthMode, OpenAIAuthMode, requireApiKeyModeOrThrow } from "
 import { DEPTH_CONFIG, LANE_CONFIG } from "../config";
 import { fallbackLaneResult, parseLaneResponse } from "../parsing";
 import { LANE_RESPONSE_SCHEMA, OPENAI_LANE_TEXT_FORMAT, openaiLaneToolConfig } from "../lane-schema";
+import { withTransientRetry } from "../retry";
 import { buildLanePrompt, buildSynthesisPrompt, SHARED_LANE_SCAFFOLDING } from "../prompts";
 import { BatchStatus, Lane, LaneResult, ProviderAdapter, ProviderModels, SweepConfig, UsageCounts } from "../types";
 
@@ -49,6 +50,52 @@ function tempFilePath(suffix: string): string {
   return path.join(os.tmpdir(), `research-sweeper-openai-${Date.now()}${suffix}`);
 }
 
+// OpenAI Responses API transient-error handling. Mirrors withClaudeRetry in
+// claude.ts: the SDK's own retry is disabled (getClient sets maxRetries: 0) so
+// this bounded layer is the single retry path, honoring a 429 retry-after hint
+// and sharing the exact backoff/log shape via src/retry.ts. Batch submit/poll
+// calls are intentionally left unwrapped — they're cheap and the orchestrator
+// already re-polls, matching the Claude route.
+const TRANSIENT_STATUSES = new Set([429, 500, 502, 503, 529]);
+
+export function openaiErrorStatus(err: unknown): number | undefined {
+  const status = (err as { status?: unknown } | undefined)?.status;
+  return typeof status === "number" ? status : undefined;
+}
+
+export function isTransientOpenAIError(err: unknown): boolean {
+  const status = openaiErrorStatus(err);
+  return status !== undefined && TRANSIENT_STATUSES.has(status);
+}
+
+// The OpenAI SDK has exposed error headers both as a plain record and as a
+// Headers-like object across versions; read either shape.
+function readHeader(headers: unknown, name: string): string | undefined {
+  if (!headers) return undefined;
+  const getter = (headers as { get?: (n: string) => string | null }).get;
+  if (typeof getter === "function") return getter.call(headers, name) ?? undefined;
+  return (headers as Record<string, string | null | undefined>)[name] ?? undefined;
+}
+
+export function openaiRetryAfterMs(err: unknown): number | undefined {
+  if (openaiErrorStatus(err) !== 429) return undefined;
+  const raw = readHeader((err as { headers?: unknown } | undefined)?.headers, "retry-after");
+  if (!raw) return undefined;
+  const seconds = Number(raw);
+  return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : undefined;
+}
+
+function withOpenAIRetry<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  return withTransientRetry(fn, {
+    label,
+    isTransient: isTransientOpenAIError,
+    maxAttempts: 3,
+    baseDelayMs: 2000,
+    getRetryAfterMs: openaiRetryAfterMs,
+    getStatus: openaiErrorStatus,
+  });
+}
+
 export class OpenAIProvider implements ProviderAdapter {
   readonly provider = "openai" as const;
   private client: OpenAI | null = null;
@@ -68,7 +115,7 @@ export class OpenAIProvider implements ProviderAdapter {
     if (this.resolveAuthMode() !== "api_key") {
       throw new Error("OpenAI SDK client unavailable in codex-cli auth mode");
     }
-    if (!this.client) this.client = new OpenAI({ apiKey: this.requireApiKey() });
+    if (!this.client) this.client = new OpenAI({ apiKey: this.requireApiKey(), maxRetries: 0 });
     return this.client;
   }
 
@@ -190,7 +237,7 @@ export class OpenAIProvider implements ProviderAdapter {
       let reasoningOut = 0;
       if (this.resolveAuthMode(config) === "api_key") {
         const client = this.getClient();
-        const response = await client.responses.create({
+        const response = await withOpenAIRetry(definition.label, () => client.responses.create({
           model,
           input: responseInputItem(buildLanePrompt(lane, config)),
           instructions: `${SHARED_LANE_SCAFFOLDING}\n\n${definition.systemPrompt}`,
@@ -198,7 +245,7 @@ export class OpenAIProvider implements ProviderAdapter {
           text: OPENAI_LANE_TEXT_FORMAT,
           reasoning: { effort: LANE_REASONING_EFFORT },
           max_output_tokens: DEPTH_CONFIG[config.depth].laneMaxTokens,
-        });
+        }));
         rawText = extractOutputText(response);
         tokensIn = response.usage?.input_tokens || 0;
         tokensOut = response.usage?.output_tokens || 0;
@@ -240,12 +287,12 @@ export class OpenAIProvider implements ProviderAdapter {
 
     if (this.resolveAuthMode(config) === "api_key") {
       const client = this.getClient();
-      const response = await client.responses.create({
+      const response = await withOpenAIRetry("Synthesis", () => client.responses.create({
         model,
         input: responseInputItem(buildSynthesisPrompt(config, laneResults, sourcesName)),
         reasoning: { effort: SYNTHESIS_REASONING_EFFORT },
         max_output_tokens: DEPTH_CONFIG[config.depth].synthesisMaxTokens,
-      });
+      }));
       markdown = extractOutputText(response);
       tokensIn = response.usage?.input_tokens || 0;
       tokensOut = response.usage?.output_tokens || 0;
