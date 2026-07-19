@@ -195,3 +195,10 @@ npm run typecheck    # type-check without emit
 npm run test         # vitest unit tests
 ./scripts/smoke-test.sh  # typecheck + test + build
 ```
+
+## Version history
+
+| Version | Date | Summary |
+|---|---|---|
+| v1.1.0 | 2026-07-19 | Strict lane JSON schema across the API-key routes (shared `LANE_RESPONSE_SCHEMA`), `jsonrepair`-based tolerant parser with per-lane `parseMode` stats, OpenAI migration to GPT-5.6 models, forced `web_search` on OpenAI lanes, `--resubmit-failed` batch recovery, and the publish-PR workflow. |
+| v1.0.0 | 2026-05-18 | Initial multi-lane research harness: `claude`/`openai`/`gemini` providers, sync and batch modes, API-key and OAuth/subscription auth routes, and Obsidian-ready synthesised output. |
