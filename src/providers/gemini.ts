@@ -5,6 +5,7 @@ import { fallbackLaneResult, parseLaneResponse } from "../parsing";
 import { buildLanePrompt, buildSynthesisPrompt, SHARED_LANE_SCAFFOLDING } from "../prompts";
 import { withTransientRetry } from "../retry";
 import { appendSynthesisTruncationWarning, isGeminiResponseTruncated, markNarrativeTruncated } from "../stop-reason";
+import { assembleLaneResult, emptyLaneResult, finalizeLaneResults } from "../batch-collect";
 import { BatchStatus, Lane, LaneResult, ProviderAdapter, ProviderModels, SweepConfig, UsageCounts } from "../types";
 
 // Model IDs verified May 2026 against ai.google.dev/gemini-api/docs/pricing.
@@ -382,7 +383,7 @@ export class GeminiProvider implements ProviderAdapter {
       const item = byLane.get(lane) ?? inlinedResponses[i];
       if (!item || item.error) {
         const errMsg = item?.error?.message ?? "missing batch response";
-        laneResultMap.set(lane, { lane, label: definition.label, sources: [], narrative: `Batch result: ${errMsg}`, rawText: "", tokensIn: 0, tokensOut: 0, model: fallbackModel });
+        laneResultMap.set(lane, emptyLaneResult(lane, definition.label, `Batch result: ${errMsg}`, fallbackModel));
         continue;
       }
 
@@ -391,6 +392,7 @@ export class GeminiProvider implements ProviderAdapter {
         text?: string;
         usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
         candidates?: Array<{
+          finishReason?: string;
           groundingMetadata?: {
             groundingChunks?: Array<{ web?: { uri?: string; title?: string } }>;
             webSearchQueries?: string[];
@@ -398,36 +400,17 @@ export class GeminiProvider implements ProviderAdapter {
         }>;
       };
 
-      const rawText = extractText(resp);
-      const tokensIn = resp.usageMetadata?.promptTokenCount ?? 0;
-      const tokensOut = resp.usageMetadata?.candidatesTokenCount ?? 0;
-      const webSearchQueries = resp.candidates?.[0]?.groundingMetadata?.webSearchQueries ?? [];
-      const searchesFired = webSearchQueries.length;
-
-      const parsed = parseLaneResponse(rawText);
-      const searchLabel = `${searchesFired} search${searchesFired !== 1 ? "es" : ""}`;
-      console.log(`  [${definition.label}] Collected — ${parsed?.sources.length ?? 0} sources, ${searchLabel} (${tokensIn.toLocaleString()} in / ${tokensOut.toLocaleString()} out)`);
-
-      laneResultMap.set(
-        lane,
-        parsed
-          ? { lane, label: definition.label, sources: parsed.sources, narrative: parsed.narrative, model_context: parsed.model_context, parseMode: parsed.parseMode, rawText, tokensIn, tokensOut, model: fallbackModel, searchesFired }
-          : { ...fallbackLaneResult(lane, definition, rawText, tokensIn, tokensOut, fallbackModel), searchesFired }
-      );
+      laneResultMap.set(lane, assembleLaneResult(lane, definition, {
+        rawText: extractText(resp),
+        tokensIn: resp.usageMetadata?.promptTokenCount ?? 0,
+        tokensOut: resp.usageMetadata?.candidatesTokenCount ?? 0,
+        model: fallbackModel,
+        searchesFired: (resp.candidates?.[0]?.groundingMetadata?.webSearchQueries ?? []).length,
+        truncated: isGeminiResponseTruncated(resp.candidates?.[0]?.finishReason),
+      }));
     }
 
-    // Never silently shrink the lane set. Any requested lane still missing here
-    // (e.g. unknown lane, or a future code path that skipped insertion) gets an
-    // explicit empty placeholder + a warning, so synthesis sees a stable lane
-    // count and the drop is visible rather than swallowed by a filter.
-    return lanes.map((lane) => {
-      const result = laneResultMap.get(lane);
-      if (result) return result;
-      const definition = LANE_CONFIG[lane];
-      const label = definition?.label ?? lane;
-      console.warn(`  [${label}] Warning: no batch result for this lane — emitting empty placeholder so synthesis sees the gap.`);
-      return { lane, label, sources: [], narrative: "Batch result: lane produced no collectable response.", rawText: "", tokensIn: 0, tokensOut: 0, model: fallbackModel };
-    });
+    return finalizeLaneResults(lanes, laneResultMap, fallbackModel, (lane) => LANE_CONFIG[lane]?.label ?? lane);
   }
 
   // ---------------------------------------------------------------------------

@@ -9,6 +9,7 @@ import { fallbackLaneResult, parseLaneResponse } from "../parsing";
 import { LANE_RESPONSE_SCHEMA, OPENAI_LANE_TEXT_FORMAT, openaiLaneToolConfig } from "../lane-schema";
 import { withTransientRetry } from "../retry";
 import { appendSynthesisTruncationWarning, isOpenAIResponseTruncated, markNarrativeTruncated } from "../stop-reason";
+import { assembleLaneResult, emptyLaneResult, finalizeLaneResults } from "../batch-collect";
 import { buildLanePrompt, buildSynthesisPrompt, SHARED_LANE_SCAFFOLDING } from "../prompts";
 import { BatchStatus, Lane, LaneResult, ProviderAdapter, ProviderModels, SweepConfig, UsageCounts } from "../types";
 
@@ -371,32 +372,26 @@ export class OpenAIProvider implements ProviderAdapter {
       }
       const batchModel = LANE_MODEL_BATCH;
       if (item.error) {
-        laneMap.set(lane, { lane, label: definition.label, sources: [], narrative: `Batch result: ${item.error.message}`, rawText: "", tokensIn: 0, tokensOut: 0, model: batchModel });
+        laneMap.set(lane, emptyLaneResult(lane, definition.label, `Batch result: ${item.error.message}`, batchModel));
         continue;
       }
       const responseBody = item.response?.body as OpenAI.Responses.Response | undefined;
       if (!responseBody) {
-        laneMap.set(lane, { lane, label: definition.label, sources: [], narrative: "Batch result: missing response body", rawText: "", tokensIn: 0, tokensOut: 0, model: batchModel });
+        laneMap.set(lane, emptyLaneResult(lane, definition.label, "Batch result: missing response body", batchModel));
         continue;
       }
-      const rawText = extractOutputText(responseBody);
-      const parsed = parseLaneResponse(rawText);
-      const tokensIn = responseBody.usage?.input_tokens || 0;
-      const tokensOut = responseBody.usage?.output_tokens || 0;
-      const reasoningOut = (responseBody.usage as unknown as { output_tokens_details?: { reasoning_tokens?: number } })?.output_tokens_details?.reasoning_tokens || 0;
       const outputItems = (responseBody.output ?? []) as Array<{ type?: string }>;
-      const searchesFired = outputItems.filter((o) => typeof o.type === "string" && o.type.startsWith("web_search")).length;
-      const searchLabel = `${searchesFired} search${searchesFired !== 1 ? "es" : ""}`;
-      const reasoningLabel = reasoningOut ? `, ${reasoningOut.toLocaleString()} reasoning` : "";
-      console.log(`  [${definition.label}] Collected — ${parsed?.sources.length ?? 0} sources, ${searchLabel} (${tokensIn.toLocaleString()} in / ${tokensOut.toLocaleString()} out${reasoningLabel})`);
-      laneMap.set(
-        lane,
-        parsed
-          ? { lane, label: definition.label, sources: parsed.sources, narrative: parsed.narrative, parseMode: parsed.parseMode, rawText, tokensIn, tokensOut, reasoningOut, model: batchModel, searchesFired }
-          : { ...fallbackLaneResult(lane, definition, rawText, tokensIn, tokensOut, batchModel), reasoningOut, searchesFired }
-      );
+      laneMap.set(lane, assembleLaneResult(lane, definition, {
+        rawText: extractOutputText(responseBody),
+        tokensIn: responseBody.usage?.input_tokens || 0,
+        tokensOut: responseBody.usage?.output_tokens || 0,
+        model: batchModel,
+        reasoningOut: (responseBody.usage as unknown as { output_tokens_details?: { reasoning_tokens?: number } })?.output_tokens_details?.reasoning_tokens || 0,
+        searchesFired: outputItems.filter((o) => typeof o.type === "string" && o.type.startsWith("web_search")).length,
+        truncated: isOpenAIResponseTruncated(responseBody),
+      }));
     }
 
-    return lanes.map((lane) => laneMap.get(lane)).filter((item): item is LaneResult => item !== undefined);
+    return finalizeLaneResults(lanes, laneMap, LANE_MODEL_BATCH, (lane) => LANE_CONFIG[lane]?.label ?? lane);
   }
 }
