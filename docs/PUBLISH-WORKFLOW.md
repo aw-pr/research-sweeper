@@ -149,11 +149,17 @@ committed on `dev` reaches `PUB` on the next fast-forward. Privacy is enforced b
 
 - **Gitignored, never public:** `.env*`, `*.local`, `op-refs.local.sh`,
   `.publish-guard.local`, `HANDOFF.md` (the dated operator log stays private),
-  `runs/*.json` (job/state), `logs/`, `prompts/`, and `results/` except the three
-  curated worked examples.
+  `runs/*.json` (job/state), and `logs/`.
 - **Tracked, intentionally public:** `runs/stats.json` (run metadata — paths are
-  recorded relative to home dir so it is publish-safe) and the three curated
+  recorded relative to home dir so it is publish-safe), the ~25 briefs already
+  tracked under `prompts/` (shipped as worked examples), and the three curated
   `results/2026-04-07-*.md` examples.
+- **Gitignored directory with a curated tracked subset:** both `prompts/` and
+  `results/` are listed in `.gitignore`, so *new* files dropped there are not
+  auto-staged. Only briefs and examples you deliberately `git add` become
+  tracked, and those reach the public mirror on the next fast-forward. This is
+  intentional: it keeps scratch briefs and raw run outputs private while letting
+  a hand-picked set ship as documentation.
 
 If a file must never be public, it has to be gitignored. Keeping it only on `dev`
 is no longer protection.

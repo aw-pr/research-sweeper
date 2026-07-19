@@ -76,7 +76,7 @@ Claude sync runs can consume Max/Pro subscription quota via the Agent SDK. Use t
 - Run the smoke test first for expensive sweeps. It passes only if the live Agent SDK call works with `CLAUDE_CODE_OAUTH_TOKEN` set and `ANTHROPIC_API_KEY` absent.
 - On `--claude-auth claude-oauth`, `run-secure-sweep.sh` calls `op-fetch CLAUDE_CODE_OAUTH_TOKEN=$OP_REF_CLAUDE_CODE_OAUTH_TOKEN -- ...` only — `ANTHROPIC_API_KEY` is never resolved or set in the child env. The provider also removes `ANTHROPIC_API_KEY` in-process before importing the Agent SDK as a belt-and-suspenders second guard.
 - A raw `npx ts-node research-sweep.ts ...` command does not invoke `op-fetch`; it only works if `CLAUDE_CODE_OAUTH_TOKEN` is already exported as a real token in that shell.
-- Auto-detect precedence: API key wins when both are present. `claude-oauth` is only selected by explicit flag, or when `ANTHROPIC_API_KEY` is absent and the OAuth token is set. The legacy alias `claude-cli` is still accepted.
+- Auto-detect precedence: when both `ANTHROPIC_API_KEY` and the OAuth token are present and no explicit flag is given, detection refuses to guess and throws (the API-key route bills credits) — pass an explicit `--claude-auth`. `claude-oauth` is auto-selected only when `ANTHROPIC_API_KEY` is absent and the OAuth token is set. The legacy alias `claude-cli` is still accepted.
 - Search divergence: the Agent SDK exposes the built-in `WebSearch` tool, not the API's `web_search_20250305`. Source selection may differ vs. the API-key path. `runs/stats.json` records `authMode` per run so cross-route comparisons stay honest.
 
 ### Gemini auth routes
@@ -105,7 +105,7 @@ npm run sweep:secure:gemini -- --brief-file "prompts/example.md" --folder "..."
 - Uses a Google OAuth access token (`GOOGLE_ACCESS_TOKEN`) passed as a Bearer header via `@google/genai` `httpOptions`. **This is GCP-billed, not a consumer-subscription equivalent of the Claude Max/Pro or Codex routes.**
 - Sync-only. Batch mode hard-fails if `--gemini-auth gemini-oauth` is set.
 - On `gemini-oauth`, `run-secure-sweep.sh` injects no Gemini key via `op-fetch`; `GOOGLE_ACCESS_TOKEN` must already be present in the caller environment (e.g. from `gcloud auth print-access-token`). `GEMINI_API_KEY` is stripped in-process by the provider as a belt-and-suspenders guard.
-- Auto-detect precedence: `GEMINI_API_KEY` wins when both are present. `gemini-oauth` is only selected by explicit flag, or when `GEMINI_API_KEY` is absent and `GOOGLE_ACCESS_TOKEN` is set.
+- Auto-detect precedence: when both `GEMINI_API_KEY` and `GOOGLE_ACCESS_TOKEN` are present and no explicit flag is given, detection refuses to guess and throws (the API-key route bills credits) — pass an explicit `--gemini-auth`. `gemini-oauth` is auto-selected only when `GEMINI_API_KEY` is absent and `GOOGLE_ACCESS_TOKEN` is set.
 
 #### Gemini search
 
@@ -121,7 +121,7 @@ Gemini lanes use Google Search grounding via `@google/genai` (`tools: [{ googleS
 
 **Empty-lane output.** Some lanes can return 0 sources and 0 output tokens with `finishReason` other than `STOP`. This is benign upstream behaviour: Gemini's content-safety or grounding filters blocked the generation. It is not a provider bug. The lane is recorded with an empty result; the synthesis step proceeds with whatever lanes did return content.
 
-**Claude transient-error retries.** Sync lane and synthesis calls on the API-key route retry 429/500/502/503/529 with backoff (2s/6s/18s, 3 attempts) before falling back to a degraded lane; 429s honour the response's `retry-after` header. The SDK's own internal retry is disabled (`maxRetries: 0`) so the two layers don't multiply attempts. Batch submit/poll calls are not wrapped — they're cheap and the orchestrator already re-polls on failure. This mirrors, but is independent of, the Gemini retry behaviour below.
+**Claude transient-error retries.** Sync lane and synthesis calls on the API-key route retry 429/500/502/503/529 with backoff (2s/6s/18s, 3 attempts) before falling back to a degraded lane; 429s honour the response's `retry-after` header. The SDK's own internal retry is disabled (`maxRetries: 0`) so the two layers don't multiply attempts. Batch submit/poll calls are not wrapped — they're cheap and the orchestrator already re-polls on failure. This mirrors, but is independent of, the Gemini retry behaviour below. OpenAI sync lane/synthesis calls now use the same shared `src/retry.ts` wrapper (same statuses, backoff, `maxRetries: 0`, and 429 `retry-after` handling), so all three providers ride out transient blips identically.
 
 **Batch collection and the Claude both-keys guard.** Collecting pending Gemini batch jobs via the all-keys helper (`run-secure-command.sh`) loads all `OP_REF_*` variables and may trip the Claude both-keys auth guard (which prevents a process holding both `ANTHROPIC_API_KEY` and `CLAUDE_CODE_OAUTH_TOKEN`). Collect Gemini, Claude, and OpenAI batch results via the route-aware wrapper:
 
@@ -137,7 +137,7 @@ Gemini lanes use Google Search grounding via `@google/genai` (`tools: [{ googleS
 - The CLI refuses to overwrite existing `summary-*`, `sources-*`, and lane files unless `--overwrite` is set.
 - Re-synthesis is allowed to rewrite existing generated outputs.
 - Deep and standard summaries include a `## Timeline` near the top: a Mermaid `timeline` of concept-level milestones (not a paper list). Granularity scales to the span — quarters (≤3yr), half-years (>3yr), whole years (≥10yr) — with flat `H1 2023`-style period labels and no `section`. Shallow summaries omit it, as do sweeps with fewer than three datable events. Defined per depth in `config/depths.json` (`synthGuide`); rendered as standard Mermaid in Obsidian and as a custom chevron layout by the downstream publishing site.
-- Claude `stop_reason` handling: a lane truncated at `max_tokens` gets its narrative prefixed with `[TRUNCATED at max_tokens — findings incomplete]`; a truncated synthesis markdown gets a `> [!warning] Synthesis truncated at max_tokens — increase depth tier or reduce lane volume.` callout appended. Both markers are generated by `src/stop-reason.ts`, not model prose — treat their presence as a signal to re-run with a lower lane volume or higher depth tier, not as part of the findings.
+- Truncation handling (all three providers): a lane truncated at its output-token cap — Claude `stop_reason: max_tokens`, OpenAI Responses `incomplete_details.reason: max_output_tokens`, Gemini candidate `finishReason: MAX_TOKENS` — gets its narrative prefixed with `[TRUNCATED at max_tokens — findings incomplete]`; a truncated synthesis markdown gets a `> [!warning] Synthesis truncated at max_tokens — increase depth tier or reduce lane volume.` callout appended. Both markers are generated by `src/stop-reason.ts` (the per-provider predicates route through the shared `markNarrativeTruncated` / `appendSynthesisTruncationWarning` helpers), not model prose — treat their presence as a signal to re-run with a lower lane volume or higher depth tier, not as part of the findings. The `refusal` fallback narrative remains Claude-specific.
 
 Files written to `$RESEARCH_SWEEPER_OUTPUT_DIR/<folder>/` (defaults to `~/obsidian/research/<folder>/`):
 
@@ -155,6 +155,9 @@ Core files:
 - `src/cli/` — CLI subsystems: auth-route flags, batch flows (resume/resubmit/list/wait), synthesis orchestration, folder-config
 - `src/lane-schema.ts` — lane response schema, wired per provider/route
 - `src/parsing.ts` — tolerant parser safety net (Claude OAuth + Gemini routes)
+- `src/batch-collect.ts` — shared batch-result assembly (parse, truncation marking, `Collected` log, JSON fallback, never-shrink lane list) used by all three providers' `collectBatchResults`
+- `src/retry.ts` — shared transient-error backoff, wrapping sync lane/synthesis calls on all three providers
+- `src/stop-reason.ts` — provider-agnostic truncation/refusal markers
 - `src/providers/claude.ts`
 - `src/providers/openai.ts`
 - `src/providers/gemini.ts`
@@ -166,7 +169,7 @@ Flows:
 1. CLI resolves config and auth mode.
 2. `prepareOutputTarget()` creates the stub and blocks accidental overwrite.
 3. Lanes run in parallel or submit as batch jobs. Search is forced where the API allows it: claude offers `web_search_20250305` plus a forced `submit_lane_findings` tool (`tool_choice: any`); openai forces `web_search` via `tool_choice: {type: "web_search"}`; gemini uses Google Search grounding (model-decided, cannot be forced). Lane output is schema-enforced wherever the route can carry a schema — OpenAI api-key via Responses `text.format` json_schema (strict), OpenAI codex via `codex exec --output-schema`, Claude api-key via the forced tool's `input_schema` with `strict: true` (one shared `LANE_RESPONSE_SCHEMA` in `src/lane-schema.ts` backs all three); the tolerant parser (`src/parsing.ts`, repairs via the `jsonrepair` library) remains the safety net for the Claude OAuth and Gemini routes. Each lane returns `sources`, `narrative`, and `model_context` (structured background knowledge separate from retrieved sources), and records how it parsed as `parseMode` (`clean`/`repaired`/`salvaged`/`fallback`).
-4. Synthesis (Opus / gemini-2.5-pro) combines sourced findings and `model_context`. In batch/resume mode, synthesis is itself submitted as a batch job for 50% cost discount (Gemini batch requires API-key auth).
+4. Synthesis (Opus / gemini-2.5-pro) combines sourced findings and `model_context`. In batch/resume mode, synthesis is itself submitted as a batch job for 50% cost discount on Claude and Gemini (Gemini batch requires API-key auth); OpenAI has no batch-synthesis path yet, so its synthesis always runs synchronously.
 5. `appendRunStats()` records run metadata in `runs/stats.json`.
 
 ## Lanes and models

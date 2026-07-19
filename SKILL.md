@@ -44,7 +44,7 @@ Run from the `research-sweeper` repo root. The secure wrappers resolve API keys 
 
 **Common flags** (these map 1:1 to the old tool arguments):
 
-`--topic "<string>"` (required) · `--brief-file <path>` · `--depth shallow|standard|deep` (5 / 10 / 20 sources) · `--lanes financial,frontier,academic,vc,blogs,tech` (default all six) · `--from <year>` / `--to <year>` · `--folder <name>` · `--synthesis-model <model>` · `--overwrite` · `--sync` (single-shot; omit for batch).
+`--topic "<string>"` (required) · `--brief-file <path>` · `--depth shallow|standard|deep` (5 / 10 / 25 sources) · `--lanes financial,frontier,academic,vc,blogs,tech` (default all six) · `--from <year>` / `--to <year>` · `--folder <name>` · `--synthesis-model <model>` · `--overwrite` · `--sync` (single-shot; omit for batch).
 
 Example — deep Claude batch:
 
