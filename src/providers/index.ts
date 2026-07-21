@@ -9,6 +9,13 @@ const providers: Record<Provider, ProviderAdapter> = {
   gemini: new GeminiProvider(),
 };
 
+export function createProvider(provider: Provider): ProviderAdapter {
+  if (provider === "claude") return new ClaudeProvider();
+  if (provider === "openai") return new OpenAIProvider();
+  if (provider === "gemini") return new GeminiProvider();
+  throw new Error(`Error: unknown provider "${provider}". Valid providers: ${Object.keys(providers).join(", ")}.`);
+}
+
 export function getProvider(provider: Provider): ProviderAdapter {
   const adapter = providers[provider];
   if (!adapter) {

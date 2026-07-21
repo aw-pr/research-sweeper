@@ -60,6 +60,14 @@ Do not remove this route.
 
 When OpenAI sync is launched through `./run-secure-sweep.sh --sync --provider openai ...`, the wrapper and provider remove `OPENAI_API_KEY` before `codex exec` runs. This keeps the route on Codex/ChatGPT auth instead of silently using API-key billing. An explicit `--openai-auth api-key` with `--sync` overrides this: the wrapper then fetches `OPENAI_API_KEY` like the default route.
 
+For spend-optimised finished batches, collect OpenAI API-key lanes and run only synthesis through Codex auth:
+
+```bash
+./run-secure-sweep.sh --provider openai --re-synthesise <folder> --from-batch <batchId> --openai-auth codex
+```
+
+The wrapper exposes the API key for batch collection; the provider switches synthesis to Codex auth and strips `OPENAI_API_KEY` before `codex exec`.
+
 Codex lanes carry the lane JSON schema via `codex exec --output-schema` (available on codex-cli 0.144+), so lane output is schema-enforced on this route too; synthesis stays free markdown by design.
 
 ### Claude Agent SDK OAuth route (Claude sync, Max/Pro quota)
@@ -74,7 +82,7 @@ Claude sync runs can consume Max/Pro subscription quota via the Agent SDK. Use t
 
 - Sync-only. Batch mode hard-fails if combined with `--claude-auth claude-oauth` (batch API requires API-key auth).
 - Run the smoke test first for expensive sweeps. It passes only if the live Agent SDK call works with `CLAUDE_CODE_OAUTH_TOKEN` set and `ANTHROPIC_API_KEY` absent.
-- On `--claude-auth claude-oauth`, `run-secure-sweep.sh` calls `op-fetch CLAUDE_CODE_OAUTH_TOKEN=$OP_REF_CLAUDE_CODE_OAUTH_TOKEN -- ...` only — `ANTHROPIC_API_KEY` is never resolved or set in the child env. The provider also removes `ANTHROPIC_API_KEY` in-process before importing the Agent SDK as a belt-and-suspenders second guard.
+- On `--claude-auth claude-oauth`, `run-secure-sweep.sh` calls `op-fetch CLAUDE_CODE_OAUTH_TOKEN=$OP_REF_CLAUDE_CODE_OAUTH_TOKEN -- ...` only — `ANTHROPIC_API_KEY` is never resolved or set in the child env. The exception is `--re-synthesise <folder> --from-batch <batchId> --claude-auth claude-oauth`, where the wrapper also fetches `ANTHROPIC_API_KEY` so it can collect the API-key batch before switching synthesis to the OAuth route. The provider removes `ANTHROPIC_API_KEY` in-process before importing the Agent SDK as a belt-and-suspenders second guard.
 - A raw `npx ts-node research-sweep.ts ...` command does not invoke `op-fetch`; it only works if `CLAUDE_CODE_OAUTH_TOKEN` is already exported as a real token in that shell.
 - Auto-detect precedence: when both `ANTHROPIC_API_KEY` and the OAuth token are present and no explicit flag is given, detection refuses to guess and throws (the API-key route bills credits) — pass an explicit `--claude-auth`. `claude-oauth` is auto-selected only when `ANTHROPIC_API_KEY` is absent and the OAuth token is set. The legacy alias `claude-cli` is still accepted.
 - Search divergence: the Agent SDK exposes the built-in `WebSearch` tool, not the API's `web_search_20250305`. Source selection may differ vs. the API-key path. `runs/stats.json` records `authMode` per run so cross-route comparisons stay honest.
@@ -221,7 +229,7 @@ npx ts-node research-sweep.ts --re-synthesise <folder>
 - `--gemini-auth api-key|gemini-oauth` picks Gemini's credential route. `gemini-oauth` is sync-only and GCP-billed (not a consumer-subscription quota). Batch mode rejects `gemini-oauth`.
 - `--openai-auth api-key|codex` picks OpenAI's credential route. `codex` is sync-only; batch mode rejects it. All three detectors are now symmetric: when both routes' credentials are present and no explicit flag is given, detection throws ("Refusing to guess") rather than silently billing API credits.
 - Auth detection lives in `src/auth/detect.ts` (single source of truth for all providers). Batch guards call `requireApiKeyModeOrThrow()` from the same module. `buildRunStats()` lives in `src/stats.ts` (single copy).
-- `--re-synthesise <folder>` honours `--claude-auth` / `--gemini-auth` / `--openai-auth` overrides, so a run captured under one route (e.g. `claude-oauth`) can be re-synthesised on the API-key route when only that credential is present.
+- `--re-synthesise <folder>` honours `--claude-auth` / `--gemini-auth` / `--openai-auth` overrides. With `--from-batch <batchId>`, batch collection is forced through that provider's API-key route, then synthesis uses the explicit override; this supports API-key lanes plus Codex or Claude OAuth synthesis.
 - `--resubmit-failed <batchId>` recovers a completed batch that came back with some lanes errored/expired/canceled — Batches API best practice is to resend exactly those `custom_id`s (unbilled, so it's free), not re-run the whole sweep. Claude-only (`ProviderAdapter.getBatchLaneFailures` / `submitBatchLanesSubset` are optional; OpenAI/Gemini don't implement them yet and the CLI errors clearly if invoked on them). Requires the original job manifest (`jobs/<id>.json`) — it fails clearly if that's missing, and prints "nothing to resubmit" and exits cleanly if every lane succeeded. The new batch's job manifest records `resubmittedFrom: <oldBatchId>` and writes to a dedicated `<folder>-resubmit-<id>` output directory so `--resume` on it can never clobber the original run's files. There is no automatic merge of the resubmitted lane(s) back into the original output — `--resume` on a resubmission job prints guidance for combining the two folders by hand (copy the resubmitted `lanes/` files over the failed-lane placeholders, then `--re-synthesise <original-folder>`).
 
 ## Skills are canonical here

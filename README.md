@@ -141,6 +141,17 @@ gitignored `op-refs.local.sh`; the resolver fetches only the named refs and
 execs the child with a sanitised env. Without it, keys come from `.env`
 (fill-only). Batch mode requires API-key auth for all providers.
 
+For spend-optimised re-synthesis, collect a finished API-key batch and run only
+the synthesis step through a sync-only auth route:
+
+```bash
+./run-secure-sweep.sh --provider openai --re-synthesise <folder> --from-batch <batchId> --openai-auth codex
+./run-secure-sweep.sh --provider claude --re-synthesise <folder> --from-batch <batchId> --claude-auth claude-oauth
+```
+
+The wrapper supplies the API key needed to collect the batch results, then the
+provider switches the synthesis call to the explicit Codex or Claude OAuth route.
+
 ### Gemini provider — known limitations
 
 - **Free-tier rate limits.** Google AI Studio free tier enforces ~5 RPM (`gemini-2.5-flash`) / ~10 RPM (`gemini-2.5-flash-lite`). Multi-lane parallel sweeps will hit this. A GCP trial billing account does not grant paid-tier rate limits. `gemini-2.5-pro` requires paid tier.

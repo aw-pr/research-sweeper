@@ -62,6 +62,7 @@ npm run sweep:secure -- --topic "…" --brief-file prompts/x.md \
 | Collect a finished batch | `./run-secure-sweep.sh --resume <id> --provider <claude\|openai\|gemini>` |
 | List completed sweeps + token cost | `npx ts-node research-sweep.ts --stats` |
 | Re-synthesise from cached lanes (no re-fetch) | `npx ts-node research-sweep.ts --re-synthesise <folder>` |
+| Collect API batch and re-synthesise on subscription auth | `./run-secure-sweep.sh --provider openai --re-synthesise <folder> --from-batch <id> --openai-auth codex` |
 | Auth check | `npm run auth:check` (or `npm run auth:check:secure`) |
 
 **Auth-route overrides** (subscription / OAuth / GCP-billed variants):
@@ -92,6 +93,8 @@ The retired MCP server was launched with an empty environment and never called `
 **Do not** run Claude OAuth sync as raw `npx ts-node research-sweep.ts ...` unless `CLAUDE_CODE_OAUTH_TOKEN` is exported as a real token in that shell. Raw invocations bypass `.env` and `op://` hydration.
 
 For OpenAI: `--sync --provider openai` strips `OPENAI_API_KEY` before invoking `codex exec` (lane output is schema-enforced via `codex exec --output-schema`). An explicit `--openai-auth api-key` overrides the codex default and fetches the API key instead.
+
+For split spend: `--re-synthesise <folder> --from-batch <batchId>` collects the finished batch through the provider's API-key route, then applies an explicit synthesis override such as `--openai-auth codex` or `--claude-auth claude-oauth`. The wrapper fetches both credentials only for that split collection/synthesis flow, and the provider strips the API key before entering the subscription/OAuth synthesis route.
 
 For Gemini: on `--gemini-auth gemini-oauth`, `run-secure-sweep.sh` injects no Gemini key via `op-fetch`; `GOOGLE_ACCESS_TOKEN` must be present in the caller environment. The provider strips `GEMINI_API_KEY` in-process as a belt-and-suspenders guard. Note: the `gemini-oauth` route is **GCP-billed** — it is not a free or subscription-quota path. Batch mode hard-fails with `gemini-oauth`; use the API-key route for batch.
 
