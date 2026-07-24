@@ -191,7 +191,13 @@ async function main(): Promise<void> {
     const folder = rawArgs[reSynthIndex + 1];
     if (!folder || folder.startsWith("--")) throw new Error("Error: --re-synthesise requires a folder name");
     const fromBatchIndex = rawArgs.indexOf("--from-batch");
-    await reSynthesise(folder, fromBatchIndex !== -1 ? rawArgs[fromBatchIndex + 1] : undefined, parseAuthOverrides(rawArgs));
+    const valueAfter = (flag: string): string | undefined => {
+      const i = rawArgs.indexOf(flag);
+      return i !== -1 ? rawArgs[i + 1] : undefined;
+    };
+    await reSynthesise(folder, fromBatchIndex !== -1 ? rawArgs[fromBatchIndex + 1] : undefined, parseAuthOverrides(rawArgs), {
+      synthesisModel: valueAfter("--synthesis-model"),
+    });
     return;
   }
 

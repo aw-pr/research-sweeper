@@ -60,7 +60,11 @@ export function withBatchApiKeyAuth(config: SweepConfig, provider: Provider): Sw
   return config;
 }
 
-export async function reSynthesise(folder: string, batchId?: string, authOverrides: AuthOverrides = {}): Promise<void> {
+export interface ModelOverrides {
+  synthesisModel?: string;
+}
+
+export async function reSynthesise(folder: string, batchId?: string, authOverrides: AuthOverrides = {}, modelOverrides: ModelOverrides = {}): Promise<void> {
   const outputDir = path.join(researchRoot(), folder);
   const lanesDir = path.join(outputDir, "lanes");
   let config: SweepConfig;
@@ -88,6 +92,7 @@ export async function reSynthesise(folder: string, batchId?: string, authOverrid
   if (authOverrides.claudeAuth) config.claudeAuth = authOverrides.claudeAuth;
   if (authOverrides.geminiAuth) config.geminiAuth = authOverrides.geminiAuth;
   if (authOverrides.openaiAuth) config.openaiAuth = authOverrides.openaiAuth;
+  if (modelOverrides.synthesisModel) config.synthesisModel = modelOverrides.synthesisModel;
   const provider = createProvider(config.provider);
   const files = computeFileNames(config.topic);
   const synthesisModel = provider.getModels(config, "sync").synthesis;
