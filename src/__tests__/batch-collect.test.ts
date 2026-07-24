@@ -98,6 +98,33 @@ describe("assembleLaneResult", () => {
     expect(result.reasoningOut).toBe(9);
     expect(result.truncated).toBe(true);
   });
+
+  it("merges harvested sources with parsed sources, deduped by URL, model entries first", () => {
+    const result = assembleLaneResult("frontier", definition, {
+      rawText: laneJson("narrative", 1), // parsed source: https://example.com/0
+      tokensIn: 10,
+      tokensOut: 5,
+      model: "claude-sonnet-5",
+      harvestedSources: [
+        { title: "Dup", url: "https://example.com/0/", significance: "from search" },
+        { title: "Fresh", url: "https://harvested.com/x", significance: "from search" },
+      ],
+    });
+    expect(result.sources.map((s) => s.url)).toEqual(["https://example.com/0", "https://harvested.com/x"]);
+    expect(result.sources[0].significance).toBe("test"); // model entry's annotation survives
+  });
+
+  it("recovers sources from harvest when the model returned an empty sources array", () => {
+    const result = assembleLaneResult("frontier", definition, {
+      rawText: laneJson("narrative", 0), // model reported zero sources
+      tokensIn: 10,
+      tokensOut: 5,
+      model: "claude-sonnet-5",
+      harvestedSources: [{ title: "Only", url: "https://harvested.com/y", significance: "from search" }],
+    });
+    expect(result.sources).toHaveLength(1);
+    expect(result.sources[0].title).toBe("Only");
+  });
 });
 
 describe("emptyLaneResult", () => {
