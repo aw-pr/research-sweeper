@@ -18,6 +18,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 claude_oauth=0
+from_batch=0
 openai_sync=0
 openai_api_key=0
 gemini_oauth=0
@@ -32,6 +33,9 @@ for ((i = 1; i <= $#; i++)); do
           ;;
       esac
     fi
+  fi
+  if [[ "${!i}" == "--from-batch" ]]; then
+    from_batch=1
   fi
   if [[ "${!i}" == "--gemini-auth" ]]; then
     next=$((i + 1))
@@ -76,6 +80,16 @@ fi
 
 # shellcheck disable=SC1091
 source ./op-refs.sh
+
+if [[ "$claude_oauth" == "1" && "$from_batch" == "1" ]]; then
+  # Split route: collect the Claude batch lanes with the API key, then let the
+  # provider switch synthesis to Claude OAuth and strip ANTHROPIC_API_KEY before
+  # importing the Agent SDK.
+  exec op-fetch \
+    ANTHROPIC_API_KEY="$OP_REF_ANTHROPIC_API_KEY" \
+    CLAUDE_CODE_OAUTH_TOKEN="$OP_REF_CLAUDE_CODE_OAUTH_TOKEN" \
+    -- npx ts-node research-sweep.ts "$@"
+fi
 
 if [[ "$claude_oauth" == "1" ]]; then
   exec op-fetch \

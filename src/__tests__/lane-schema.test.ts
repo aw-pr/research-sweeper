@@ -6,9 +6,12 @@ import {
   claudeLaneToolConfig,
   countClaudeSearches,
   extractClaudeLaneRaw,
+  harvestClaudeSearchSources,
   LANE_RESPONSE_SCHEMA,
+  mergeLaneSources,
   OPENAI_LANE_TEXT_FORMAT,
 } from "../lane-schema";
+import { SourceItem } from "../types";
 
 describe("lane response schema", () => {
   it("is strict-mode compliant: additionalProperties false and every property required", () => {
@@ -70,5 +73,62 @@ describe("countClaudeSearches", () => {
       { type: "text", text: "noise" },
     ];
     expect(countClaudeSearches(content)).toBe(2);
+  });
+});
+
+describe("harvestClaudeSearchSources", () => {
+  const wr = (results: Array<Record<string, unknown>>) => ({ type: "web_search_tool_result", content: results });
+  const result = (url: string, title = "T", page_age?: string) => ({ type: "web_search_result", url, title, page_age });
+
+  it("extracts sources from web_search_tool_result blocks with outlet + date", () => {
+    const content = [
+      wr([result("https://www.example.com/a", "Report A", "May 1, 2025")]),
+      { type: "tool_use", name: CLAUDE_LANE_TOOL_NAME, input: { narrative: "n", sources: [] } },
+    ];
+    const sources = harvestClaudeSearchSources(content);
+    expect(sources).toHaveLength(1);
+    expect(sources[0]).toMatchObject({ title: "Report A", url: "https://www.example.com/a", date: "May 1, 2025", outlet: "example.com" });
+    expect(sources[0].significance).toBeTruthy();
+  });
+
+  it("dedupes across blocks by normalised URL (fragment and trailing slash ignored)", () => {
+    const content = [
+      wr([result("https://x.com/p"), result("https://x.com/p/#top")]),
+      wr([result("https://x.com/p/"), result("https://y.com/q")]),
+    ];
+    const urls = harvestClaudeSearchSources(content).map((s) => s.url);
+    expect(urls).toEqual(["https://x.com/p", "https://y.com/q"]);
+  });
+
+  it("skips non-result items and results without a URL", () => {
+    const content = [wr([{ type: "web_search_result", title: "no url" }, result("https://z.com/r")])];
+    expect(harvestClaudeSearchSources(content).map((s) => s.url)).toEqual(["https://z.com/r"]);
+  });
+
+  it("returns nothing when there are no search-result blocks", () => {
+    expect(harvestClaudeSearchSources([{ type: "text", text: "x" }])).toEqual([]);
+  });
+});
+
+describe("mergeLaneSources", () => {
+  const model: SourceItem = { title: "Model", url: "https://a.com/x", significance: "annotated by model" };
+  const harvested: SourceItem = { title: "Harvest", url: "https://a.com/x/", significance: "from search" };
+
+  it("keeps the model entry (its annotation) when a harvested URL duplicates it", () => {
+    const merged = mergeLaneSources([model], [harvested]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].significance).toBe("annotated by model");
+  });
+
+  it("appends harvested sources not already present, model first", () => {
+    const extra: SourceItem = { title: "Extra", url: "https://b.com/y", significance: "from search" };
+    const merged = mergeLaneSources([model], [harvested, extra]);
+    expect(merged.map((s) => s.url)).toEqual(["https://a.com/x", "https://b.com/y"]);
+  });
+
+  it("recovers sources when the model returned an empty array", () => {
+    const merged = mergeLaneSources([], [harvested]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].title).toBe("Harvest");
   });
 });

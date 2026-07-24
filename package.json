@@ -1,6 +1,6 @@
 {
   "name": "research-sweep",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Multi-lane agentic research harness that runs parallel Claude and OpenAI agents, synthesises Obsidian-ready markdown, and scores each sweep with an LLM judge",
   "keywords": [
     "llm",

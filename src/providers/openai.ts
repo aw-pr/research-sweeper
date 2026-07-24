@@ -7,6 +7,9 @@ import { detectOpenAIAuthMode, OpenAIAuthMode, requireApiKeyModeOrThrow } from "
 import { DEPTH_CONFIG, LANE_CONFIG } from "../config";
 import { fallbackLaneResult, parseLaneResponse } from "../parsing";
 import { LANE_RESPONSE_SCHEMA, OPENAI_LANE_TEXT_FORMAT, openaiLaneToolConfig } from "../lane-schema";
+import { withTransientRetry } from "../retry";
+import { appendSynthesisTruncationWarning, isOpenAIResponseTruncated, markNarrativeTruncated } from "../stop-reason";
+import { assembleLaneResult, emptyLaneResult, finalizeLaneResults } from "../batch-collect";
 import { buildLanePrompt, buildSynthesisPrompt, SHARED_LANE_SCAFFOLDING } from "../prompts";
 import { BatchStatus, Lane, LaneResult, ProviderAdapter, ProviderModels, SweepConfig, UsageCounts } from "../types";
 
@@ -49,6 +52,52 @@ function tempFilePath(suffix: string): string {
   return path.join(os.tmpdir(), `research-sweeper-openai-${Date.now()}${suffix}`);
 }
 
+// OpenAI Responses API transient-error handling. Mirrors withClaudeRetry in
+// claude.ts: the SDK's own retry is disabled (getClient sets maxRetries: 0) so
+// this bounded layer is the single retry path, honoring a 429 retry-after hint
+// and sharing the exact backoff/log shape via src/retry.ts. Batch submit/poll
+// calls are intentionally left unwrapped — they're cheap and the orchestrator
+// already re-polls, matching the Claude route.
+const TRANSIENT_STATUSES = new Set([429, 500, 502, 503, 529]);
+
+export function openaiErrorStatus(err: unknown): number | undefined {
+  const status = (err as { status?: unknown } | undefined)?.status;
+  return typeof status === "number" ? status : undefined;
+}
+
+export function isTransientOpenAIError(err: unknown): boolean {
+  const status = openaiErrorStatus(err);
+  return status !== undefined && TRANSIENT_STATUSES.has(status);
+}
+
+// The OpenAI SDK has exposed error headers both as a plain record and as a
+// Headers-like object across versions; read either shape.
+function readHeader(headers: unknown, name: string): string | undefined {
+  if (!headers) return undefined;
+  const getter = (headers as { get?: (n: string) => string | null }).get;
+  if (typeof getter === "function") return getter.call(headers, name) ?? undefined;
+  return (headers as Record<string, string | null | undefined>)[name] ?? undefined;
+}
+
+export function openaiRetryAfterMs(err: unknown): number | undefined {
+  if (openaiErrorStatus(err) !== 429) return undefined;
+  const raw = readHeader((err as { headers?: unknown } | undefined)?.headers, "retry-after");
+  if (!raw) return undefined;
+  const seconds = Number(raw);
+  return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : undefined;
+}
+
+function withOpenAIRetry<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  return withTransientRetry(fn, {
+    label,
+    isTransient: isTransientOpenAIError,
+    maxAttempts: 3,
+    baseDelayMs: 2000,
+    getRetryAfterMs: openaiRetryAfterMs,
+    getStatus: openaiErrorStatus,
+  });
+}
+
 export class OpenAIProvider implements ProviderAdapter {
   readonly provider = "openai" as const;
   private client: OpenAI | null = null;
@@ -68,7 +117,7 @@ export class OpenAIProvider implements ProviderAdapter {
     if (this.resolveAuthMode() !== "api_key") {
       throw new Error("OpenAI SDK client unavailable in codex-cli auth mode");
     }
-    if (!this.client) this.client = new OpenAI({ apiKey: this.requireApiKey() });
+    if (!this.client) this.client = new OpenAI({ apiKey: this.requireApiKey(), maxRetries: 0 });
     return this.client;
   }
 
@@ -186,11 +235,12 @@ export class OpenAIProvider implements ProviderAdapter {
       let tokensIn = 0;
       let tokensOut = 0;
       let searchesFired: number | undefined;
+      let truncated = false;
 
       let reasoningOut = 0;
       if (this.resolveAuthMode(config) === "api_key") {
         const client = this.getClient();
-        const response = await client.responses.create({
+        const response = await withOpenAIRetry(definition.label, () => client.responses.create({
           model,
           input: responseInputItem(buildLanePrompt(lane, config)),
           instructions: `${SHARED_LANE_SCAFFOLDING}\n\n${definition.systemPrompt}`,
@@ -198,13 +248,15 @@ export class OpenAIProvider implements ProviderAdapter {
           text: OPENAI_LANE_TEXT_FORMAT,
           reasoning: { effort: LANE_REASONING_EFFORT },
           max_output_tokens: DEPTH_CONFIG[config.depth].laneMaxTokens,
-        });
+        }));
         rawText = extractOutputText(response);
         tokensIn = response.usage?.input_tokens || 0;
         tokensOut = response.usage?.output_tokens || 0;
         reasoningOut = (response.usage as unknown as { output_tokens_details?: { reasoning_tokens?: number } })?.output_tokens_details?.reasoning_tokens || 0;
         const outputItems = (response.output ?? []) as Array<{ type?: string }>;
         searchesFired = outputItems.filter((o) => typeof o.type === "string" && o.type.startsWith("web_search")).length;
+        truncated = isOpenAIResponseTruncated(response);
+        if (truncated) console.warn(`  [${definition.label}] Hit max_output_tokens — marking narrative truncated`);
       } else {
         const combinedPrompt = `${SHARED_LANE_SCAFFOLDING}\n\n${definition.systemPrompt}\n\n${buildLanePrompt(lane, config)}`;
         const result = await this.runViaCodexCli(combinedPrompt, model, !config.noSearch, LANE_REASONING_EFFORT, LANE_RESPONSE_SCHEMA);
@@ -217,13 +269,15 @@ export class OpenAIProvider implements ProviderAdapter {
 
       if (!parsed) {
         console.warn(`  [${definition.label}] Warning: could not parse JSON response, using fallback`);
-        return { ...fallbackLaneResult(lane, definition, rawText, tokensIn, tokensOut, model), reasoningOut, searchesFired };
+        const fallback = fallbackLaneResult(lane, definition, rawText, tokensIn, tokensOut, model);
+        if (truncated) fallback.narrative = markNarrativeTruncated(fallback.narrative);
+        return { ...fallback, reasoningOut, searchesFired };
       }
 
       const searchLabel = searchesFired === undefined ? "" : `, ${searchesFired} search${searchesFired !== 1 ? "es" : ""}`;
       const reasoningLabel = reasoningOut ? `, ${reasoningOut.toLocaleString()} reasoning` : "";
       console.log(`  [${definition.label}] Complete — ${parsed.sources.length} sources${searchLabel} (${tokensIn.toLocaleString()} in / ${tokensOut.toLocaleString()} out${reasoningLabel})`);
-      return { lane, label: definition.label, sources: parsed.sources, narrative: parsed.narrative, parseMode: parsed.parseMode, rawText, tokensIn, tokensOut, reasoningOut, model, searchesFired };
+      return { lane, label: definition.label, sources: parsed.sources, narrative: truncated ? markNarrativeTruncated(parsed.narrative) : parsed.narrative, parseMode: parsed.parseMode, rawText, tokensIn, tokensOut, reasoningOut, model, searchesFired };
     } catch (error) {
       console.error(`  [${definition.label}] Error:`, error);
       return { lane, label: definition.label, sources: [], narrative: `Error during sweep: ${error}`, rawText: "", tokensIn: 0, tokensOut: 0, model: config.test ? TEST_MODEL : LANE_MODEL };
@@ -240,16 +294,17 @@ export class OpenAIProvider implements ProviderAdapter {
 
     if (this.resolveAuthMode(config) === "api_key") {
       const client = this.getClient();
-      const response = await client.responses.create({
+      const response = await withOpenAIRetry("Synthesis", () => client.responses.create({
         model,
         input: responseInputItem(buildSynthesisPrompt(config, laneResults, sourcesName)),
         reasoning: { effort: SYNTHESIS_REASONING_EFFORT },
         max_output_tokens: DEPTH_CONFIG[config.depth].synthesisMaxTokens,
-      });
+      }));
       markdown = extractOutputText(response);
       tokensIn = response.usage?.input_tokens || 0;
       tokensOut = response.usage?.output_tokens || 0;
       reasoningOut = (response.usage as unknown as { output_tokens_details?: { reasoning_tokens?: number } })?.output_tokens_details?.reasoning_tokens || 0;
+      if (isOpenAIResponseTruncated(response)) markdown = appendSynthesisTruncationWarning(markdown);
     } else {
       const result = await this.runViaCodexCli(buildSynthesisPrompt(config, laneResults, sourcesName), model, false, SYNTHESIS_REASONING_EFFORT);
       markdown = result.text;
@@ -317,32 +372,26 @@ export class OpenAIProvider implements ProviderAdapter {
       }
       const batchModel = LANE_MODEL_BATCH;
       if (item.error) {
-        laneMap.set(lane, { lane, label: definition.label, sources: [], narrative: `Batch result: ${item.error.message}`, rawText: "", tokensIn: 0, tokensOut: 0, model: batchModel });
+        laneMap.set(lane, emptyLaneResult(lane, definition.label, `Batch result: ${item.error.message}`, batchModel));
         continue;
       }
       const responseBody = item.response?.body as OpenAI.Responses.Response | undefined;
       if (!responseBody) {
-        laneMap.set(lane, { lane, label: definition.label, sources: [], narrative: "Batch result: missing response body", rawText: "", tokensIn: 0, tokensOut: 0, model: batchModel });
+        laneMap.set(lane, emptyLaneResult(lane, definition.label, "Batch result: missing response body", batchModel));
         continue;
       }
-      const rawText = extractOutputText(responseBody);
-      const parsed = parseLaneResponse(rawText);
-      const tokensIn = responseBody.usage?.input_tokens || 0;
-      const tokensOut = responseBody.usage?.output_tokens || 0;
-      const reasoningOut = (responseBody.usage as unknown as { output_tokens_details?: { reasoning_tokens?: number } })?.output_tokens_details?.reasoning_tokens || 0;
       const outputItems = (responseBody.output ?? []) as Array<{ type?: string }>;
-      const searchesFired = outputItems.filter((o) => typeof o.type === "string" && o.type.startsWith("web_search")).length;
-      const searchLabel = `${searchesFired} search${searchesFired !== 1 ? "es" : ""}`;
-      const reasoningLabel = reasoningOut ? `, ${reasoningOut.toLocaleString()} reasoning` : "";
-      console.log(`  [${definition.label}] Collected — ${parsed?.sources.length ?? 0} sources, ${searchLabel} (${tokensIn.toLocaleString()} in / ${tokensOut.toLocaleString()} out${reasoningLabel})`);
-      laneMap.set(
-        lane,
-        parsed
-          ? { lane, label: definition.label, sources: parsed.sources, narrative: parsed.narrative, parseMode: parsed.parseMode, rawText, tokensIn, tokensOut, reasoningOut, model: batchModel, searchesFired }
-          : { ...fallbackLaneResult(lane, definition, rawText, tokensIn, tokensOut, batchModel), reasoningOut, searchesFired }
-      );
+      laneMap.set(lane, assembleLaneResult(lane, definition, {
+        rawText: extractOutputText(responseBody),
+        tokensIn: responseBody.usage?.input_tokens || 0,
+        tokensOut: responseBody.usage?.output_tokens || 0,
+        model: batchModel,
+        reasoningOut: (responseBody.usage as unknown as { output_tokens_details?: { reasoning_tokens?: number } })?.output_tokens_details?.reasoning_tokens || 0,
+        searchesFired: outputItems.filter((o) => typeof o.type === "string" && o.type.startsWith("web_search")).length,
+        truncated: isOpenAIResponseTruncated(responseBody),
+      }));
     }
 
-    return lanes.map((lane) => laneMap.get(lane)).filter((item): item is LaneResult => item !== undefined);
+    return finalizeLaneResults(lanes, laneMap, LANE_MODEL_BATCH, (lane) => LANE_CONFIG[lane]?.label ?? lane);
   }
 }

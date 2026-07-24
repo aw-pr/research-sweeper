@@ -7,10 +7,9 @@ import { DEPTH_CONFIG } from "../config";
 import { researchRoot } from "../env";
 import { loadJob } from "../jobs";
 import { computeFileNames, writeOutput } from "../output";
-import { getProvider } from "../providers";
-import { LaneResult, SweepConfig } from "../types";
+import { createProvider } from "../providers";
+import { LaneResult, Provider, ProviderAdapter, SweepConfig } from "../types";
 import { AuthOverrides } from "./auth-flags";
-import { readFolderConfig } from "./folder-config";
 
 export function capLaneSourcesByDepth(config: SweepConfig, laneResults: LaneResult[]): LaneResult[] {
   const maxSources = DEPTH_CONFIG[config.depth].sourcesPerLane;
@@ -21,11 +20,14 @@ export function capLaneSourcesByDepth(config: SweepConfig, laneResults: LaneResu
 }
 
 export async function runSynthesisOptimised(
-  provider: ReturnType<typeof getProvider>,
+  provider: ProviderAdapter,
   config: SweepConfig,
   laneResults: LaneResult[],
   sourcesName: string
 ): Promise<{ markdown: string; tokensIn: number; tokensOut: number }> {
+  if (usesSyncOnlyAuth(config)) {
+    return provider.runSynthesis(config, laneResults, sourcesName);
+  }
   if (!provider.submitBatchSynthesis || !provider.collectBatchSynthesisResult) {
     return provider.runSynthesis(config, laneResults, sourcesName);
   }
@@ -47,7 +49,22 @@ export async function runSynthesisOptimised(
   return result;
 }
 
-export async function reSynthesise(folder: string, batchId?: string, authOverrides: AuthOverrides = {}): Promise<void> {
+export function usesSyncOnlyAuth(config: SweepConfig): boolean {
+  return config.openaiAuth === "codex_cli" || config.claudeAuth === "claude_oauth" || config.geminiAuth === "gemini_oauth";
+}
+
+export function withBatchApiKeyAuth(config: SweepConfig, provider: Provider): SweepConfig {
+  if (provider === "openai") return { ...config, openaiAuth: "api_key" };
+  if (provider === "claude") return { ...config, claudeAuth: "api_key" };
+  if (provider === "gemini") return { ...config, geminiAuth: "api_key" };
+  return config;
+}
+
+export interface ModelOverrides {
+  synthesisModel?: string;
+}
+
+export async function reSynthesise(folder: string, batchId?: string, authOverrides: AuthOverrides = {}, modelOverrides: ModelOverrides = {}): Promise<void> {
   const outputDir = path.join(researchRoot(), folder);
   const lanesDir = path.join(outputDir, "lanes");
   let config: SweepConfig;
@@ -61,9 +78,11 @@ export async function reSynthesise(folder: string, batchId?: string, authOverrid
     source = "local cache";
   } else if (batchId) {
     const job = loadJob(batchId);
-    const provider = getProvider(job.provider);
-    config = readFolderConfig(outputDir);
-    lanes = capLaneSourcesByDepth(config, await provider.collectBatchResults(batchId, config.lanes, provider.getModels(config, "batch").lane));
+    const collectionConfig = withBatchApiKeyAuth({ ...job.config, outputDir }, job.provider);
+    const provider = createProvider(job.provider);
+    config = { ...job.config, outputDir };
+    provider.requireApiKey(collectionConfig);
+    lanes = capLaneSourcesByDepth(collectionConfig, await provider.collectBatchResults(batchId, collectionConfig.lanes, provider.getModels(collectionConfig, "batch").lane));
     source = `${job.provider} API (cached locally for future use)`;
   } else {
     throw new Error(`No lane cache found for "${folder}". Provide --from-batch <batchId> for pre-cache runs.`);
@@ -73,7 +92,8 @@ export async function reSynthesise(folder: string, batchId?: string, authOverrid
   if (authOverrides.claudeAuth) config.claudeAuth = authOverrides.claudeAuth;
   if (authOverrides.geminiAuth) config.geminiAuth = authOverrides.geminiAuth;
   if (authOverrides.openaiAuth) config.openaiAuth = authOverrides.openaiAuth;
-  const provider = getProvider(config.provider);
+  if (modelOverrides.synthesisModel) config.synthesisModel = modelOverrides.synthesisModel;
+  const provider = createProvider(config.provider);
   const files = computeFileNames(config.topic);
   const synthesisModel = provider.getModels(config, "sync").synthesis;
   console.log(`

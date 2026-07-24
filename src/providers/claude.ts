@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { ClaudeAuthMode, detectClaudeAuthMode, requireApiKeyModeOrThrow } from "../auth/detect";
 import { DEPTH_CONFIG, LANE_CONFIG } from "../config";
 import { fallbackLaneResult, parseLaneResponse } from "../parsing";
-import { claudeLaneToolConfig, countClaudeSearches, extractClaudeLaneRaw } from "../lane-schema";
+import { claudeLaneToolConfig, countClaudeSearches, extractClaudeLaneRaw, harvestClaudeSearchSources, mergeLaneSources } from "../lane-schema";
 import { buildLanePrompt, buildSynthesisPrompt, SHARED_LANE_SCAFFOLDING } from "../prompts";
 import { withTransientRetry } from "../retry";
 import {
@@ -11,6 +11,7 @@ import {
   markNarrativeTruncated,
   REFUSAL_NARRATIVE,
 } from "../stop-reason";
+import { assembleLaneResult, emptyLaneResult, finalizeLaneResults } from "../batch-collect";
 import { BatchLaneFailure, BatchStatus, Lane, LaneResult, ProviderAdapter, ProviderModels, SweepConfig, UsageCounts } from "../types";
 
 // Model-ID pinning policy (checked against platform.claude.com/docs, 2026-07):
@@ -337,10 +338,11 @@ export class ClaudeProvider implements ProviderAdapter {
       }
 
       const narrative = truncated ? markNarrativeTruncated(parsed.narrative) : parsed.narrative;
+      const sources = mergeLaneSources(parsed.sources, harvestClaudeSearchSources(content));
       const searchLabel = config.noSearch ? "no search" : `${searchesFired} search${searchesFired !== 1 ? "es" : ""}`;
       const cacheLabel = cacheCreateIn || cacheReadIn ? `, cache ${cacheCreateIn.toLocaleString()} w / ${cacheReadIn.toLocaleString()} r` : "";
-      console.log(`  [${definition.label}] Complete — ${parsed.sources.length} sources, ${searchLabel} (${tokensIn.toLocaleString()} in / ${tokensOut.toLocaleString()} out${cacheLabel}${continuationLabel})`);
-      return { lane, label: definition.label, sources: parsed.sources, narrative, model_context: parsed.model_context, parseMode: parsed.parseMode, rawText, tokensIn, tokensOut, cacheCreateIn, cacheReadIn, model, searchesFired, truncated: truncated || undefined };
+      console.log(`  [${definition.label}] Complete — ${sources.length} sources, ${searchLabel} (${tokensIn.toLocaleString()} in / ${tokensOut.toLocaleString()} out${cacheLabel}${continuationLabel})`);
+      return { lane, label: definition.label, sources, narrative, model_context: parsed.model_context, parseMode: parsed.parseMode, rawText, tokensIn, tokensOut, cacheCreateIn, cacheReadIn, model, searchesFired, truncated: truncated || undefined };
     } catch (error) {
       console.error(`  [${definition.label}] Error:`, error);
       return { lane, label: definition.label, sources: [], narrative: `Error during sweep: ${error}`, rawText: "", tokensIn: 0, tokensOut: 0, model };
@@ -545,7 +547,7 @@ export class ClaudeProvider implements ProviderAdapter {
         continue;
       }
       if (item.result.type !== "succeeded") {
-        laneResultMap.set(lane, { lane, label: definition.label, sources: [], narrative: `Batch result: ${item.result.type}`, rawText: "", tokensIn: 0, tokensOut: 0, model: fallbackModel });
+        laneResultMap.set(lane, emptyLaneResult(lane, definition.label, `Batch result: ${item.result.type}`, fallbackModel));
         continue;
       }
       const message = item.result.message;
@@ -554,7 +556,6 @@ export class ClaudeProvider implements ProviderAdapter {
       const content = message.content;
       const searchesFired = countClaudeSearches(content);
       const rawText = extractClaudeLaneRaw(content);
-      const parsed = parseLaneResponse(rawText);
       const tokensIn = message.usage.input_tokens;
       const tokensOut = message.usage.output_tokens;
       const cacheCreateIn = message.usage.cache_creation_input_tokens || 0;
@@ -572,20 +573,19 @@ export class ClaudeProvider implements ProviderAdapter {
         console.warn(`  [${definition.label}] Warning: batch response truncated at max_tokens — findings incomplete`);
       }
 
-      const searchLabel = `${searchesFired} search${searchesFired !== 1 ? "es" : ""}`;
-      const cacheLabel = cacheCreateIn || cacheReadIn ? `, cache ${cacheCreateIn.toLocaleString()} w / ${cacheReadIn.toLocaleString()} r` : "";
-      console.log(`  [${definition.label}] Collected — ${parsed?.sources.length ?? 0} sources, ${searchLabel} (${tokensIn.toLocaleString()} in / ${tokensOut.toLocaleString()} out${cacheLabel})`);
-
-      if (parsed) {
-        const narrative = truncated ? markNarrativeTruncated(parsed.narrative) : parsed.narrative;
-        laneResultMap.set(lane, { lane, label: definition.label, sources: parsed.sources, narrative, model_context: parsed.model_context, parseMode: parsed.parseMode, rawText, tokensIn, tokensOut, cacheCreateIn, cacheReadIn, model: batchModel, searchesFired, truncated: truncated || undefined });
-      } else {
-        const fallback = fallbackLaneResult(lane, definition, rawText, tokensIn, tokensOut, batchModel);
-        if (truncated) fallback.narrative = markNarrativeTruncated(fallback.narrative);
-        laneResultMap.set(lane, { ...fallback, cacheCreateIn, cacheReadIn, searchesFired, truncated: truncated || undefined });
-      }
+      laneResultMap.set(lane, assembleLaneResult(lane, definition, {
+        rawText,
+        tokensIn,
+        tokensOut,
+        model: batchModel,
+        searchesFired,
+        cacheCreateIn,
+        cacheReadIn,
+        truncated,
+        harvestedSources: harvestClaudeSearchSources(content),
+      }));
     }
-    return lanes.map((lane) => laneResultMap.get(lane)).filter((item): item is LaneResult => item !== undefined);
+    return finalizeLaneResults(lanes, laneResultMap, fallbackModel, (lane) => LANE_CONFIG[lane]?.label ?? lane);
   }
 }
 

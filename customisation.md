@@ -79,7 +79,7 @@ Caveats:
 - On explicit `--claude-auth claude-oauth`, `run-secure-sweep.sh` removes `ANTHROPIC_API_KEY` from the child environment after `op run` hydrates `.env`, and the provider also removes it in-process before importing the Agent SDK. This prevents accidental API-key billing.
 - A raw `npx ts-node research-sweep.ts ...` command does not invoke `op-fetch`; it reads `.env`/`.env.local` (fill-only) and otherwise relies on whatever is already exported in that shell, e.g. a real `CLAUDE_CODE_OAUTH_TOKEN`.
 - The Agent SDK uses the built-in `WebSearch` tool, not `web_search_20250305` + `tool_choice: any`. Source selection may differ vs. the API-key route. `runs/stats.json` records `authMode` per run so the difference is traceable.
-- Auto-detect precedence: API key wins when both are present. Pass `--claude-auth claude-oauth` explicitly to force subscription quota. The legacy alias `claude-cli` is still accepted.
+- Auto-detect precedence: when both `ANTHROPIC_API_KEY` and the OAuth token are present and no explicit flag is given, detection refuses to guess and throws (the API-key route bills credits). Pass `--claude-auth claude-oauth` explicitly to force subscription quota, or `--claude-auth api-key` to force billed API use. The legacy alias `claude-cli` is still accepted.
 - Claude synthesis defaults to `claude-opus-4-8`; override with `--synthesis-model <id>` (e.g. a cheaper model) when a run does not warrant the cost.
 
 ## Running two lanes only (faster)

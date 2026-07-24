@@ -2,11 +2,11 @@
 
 **Multi-lane agentic research harness that runs parallel Claude, OpenAI, and Gemini agents, synthesises Obsidian-ready markdown, and scores each sweep with an LLM judge.**
 
-![Node](https://img.shields.io/badge/node-18%2B-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Tests](https://img.shields.io/badge/tests-147%20passed-brightgreen) ![Status](https://img.shields.io/badge/status-usable-brightgreen)
+![Node](https://img.shields.io/badge/node-18%2B-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Tests](https://img.shields.io/badge/tests-202%20passed-brightgreen) ![Status](https://img.shields.io/badge/status-usable-brightgreen)
 
 ## What it does
 
-- Runs up to 6 parallel research lanes (`financial`, `frontier`, `academic`, `vc`, `blogs`, `tech`) as independent Claude, OpenAI, or Gemini agent calls. Claude lanes force `web_search_20250305` tool use on the API path, OpenAI lanes force the `web_search` tool via `tool_choice`; Gemini lanes use Google Search grounding (model-decided, not forced). Lane output is schema-enforced wherever the route can carry a schema (OpenAI api-key strict JSON schema, `codex exec --output-schema`, Claude api-key forced tool with `strict: true`); a tolerant parser covers the Claude OAuth and Gemini routes, and each run records per-lane `parseModes` in `runs/stats.json`.
+- Runs up to 6 parallel research lanes (`financial`, `frontier`, `academic`, `vc`, `blogs`, `tech`) as independent Claude, OpenAI, or Gemini agent calls. Claude lanes force `web_search_20250305` tool use on the API path; OpenAI lanes force the `web_search` tool via `tool_choice`; Gemini lanes use Google Search grounding (model-decided, not forced). Lane output is schema-enforced wherever the route can carry a schema (OpenAI api-key strict JSON schema, `codex exec --output-schema`, Claude api-key forced tool with `strict: true`); a tolerant parser covers the Claude OAuth and Gemini routes. On the Claude route, lane sources are harvested directly from the response's `web_search_tool_result` blocks and merged (URL-deduped) with any model-reported sources, so provenance does not depend on the model re-transcribing its own search results. Each run records per-lane `parseModes` in `runs/stats.json`.
 - Synthesises lane outputs into a single Obsidian-ready summary plus a deduplicated sources file, with optional async submission through the Anthropic and OpenAI Batch APIs for cost reduction.
 - Evaluates each sweep with an LLM-as-judge harness using `claude-haiku-4-5-20251001` across coverage, source quality, synthesis, and relevance, and persists scores back to the run record.
 
@@ -141,6 +141,17 @@ gitignored `op-refs.local.sh`; the resolver fetches only the named refs and
 execs the child with a sanitised env. Without it, keys come from `.env`
 (fill-only). Batch mode requires API-key auth for all providers.
 
+For spend-optimised re-synthesis, collect a finished API-key batch and run only
+the synthesis step through a sync-only auth route:
+
+```bash
+./run-secure-sweep.sh --provider openai --re-synthesise <folder> --from-batch <batchId> --openai-auth codex
+./run-secure-sweep.sh --provider claude --re-synthesise <folder> --from-batch <batchId> --claude-auth claude-oauth
+```
+
+The wrapper supplies the API key needed to collect the batch results, then the
+provider switches the synthesis call to the explicit Codex or Claude OAuth route.
+
 ### Gemini provider — known limitations
 
 - **Free-tier rate limits.** Google AI Studio free tier enforces ~5 RPM (`gemini-2.5-flash`) / ~10 RPM (`gemini-2.5-flash-lite`). Multi-lane parallel sweeps will hit this. A GCP trial billing account does not grant paid-tier rate limits. `gemini-2.5-pro` requires paid tier.
@@ -181,7 +192,7 @@ Each sweep writes to `<output-folder>/`:
 
 Existing `summary-*`, `sources-*`, and lane files are not overwritten unless `--overwrite` is passed. Re-synthesis is allowed to rewrite generated outputs.
 
-A Claude lane that hits `max_tokens` has its narrative prefixed with `[TRUNCATED at max_tokens — findings incomplete]`; a truncated synthesis carries a `> [!warning] Synthesis truncated at max_tokens — increase depth tier or reduce lane volume.` callout in the markdown. Both are generated markers, not model prose — treat them as a signal to rerun with a lower lane volume or higher depth tier.
+A lane that hits its provider's output-token cap (Claude `max_tokens`, OpenAI `incomplete_details`, Gemini `MAX_TOKENS`) has its narrative prefixed with `[TRUNCATED at max_tokens — findings incomplete]`; a truncated synthesis carries a `> [!warning] Synthesis truncated at max_tokens — increase depth tier or reduce lane volume.` callout in the markdown. Both are generated markers, not model prose — treat them as a signal to rerun with a lower lane volume or higher depth tier.
 
 ## Security
 
@@ -195,3 +206,10 @@ npm run typecheck    # type-check without emit
 npm run test         # vitest unit tests
 ./scripts/smoke-test.sh  # typecheck + test + build
 ```
+
+## Version history
+
+| Version | Date | Summary |
+|---|---|---|
+| v1.1.0 | 2026-07-19 | Strict lane JSON schema across the API-key routes (shared `LANE_RESPONSE_SCHEMA`), `jsonrepair`-based tolerant parser with per-lane `parseMode` stats, OpenAI migration to GPT-5.6 models, forced `web_search` on OpenAI lanes, `--resubmit-failed` batch recovery, and the publish-PR workflow. |
+| v1.0.0 | 2026-05-18 | Initial multi-lane research harness: `claude`/`openai`/`gemini` providers, sync and batch modes, API-key and OAuth/subscription auth routes, and Obsidian-ready synthesised output. |

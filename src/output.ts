@@ -156,7 +156,8 @@ export function writeLaneFiles(
       "|---|---|---|---|---|",
       ...result.sources.map((source, index) => {
         const id = `${prefix}${index + 1}`;
-        const titleLink = source.url ? `[${source.title}](${source.url})` : source.title;
+        const title = (source.title || "").replace(/\|/g, "\\|");
+        const titleLink = source.url ? `[${title}](${source.url})` : title;
         const outlet = (source.outlet || "").replace(/\|/g, "\\|");
         const srcDate = (source.date || "").replace(/\|/g, "\\|");
         const significance = source.significance.replace(/\|/g, "\\|");
@@ -222,7 +223,8 @@ export function writeOutput(
     sourcesBody += "|---|---|---|---|---|\n";
     result.sources.forEach((source, index) => {
       const id = `${prefix}${index + 1}`;
-      const titleLink = source.url ? `[${source.title}](${source.url})` : source.title;
+      const title = (source.title || "").replace(/\|/g, "\\|");
+      const titleLink = source.url ? `[${title}](${source.url})` : title;
       const outlet = (source.outlet || "").replace(/\|/g, "\\|");
       const dateValue = (source.date || "").replace(/\|/g, "\\|");
       const significance = source.significance.replace(/\|/g, "\\|");
