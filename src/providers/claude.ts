@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { ClaudeAuthMode, detectClaudeAuthMode, requireApiKeyModeOrThrow } from "../auth/detect";
 import { DEPTH_CONFIG, LANE_CONFIG } from "../config";
 import { fallbackLaneResult, parseLaneResponse } from "../parsing";
-import { claudeLaneToolConfig, countClaudeSearches, extractClaudeLaneRaw } from "../lane-schema";
+import { claudeLaneToolConfig, countClaudeSearches, extractClaudeLaneRaw, harvestClaudeSearchSources, mergeLaneSources } from "../lane-schema";
 import { buildLanePrompt, buildSynthesisPrompt, SHARED_LANE_SCAFFOLDING } from "../prompts";
 import { withTransientRetry } from "../retry";
 import {
@@ -338,10 +338,11 @@ export class ClaudeProvider implements ProviderAdapter {
       }
 
       const narrative = truncated ? markNarrativeTruncated(parsed.narrative) : parsed.narrative;
+      const sources = mergeLaneSources(parsed.sources, harvestClaudeSearchSources(content));
       const searchLabel = config.noSearch ? "no search" : `${searchesFired} search${searchesFired !== 1 ? "es" : ""}`;
       const cacheLabel = cacheCreateIn || cacheReadIn ? `, cache ${cacheCreateIn.toLocaleString()} w / ${cacheReadIn.toLocaleString()} r` : "";
-      console.log(`  [${definition.label}] Complete — ${parsed.sources.length} sources, ${searchLabel} (${tokensIn.toLocaleString()} in / ${tokensOut.toLocaleString()} out${cacheLabel}${continuationLabel})`);
-      return { lane, label: definition.label, sources: parsed.sources, narrative, model_context: parsed.model_context, parseMode: parsed.parseMode, rawText, tokensIn, tokensOut, cacheCreateIn, cacheReadIn, model, searchesFired, truncated: truncated || undefined };
+      console.log(`  [${definition.label}] Complete — ${sources.length} sources, ${searchLabel} (${tokensIn.toLocaleString()} in / ${tokensOut.toLocaleString()} out${cacheLabel}${continuationLabel})`);
+      return { lane, label: definition.label, sources, narrative, model_context: parsed.model_context, parseMode: parsed.parseMode, rawText, tokensIn, tokensOut, cacheCreateIn, cacheReadIn, model, searchesFired, truncated: truncated || undefined };
     } catch (error) {
       console.error(`  [${definition.label}] Error:`, error);
       return { lane, label: definition.label, sources: [], narrative: `Error during sweep: ${error}`, rawText: "", tokensIn: 0, tokensOut: 0, model };
@@ -581,6 +582,7 @@ export class ClaudeProvider implements ProviderAdapter {
         cacheCreateIn,
         cacheReadIn,
         truncated,
+        harvestedSources: harvestClaudeSearchSources(content),
       }));
     }
     return finalizeLaneResults(lanes, laneResultMap, fallbackModel, (lane) => LANE_CONFIG[lane]?.label ?? lane);

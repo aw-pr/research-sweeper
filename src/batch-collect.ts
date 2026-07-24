@@ -6,9 +6,10 @@
 // and missing lanes become explicit placeholders (emptyLaneResult /
 // finalizeLaneResults) so synthesis always sees a stable lane count.
 
+import { mergeLaneSources } from "./lane-schema";
 import { fallbackLaneResult, parseLaneResponse } from "./parsing";
 import { markNarrativeTruncated } from "./stop-reason";
-import { Lane, LaneDefinition, LaneResult } from "./types";
+import { Lane, LaneDefinition, LaneResult, SourceItem } from "./types";
 
 // Normalized fields extracted from one succeeded batch item. Provider-specific
 // extras (searches, reasoning, cache) are optional and only set by the
@@ -23,6 +24,10 @@ export interface ExtractedBatchLane {
   cacheCreateIn?: number;
   cacheReadIn?: number;
   truncated?: boolean;
+  // Sources harvested from the response's search-result blocks (Claude route
+  // only). Merged with the model-reported sources so provenance never depends
+  // on the model re-transcribing its own search results.
+  harvestedSources?: SourceItem[];
 }
 
 // Zero-token placeholder for a lane with no readable output (item errored, was
@@ -59,14 +64,15 @@ function optionalExtras(x: ExtractedBatchLane): Partial<LaneResult> {
 // line, and falls back to fallbackLaneResult when the JSON can't be parsed.
 export function assembleLaneResult(lane: Lane, definition: LaneDefinition, x: ExtractedBatchLane): LaneResult {
   const parsed = parseLaneResponse(x.rawText);
-  logCollected(definition.label, parsed?.sources.length ?? 0, x);
   const extras = optionalExtras(x);
 
   if (parsed) {
+    const sources = mergeLaneSources(parsed.sources, x.harvestedSources ?? []);
+    logCollected(definition.label, sources.length, x);
     return {
       lane,
       label: definition.label,
-      sources: parsed.sources,
+      sources,
       narrative: x.truncated ? markNarrativeTruncated(parsed.narrative) : parsed.narrative,
       model_context: parsed.model_context,
       parseMode: parsed.parseMode,
@@ -79,6 +85,8 @@ export function assembleLaneResult(lane: Lane, definition: LaneDefinition, x: Ex
   }
 
   const fallback = fallbackLaneResult(lane, definition, x.rawText, x.tokensIn, x.tokensOut, x.model);
+  fallback.sources = mergeLaneSources(fallback.sources, x.harvestedSources ?? []);
+  logCollected(definition.label, fallback.sources.length, x);
   if (x.truncated) fallback.narrative = markNarrativeTruncated(fallback.narrative);
   return { ...fallback, ...extras };
 }

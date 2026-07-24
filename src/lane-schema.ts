@@ -1,3 +1,5 @@
+import { SourceItem } from "./types";
+
 // Strict response-schema enforcement for lane output.
 //
 // Field-name drift (the model renaming `narrative` -> `research_summary`, or a
@@ -82,7 +84,7 @@ export const CLAUDE_LANE_TOOL = {
   input_schema: LANE_RESPONSE_SCHEMA,
 } as const;
 
-type ContentBlock = { type: string; name?: string; input?: unknown; text?: string };
+type ContentBlock = { type: string; name?: string; input?: unknown; text?: string; content?: unknown };
 
 // Claude tool/tool_choice for a lane request. With search on, both web_search
 // and the submit tool are offered and tool use is forced; the model searches
@@ -110,4 +112,71 @@ export function countClaudeSearches(content: ContentBlock[]): number {
   return content.filter(
     (block) => (block.type === "server_tool_use" || block.type === "tool_use") && block.name !== CLAUDE_LANE_TOOL_NAME
   ).length;
+}
+
+type WebSearchResult = { type?: string; title?: string; url?: string; page_age?: string };
+
+// Normalise a URL for dedup: lowercase host, drop fragment and trailing slash.
+// Returns the original string on parse failure so odd URLs still dedup exactly.
+function normaliseUrlKey(url: string): string {
+  try {
+    const u = new URL(url);
+    const path = u.pathname.replace(/\/+$/, "");
+    return `${u.protocol}//${u.hostname.toLowerCase()}${path}${u.search}`;
+  } catch {
+    return url.trim();
+  }
+}
+
+function outletFromUrl(url: string): string | undefined {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return undefined;
+  }
+}
+
+// The forced submit_lane_findings tool makes the model re-enumerate its own
+// search results into `sources`, which it does unreliably (often returning an
+// empty array despite many searches). The web_search_tool_result blocks in the
+// same response are ground truth: the pages the server actually retrieved.
+// Harvest sources from those blocks so provenance never depends on the model
+// transcribing them. Returned in retrieval order (roughly relevance order);
+// downstream depth-capping keeps the leading N.
+export function harvestClaudeSearchSources(content: ContentBlock[]): SourceItem[] {
+  const seen = new Set<string>();
+  const sources: SourceItem[] = [];
+  for (const block of content) {
+    if (block.type !== "web_search_tool_result" || !Array.isArray(block.content)) continue;
+    for (const result of block.content as WebSearchResult[]) {
+      if (result?.type !== "web_search_result" || !result.url) continue;
+      const key = normaliseUrlKey(result.url);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      sources.push({
+        title: result.title || result.url,
+        url: result.url,
+        date: result.page_age || undefined,
+        outlet: outletFromUrl(result.url),
+        significance: "Retrieved by this lane's web search.",
+      });
+    }
+  }
+  return sources;
+}
+
+// Union model-provided sources (authoritative, they carry real significance)
+// with harvested ones, deduped by normalised URL then title. Model entries lead
+// so their annotations survive the depth cap; harvested entries fill the rest.
+export function mergeLaneSources(modelSources: SourceItem[], harvested: SourceItem[]): SourceItem[] {
+  const seen = new Set<string>();
+  const keyOf = (s: SourceItem) => (s.url ? normaliseUrlKey(s.url) : `title:${(s.title || "").trim().toLowerCase()}`);
+  const merged: SourceItem[] = [];
+  for (const source of [...modelSources, ...harvested]) {
+    const key = keyOf(source);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(source);
+  }
+  return merged;
 }
