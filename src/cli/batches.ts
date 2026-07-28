@@ -5,7 +5,7 @@ import * as path from "path";
 import { LANE_CONFIG } from "../config";
 import { deleteJob, jobsDir, loadJob, saveJob } from "../jobs";
 import { defaultMinLanes } from "../lane-outcomes";
-import { computeFileNames, writeOutput } from "../output";
+import { computeFileNames, prepareOutputTarget, writeOutput } from "../output";
 import { getProvider } from "../providers";
 import { appendRunStats, buildRunStats, collectParseModes } from "../stats";
 import { SweepConfig, SweepJob, TokenBreakdown } from "../types";
@@ -52,8 +52,13 @@ export async function resumeBatch(batchId: string): Promise<void> {
     }),
     { in: 0, out: 0, cacheCreate: 0, cacheRead: 0, reasoning: 0 }
   );
-  const synthesis = await runSynthesisOptimised(provider, job.config, laneResults, job.sourcesName);
   const files = computeFileNames(job.config.topic);
+  // Fail before paying for synthesis, not after. writeOutput runs this same
+  // check, but by then the synthesis pass has already billed — and because
+  // deleteJob never runs on that path, the stale manifest makes every later
+  // --wait-all re-collect, re-synthesise and re-fail at full price.
+  prepareOutputTarget(job.config, files, { allowOverwrite: job.config.overwrite });
+  const synthesis = await runSynthesisOptimised(provider, job.config, laneResults, job.sourcesName);
   const synthModel = provider.getModels(job.config, "batch").synthesis;
   const output = writeOutput(job.config, synthesis.markdown, laneResults, files, synthModel, { allowOverwrite: job.config.overwrite });
   deleteJob(batchId);
