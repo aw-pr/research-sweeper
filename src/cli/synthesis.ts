@@ -85,6 +85,9 @@ export async function reSynthesise(folder: string, batchId?: string, authOverrid
   if (jsonFiles.length > 0) {
     ({ config, lanes } = JSON.parse(fs.readFileSync(path.join(lanesDir, jsonFiles[0]), "utf-8")));
     config.provider = config.provider || "claude";
+    // The cached config is output metadata, not authority for where a new
+    // synthesis should be written. It may have been sanitised for publishing.
+    config.outputDir = outputDir;
     source = "local cache";
   } else if (batchId) {
     const job = loadJob(batchId);

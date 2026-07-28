@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { LANE_PREFIX } from "./config";
+import { TRUNCATION_MARKER } from "./stop-reason";
 import { FileNames, Lane, LaneResult, SweepConfig } from "./types";
 
 const STUB_FILE_NAME = "_research-sweeper-stub.md";
@@ -10,6 +11,8 @@ const STUB_FILE_NAME = "_research-sweeper-stub.md";
 // and every provider path published it without complaint. Flag anything below
 // this word count so it can never reach Obsidian or the promo site unmarked.
 export const MIN_NARRATIVE_WORDS = 25;
+
+export const UPSTREAM_LANE_TRUNCATION_WARNING = "> [!warning] Upstream lane output truncated";
 
 export function narrativeWordCount(narrative: string): number {
   const trimmed = narrative.trim();
@@ -29,6 +32,20 @@ export function findDegradedLanes(laneResults: LaneResult[]): DegradedLane[] {
     .filter((entry) => entry.words < MIN_NARRATIVE_WORDS);
 }
 
+/**
+ * Makes partial upstream research visible in every final summary. Older cached
+ * lane JSON predates `truncated`, so retain the narrative marker as a fallback.
+ */
+export function appendUpstreamLaneTruncationWarning(markdown: string, laneResults: LaneResult[]): string {
+  if (markdown.includes(UPSTREAM_LANE_TRUNCATION_WARNING)) return markdown;
+
+  const truncated = laneResults.filter((result) => result.truncated === true || result.narrative.includes(TRUNCATION_MARKER));
+  if (truncated.length === 0) return markdown;
+
+  const affectedLanes = truncated.map((result) => `**${result.label}** (\`${result.lane}\`)`).join(", ");
+  return `${markdown}\n\n${UPSTREAM_LANE_TRUNCATION_WARNING}\n> Findings from ${affectedLanes} were cut off at the provider output limit and may be incomplete. Re-run those lanes before relying on this synthesis.`;
+}
+
 export function computeFileNames(topic: string): FileNames {
   const slug = topic.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 50);
   return { slug, summaryName: `summary-${slug}`, sourcesName: `sources-${slug}` };
@@ -46,13 +63,37 @@ function frontmatter(config: SweepConfig, slug: string, date: string, models?: {
     `depth: ${config.depth}`,
   ];
   if (config.briefTitle) lines.push(`brief_title: ${yamlSingleQuoted(config.briefTitle)}`);
-  if (config.briefFile) lines.push(`brief_file: ${yamlSingleQuoted(config.briefFile)}`);
+  if (config.briefFile) lines.push(`brief_file: ${yamlSingleQuoted(safeBriefFileReference(config.briefFile))}`);
   if (models) {
     lines.push(`model_lane: ${models.lane}`);
     lines.push(`model_synthesis: ${models.synthesis}`);
   }
   lines.push(`tags: [research-sweep, ${config.provider}, ${slug}]`, "---", "");
   return lines.join("\n");
+}
+
+/**
+ * Output files are often committed or published. Keep a useful local reference
+ * without serialising a home or temporary-directory path into them.
+ */
+function safeLocalPathReference(localPath: string): string {
+  if (!path.isAbsolute(localPath) && !path.win32.isAbsolute(localPath)) return localPath;
+
+  if (path.isAbsolute(localPath)) {
+    const relative = path.relative(process.cwd(), localPath);
+    if (relative && !relative.startsWith("..") && !path.isAbsolute(relative)) return relative;
+    return path.basename(localPath);
+  }
+
+  return path.win32.basename(localPath);
+}
+
+export function safeBriefFileReference(briefFile: string): string {
+  return safeLocalPathReference(briefFile);
+}
+
+export function safeOutputDirReference(outputDir: string): string {
+  return safeLocalPathReference(outputDir);
 }
 
 function plannedOutputPaths(config: SweepConfig, slug: string, summaryName: string, sourcesName: string): string[] {
@@ -186,14 +227,19 @@ export function writeLaneFiles(
       "",
     ];
     if (config.briefTitle) fm.splice(9, 0, `brief_title: ${yamlSingleQuoted(config.briefTitle)}`);
-    if (config.briefFile) fm.splice(config.briefTitle ? 10 : 9, 0, `brief_file: ${yamlSingleQuoted(config.briefFile)}`);
+    if (config.briefFile) fm.splice(config.briefTitle ? 10 : 9, 0, `brief_file: ${yamlSingleQuoted(safeBriefFileReference(config.briefFile))}`);
     const frontmatterText = fm.join("\n");
 
     fs.writeFileSync(lanePath, frontmatterText + body, "utf-8");
     lanesPaths.push(lanePath);
   }
 
-  fs.writeFileSync(path.join(lanesDir, `lanes-${slug}.json`), JSON.stringify({ config, lanes: laneResults }, null, 2), "utf-8");
+  const outputConfig = {
+    ...config,
+    outputDir: safeOutputDirReference(config.outputDir),
+    ...(config.briefFile ? { briefFile: safeBriefFileReference(config.briefFile) } : {}),
+  };
+  fs.writeFileSync(path.join(lanesDir, `lanes-${slug}.json`), JSON.stringify({ config: outputConfig, lanes: laneResults }, null, 2), "utf-8");
   return { lanesPaths };
 }
 
@@ -235,7 +281,7 @@ export function writeOutput(
 
   const sourceMetaById = buildSourceMetaById(laneResults);
   const { lanesPaths } = writeLaneFiles(config, laneResults, files.summaryName, files.sourcesName, files.slug);
-  const summaryMarkdown = ensureOverviewHeading(markdown.trim());
+  const summaryMarkdown = ensureOverviewHeading(appendUpstreamLaneTruncationWarning(markdown.trim(), laneResults));
   fs.writeFileSync(
     summaryPath,
     fm + formatSummaryCitations(summaryMarkdown, files.sourcesName, sourceMetaById) + `\n\n---\n\n![[${files.sourcesName}]]`,
