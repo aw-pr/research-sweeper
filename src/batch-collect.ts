@@ -21,6 +21,8 @@ export interface ExtractedBatchLane {
   model: string;
   searchesFired?: number;
   reasoningOut?: number;
+  openaiCachedIn?: number;
+  openaiCacheWriteIn?: number;
   cacheCreateIn?: number;
   cacheReadIn?: number;
   truncated?: boolean;
@@ -53,6 +55,8 @@ function optionalExtras(x: ExtractedBatchLane): Partial<LaneResult> {
   return {
     ...(x.searchesFired !== undefined ? { searchesFired: x.searchesFired } : {}),
     ...(x.reasoningOut !== undefined ? { reasoningOut: x.reasoningOut } : {}),
+    ...(x.openaiCachedIn !== undefined ? { openaiCachedIn: x.openaiCachedIn } : {}),
+    ...(x.openaiCacheWriteIn !== undefined ? { openaiCacheWriteIn: x.openaiCacheWriteIn } : {}),
     ...(x.cacheCreateIn !== undefined ? { cacheCreateIn: x.cacheCreateIn } : {}),
     ...(x.cacheReadIn !== undefined ? { cacheReadIn: x.cacheReadIn } : {}),
     ...(x.truncated ? { truncated: true } : {}),

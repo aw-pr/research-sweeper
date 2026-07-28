@@ -31,7 +31,7 @@ Edit `config/depths.json` to change source targets:
 }
 ```
 
-`searchRounds` is passed into the lane prompt as the search budget ("run up to N targeted searches"). The lane agent always fires at least one search — `tool_choice: any` is set on every lane call so the web search tool cannot be skipped. Add `--no-search` to disable this entirely.
+`searchRounds` is passed into the lane prompt as the search budget ("run up to N targeted searches"). Claude API lanes are instructed to search and receive `web_search_20250305` plus the forced schema-submission tool under `tool_choice: any`; this forces some tool use, but does not independently guarantee web-search invocation. Add `--no-search` to disable the search tools entirely.
 
 ## Modifying synthesis style
 

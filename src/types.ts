@@ -59,9 +59,15 @@ export interface LaneResult {
   tokensOut: number;
   cacheCreateIn?: number;
   cacheReadIn?: number;
-  // OpenAI Responses API: reasoning tokens consumed in the output budget
-  // when reasoning.effort is set. Captured separately so they price correctly.
+  // OpenAI Responses API: reasoning tokens consumed within output_tokens when
+  // reasoning.effort is set. Kept for observability; do not bill them twice.
   reasoningOut?: number;
+  // OpenAI Responses API prompt-cache hits. The provider records these when
+  // usage.input_tokens_details.cached_tokens is available.
+  openaiCachedIn?: number;
+  // OpenAI Responses API prompt-cache writes, also included in input_tokens.
+  // The installed SDK types lag this field, so providers read it defensively.
+  openaiCacheWriteIn?: number;
   model: string;
   searchesFired?: number;
   // True when the Claude response hit stop_reason: "max_tokens" before the
@@ -113,9 +119,19 @@ export interface TokenBreakdown {
   // synthesis pass is deliberately uncached (see providers/claude.ts).
   cacheCreateIn?: number;
   cacheReadIn?: number;
-  // OpenAI Responses API reasoning tokens. Billed at the same rate as output
-  // tokens. Aggregated across lanes + synthesis.
+  // OpenAI Responses API reasoning tokens, already included in totalOut and
+  // therefore not a separately billable component. Aggregated for telemetry.
   reasoningOut?: number;
+  // OpenAI prompt-cache hits, held separately because lanes and synthesis can
+  // use differently priced models. Absent means the route did not expose this
+  // usage detail; it must not be treated as a confirmed zero.
+  openaiLaneCachedIn?: number;
+  openaiSynthesisCachedIn?: number;
+  openaiLaneCacheWriteIn?: number;
+  openaiSynthesisCacheWriteIn?: number;
+  // Number of OpenAI web_search calls. Absent means unavailable, rather than
+  // zero, so cost reporting can state that tool fees were not observed.
+  openaiWebSearchCalls?: number;
 }
 
 export interface RunStats {
@@ -134,9 +150,15 @@ export interface RunStats {
   tokens: TokenBreakdown;
   models: { lane: string; synthesis: string };
   estimatedCostUSD: number;
+  // Additive caveats for estimates that lack provider usage telemetry. Older
+  // records intentionally omit this field and remain valid RunStats data.
+  costEstimateNotes?: string[];
   outputFiles: string[];
   authMode?: "api_key" | "claude_oauth" | "codex_cli" | "gemini_oauth";
   parseModes?: Partial<Record<Lane, LaneParseMode>>;
+  // False on a batch run whose provider has no batch-synthesis endpoint, so
+  // the synthesis half billed at full price. Drives the cost estimate.
+  synthesisBatched?: boolean;
 }
 
 export interface FileNames {
@@ -172,12 +194,12 @@ export interface ProviderAdapter {
     config: SweepConfig,
     laneResults: LaneResult[],
     sourcesName: string
-  ): Promise<{ markdown: string; tokensIn: number; tokensOut: number }>;
+  ): Promise<{ markdown: string; tokensIn: number; tokensOut: number; reasoningOut?: number; openaiCachedIn?: number; openaiCacheWriteIn?: number }>;
   submitBatchLanes(config: SweepConfig): Promise<string>;
   getBatchStatus(batchId: string): Promise<BatchStatus>;
   collectBatchResults(batchId: string, lanes: Lane[], submittedModel?: string): Promise<LaneResult[]>;
   submitBatchSynthesis?(config: SweepConfig, laneResults: LaneResult[], sourcesName: string): Promise<string>;
-  collectBatchSynthesisResult?(batchId: string): Promise<{ markdown: string; tokensIn: number; tokensOut: number }>;
+  collectBatchSynthesisResult?(batchId: string): Promise<{ markdown: string; tokensIn: number; tokensOut: number; reasoningOut?: number; openaiCachedIn?: number; openaiCacheWriteIn?: number }>;
   // Batch-recovery path (`--resubmit-failed`). Claude-only for now — the
   // Batches API best practice of resubmitting exactly the failed custom_ids
   // (errored/expired/canceled are unbilled) doesn't map onto the OpenAI/Gemini

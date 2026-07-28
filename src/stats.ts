@@ -17,7 +17,16 @@ export function toHomeRelative(filePath: string): string {
 import { getProvider } from "./providers";
 import { LaneResult, Provider, ProviderModels, RunStats, SweepConfig, TokenBreakdown } from "./types";
 
-const MODEL_PRICING: Record<Provider, Record<string, { inPer1M: number; outPer1M: number }>> = {
+interface ModelPricing {
+  inPer1M: number;
+  outPer1M: number;
+  // OpenAI prices prompt-cache reads separately. Other providers keep their
+  // cache accounting in cacheCreateIn/cacheReadIn below.
+  cachedInPer1M?: number;
+  cacheWriteInPer1M?: number;
+}
+
+const MODEL_PRICING: Record<Provider, Record<string, ModelPricing>> = {
   claude: {
     "claude-haiku-4-5-20251001": { inPer1M: 1.0, outPer1M: 5.0 },
     "claude-sonnet-4-6": { inPer1M: 3.0, outPer1M: 15.0 },
@@ -30,13 +39,16 @@ const MODEL_PRICING: Record<Provider, Record<string, { inPer1M: number; outPer1M
     "claude-fable-5": { inPer1M: 10.0, outPer1M: 50.0 },
   },
   openai: {
-    "gpt-5.6-sol": { inPer1M: 2.5, outPer1M: 15.0 },
-    "gpt-5.6-terra": { inPer1M: 1.25, outPer1M: 7.5 },
-    "gpt-5.6-luna": { inPer1M: 0.5, outPer1M: 3.0 },
-    "gpt-5.4-mini": { inPer1M: 0.75, outPer1M: 4.5 },
-    "gpt-5-mini": { inPer1M: 0.25, outPer1M: 2.0 },
-    "gpt-5.4": { inPer1M: 2.5, outPer1M: 15.0 },
-    "gpt-5.5": { inPer1M: 5.0, outPer1M: 30.0 },
+    // List (non-batch) rates. computeRunCost applies the published 50% Batch
+    // API discount once, per lane/synthesis leg. These used to be batch rates
+    // and were discounted again, understating OpenAI batch spend by half.
+    "gpt-5.6-sol": { inPer1M: 5.0, cachedInPer1M: 0.5, cacheWriteInPer1M: 6.25, outPer1M: 30.0 },
+    "gpt-5.6-terra": { inPer1M: 2.5, cachedInPer1M: 0.25, cacheWriteInPer1M: 3.125, outPer1M: 15.0 },
+    "gpt-5.6-luna": { inPer1M: 1.0, cachedInPer1M: 0.1, cacheWriteInPer1M: 1.25, outPer1M: 6.0 },
+    "gpt-5.4-mini": { inPer1M: 0.75, cachedInPer1M: 0.075, outPer1M: 4.5 },
+    "gpt-5-mini": { inPer1M: 0.25, cachedInPer1M: 0.025, outPer1M: 2.0 },
+    "gpt-5.4": { inPer1M: 2.5, cachedInPer1M: 0.25, outPer1M: 15.0 },
+    "gpt-5.5": { inPer1M: 5.0, cachedInPer1M: 0.5, outPer1M: 30.0 },
   },
   // Verified May 2026 against ai.google.dev/gemini-api/docs/pricing.
   // gemini-2.5-pro uses tiered pricing (>200K context costs more); the
@@ -67,27 +79,81 @@ export function generateRunId(config: SweepConfig, mode: "sync" | "batch"): stri
 // Cache reads (subsequent requests that match the cached prefix) bill at 0.10x.
 const CACHE_WRITE_MULT = 1.25;
 const CACHE_READ_MULT = 0.10;
+const OPENAI_WEB_SEARCH_PER_CALL_USD = 0.01;
 
-export function computeRunCost(provider: Provider, tokens: TokenBreakdown, models: ProviderModels, isBatch: boolean): number {
+// Usage arrives from provider responses and batch payloads. Ignore malformed
+// optional telemetry rather than letting a negative/NaN/Infinity cache count
+// corrupt the estimate.
+function clampOptionalUsage(value: number | undefined, maximum: number): number {
+  if (!Number.isFinite(value) || !Number.isFinite(maximum) || value === undefined || value <= 0 || maximum <= 0) return 0;
+  return Math.min(value, maximum);
+}
+
+function nonNegativeFinite(value: number | undefined): number {
+  return Number.isFinite(value) && value !== undefined && value > 0 ? value : 0;
+}
+
+// A batch run always batches its lanes, but synthesis is a separate decision.
+// Callers that know which path ran pass synthesisBatched explicitly; the
+// default assumes it followed the lanes.
+export function computeRunCost(
+  provider: Provider,
+  tokens: TokenBreakdown,
+  models: ProviderModels,
+  isBatch: boolean,
+  synthesisBatched: boolean = isBatch
+): number {
   const pricing = MODEL_PRICING[provider];
   const lanePricing = pricing[models.lane];
   const synthesisPricing = pricing[models.synthesis];
   if (!lanePricing || !synthesisPricing) return 0;
   const discount = isBatch ? 0.5 : 1;
-  // Base lane + synthesis token costs.
-  const laneCost = ((tokens.lanesIn / 1e6) * lanePricing.inPer1M + (tokens.lanesOut / 1e6) * lanePricing.outPer1M) * discount;
-  const synthesisCost = (tokens.synthesisIn / 1e6) * synthesisPricing.inPer1M + (tokens.synthesisOut / 1e6) * synthesisPricing.outPer1M;
+  const synthesisDiscount = synthesisBatched ? 0.5 : 1;
+  // Base lane + synthesis token costs. OpenAI cache-hit input is included in
+  // input_tokens, so replace its normal-rate component rather than add it.
+  const laneCachedIn = provider === "openai" ? clampOptionalUsage(tokens.openaiLaneCachedIn, tokens.lanesIn) : 0;
+  const synthesisCachedIn = provider === "openai" ? clampOptionalUsage(tokens.openaiSynthesisCachedIn, tokens.synthesisIn) : 0;
+  // Cache reads and writes are both already part of input_tokens. Clamp writes
+  // against the remainder after reads so bad/mixed telemetry never prices more
+  // than the input total.
+  const laneCacheWriteIn = provider === "openai" ? clampOptionalUsage(tokens.openaiLaneCacheWriteIn, tokens.lanesIn - laneCachedIn) : 0;
+  const synthesisCacheWriteIn = provider === "openai" ? clampOptionalUsage(tokens.openaiSynthesisCacheWriteIn, tokens.synthesisIn - synthesisCachedIn) : 0;
+  const laneInputCost =
+    ((tokens.lanesIn - laneCachedIn - laneCacheWriteIn) / 1e6) * lanePricing.inPer1M +
+    (laneCachedIn / 1e6) * (lanePricing.cachedInPer1M ?? lanePricing.inPer1M) +
+    (laneCacheWriteIn / 1e6) * (lanePricing.cacheWriteInPer1M ?? lanePricing.inPer1M);
+  const synthesisInputCost =
+    ((tokens.synthesisIn - synthesisCachedIn - synthesisCacheWriteIn) / 1e6) * synthesisPricing.inPer1M +
+    (synthesisCachedIn / 1e6) * (synthesisPricing.cachedInPer1M ?? synthesisPricing.inPer1M) +
+    (synthesisCacheWriteIn / 1e6) * (synthesisPricing.cacheWriteInPer1M ?? synthesisPricing.inPer1M);
+  const laneCost = (laneInputCost + (tokens.lanesOut / 1e6) * lanePricing.outPer1M) * discount;
+  const synthesisCost = (synthesisInputCost + (tokens.synthesisOut / 1e6) * synthesisPricing.outPer1M) * synthesisDiscount;
   // Anthropic prompt-caching adjustments. The aggregated cache token counts
   // come from lanes only — the synthesis pass is deliberately uncached (no
   // shared prefix across a sweep to cache; see providers/claude.ts), priced
   // at the lane-model's input rate.
   const cacheCreate = ((tokens.cacheCreateIn || 0) / 1e6) * lanePricing.inPer1M * CACHE_WRITE_MULT * discount;
   const cacheRead = ((tokens.cacheReadIn || 0) / 1e6) * lanePricing.inPer1M * CACHE_READ_MULT * discount;
-  // OpenAI Responses API reasoning tokens bill at the output rate. Most of
-  // the reasoning spend comes from the synthesis pass (gpt-5.6-sol with
-  // reasoning.effort=high), so price reasoning at the synthesis output rate.
-  const reasoningCost = ((tokens.reasoningOut || 0) / 1e6) * synthesisPricing.outPer1M;
-  return Math.round((laneCost + synthesisCost + cacheCreate + cacheRead + reasoningCost) * 1_000_000) / 1_000_000;
+  // Responses usage.output_tokens already includes reasoning tokens. Retain
+  // reasoningOut as a quality/effort signal, but never charge it twice.
+  const openaiWebSearchCost = provider === "openai" ? nonNegativeFinite(tokens.openaiWebSearchCalls) * OPENAI_WEB_SEARCH_PER_CALL_USD : 0;
+  return Math.round((laneCost + synthesisCost + cacheCreate + cacheRead + openaiWebSearchCost) * 1_000_000) / 1_000_000;
+}
+
+function openAICostEstimateNotes(tokens: TokenBreakdown): string[] | undefined {
+  const notes: string[] = [];
+  if (
+    tokens.openaiLaneCachedIn === undefined ||
+    tokens.openaiSynthesisCachedIn === undefined ||
+    tokens.openaiLaneCacheWriteIn === undefined ||
+    tokens.openaiSynthesisCacheWriteIn === undefined
+  ) {
+    notes.push("OpenAI cache read/write usage was unavailable; unreported input is priced at the normal input rate.");
+  }
+  if (tokens.openaiWebSearchCalls === undefined) {
+    notes.push("OpenAI web-search call count was unavailable; web-search tool fees are excluded.");
+  }
+  return notes.length > 0 ? notes : undefined;
 }
 
 // Per-lane parse modes for the run record, so how often the tolerant parser's
@@ -108,7 +174,8 @@ export function buildRunStats(
   tokens: TokenBreakdown,
   outputFiles: string[],
   authMode?: RunStats["authMode"],
-  parseModes?: RunStats["parseModes"]
+  parseModes?: RunStats["parseModes"],
+  synthesisBatched: boolean = mode === "batch"
 ): RunStats {
   const provider = getProvider(config.provider);
   const models = provider.getModels(config, mode);
@@ -127,10 +194,12 @@ export function buildRunStats(
     submittedAt,
     tokens,
     models,
-    estimatedCostUSD: computeRunCost(config.provider, tokens, models, mode === "batch"),
+    estimatedCostUSD: computeRunCost(config.provider, tokens, models, mode === "batch", synthesisBatched),
+    ...(config.provider === "openai" ? { costEstimateNotes: openAICostEstimateNotes(tokens) } : {}),
     outputFiles: outputFiles.map(toHomeRelative),
     authMode,
     parseModes,
+    synthesisBatched,
   };
 }
 

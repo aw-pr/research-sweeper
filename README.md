@@ -2,12 +2,12 @@
 
 **Multi-lane agentic research harness that runs parallel Claude, OpenAI, and Gemini agents, synthesises Obsidian-ready markdown, and scores each sweep with an LLM judge.**
 
-![Node](https://img.shields.io/badge/node-18%2B-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Tests](https://img.shields.io/badge/tests-202%20passed-brightgreen) ![Status](https://img.shields.io/badge/status-usable-brightgreen)
+![Node](https://img.shields.io/badge/node-18%2B-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Tests](https://img.shields.io/badge/tests-252%20passed-brightgreen) ![Status](https://img.shields.io/badge/status-usable-brightgreen)
 
 ## What it does
 
-- Runs up to 6 parallel research lanes (`financial`, `frontier`, `academic`, `vc`, `blogs`, `tech`) as independent Claude, OpenAI, or Gemini agent calls. Claude lanes force `web_search_20250305` tool use on the API path; OpenAI lanes force the `web_search` tool via `tool_choice`; Gemini lanes use Google Search grounding (model-decided, not forced). Lane output is schema-enforced wherever the route can carry a schema (OpenAI api-key strict JSON schema, `codex exec --output-schema`, Claude api-key forced tool with `strict: true`); a tolerant parser covers the Claude OAuth and Gemini routes. On the Claude route, lane sources are harvested directly from the response's `web_search_tool_result` blocks and merged (URL-deduped) with any model-reported sources, so provenance does not depend on the model re-transcribing its own search results. Each run records per-lane `parseModes` in `runs/stats.json`.
-- Synthesises lane outputs into a single Obsidian-ready summary plus a deduplicated sources file, with optional async submission through the Anthropic and OpenAI Batch APIs for cost reduction.
+- Runs up to 6 parallel research lanes (`financial`, `frontier`, `academic`, `vc`, `blogs`, `tech`) as independent Claude, OpenAI, or Gemini agent calls. Claude API lanes are instructed to use web search and receive `web_search_20250305` plus a forced schema-submission tool under `tool_choice: any`; that forces some tool use, but does not independently guarantee a web-search invocation. OpenAI API-key lanes force `web_search` via `tool_choice`; Gemini lanes use Google Search grounding (model-decided, not forced). Lane output is schema-enforced wherever the route can carry a schema (OpenAI api-key strict JSON schema, `codex exec --output-schema`, Claude api-key forced tool with `strict: true`); a tolerant parser covers the Claude OAuth and Gemini routes. Sources are URL-normalised and deduplicated globally across lanes before depth caps. `model_context` is empty for shallow sweeps and optional up to about 80/120 words for standard/deep. Each run records per-lane `parseModes` in `runs/stats.json`.
+- Synthesises lane outputs into a single Obsidian-ready summary plus a deduplicated sources file, with optional async submission through the Anthropic, OpenAI, and Gemini Batch APIs for cost reduction.
 - Evaluates each sweep with an LLM-as-judge harness using `claude-haiku-4-5-20251001` across coverage, source quality, synthesis, and relevance, and persists scores back to the run record.
 
 ## Architecture
@@ -26,6 +26,18 @@ flowchart LR
     Synth --> Eval[LLM Judge<br/>claude-haiku]
     Eval --> Stats[runs/stats.json<br/>with eval score]
 ```
+
+## Built-in deep research vs this harness
+
+| Surface | Best fit |
+|---|---|
+| [Claude.ai Research](https://support.claude.com/en/articles/11088861-use-research-on-claude) | Interactive, one-off research product in Claude. |
+| [Claude Managed Agents (beta)](https://platform.claude.com/docs/en/managed-agents/overview) and [Messages API web tools](https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool) | Programmatic building blocks for long-running Claude work with web search, fetch and code execution. |
+| [ChatGPT Deep Research / Responses API tooling](https://developers.openai.com/api/docs/guides/deep-research) | Autonomous planning and research across web, files, MCP and code. |
+
+Built-ins can replace ad-hoc one-off research and reduce custom orchestration. They do not replace this repository where named lanes, vendor-neutral Claude/OpenAI/Gemini comparison and routing, Obsidian artefacts, a source ledger, batch/recovery, cost and parse telemetry, and evaluation are requirements. Its core Node CLI and artifact format are OS-portable; the optional secure `.sh` helpers require a POSIX shell. This is a controlled multi-lane harness, not a wrapper around either vendor's native Deep Research or Research product.
+
+> **Checked 2026-07-28:** OpenAI's deep-research guide still names `o3-deep-research` and `o4-mini-deep-research`, while the [official deprecations page](https://developers.openai.com/api/docs/deprecations) says those slugs shut down on 2026-07-23 and recommends GPT-5.6 Sol. Check current model availability before implementing against the guide.
 
 ## Quick start (no 1Password)
 
@@ -147,10 +159,17 @@ the synthesis step through a sync-only auth route:
 ```bash
 ./run-secure-sweep.sh --provider openai --re-synthesise <folder> --from-batch <batchId> --openai-auth codex
 ./run-secure-sweep.sh --provider claude --re-synthesise <folder> --from-batch <batchId> --claude-auth claude-oauth
+./run-secure-sweep.sh --provider gemini --re-synthesise <folder> --from-batch <batchId> --gemini-auth gemini-oauth
 ```
 
 The wrapper supplies the API key needed to collect the batch results, then the
-provider switches the synthesis call to the explicit Codex or Claude OAuth route.
+provider switches the synthesis call to the explicit Codex, Claude OAuth, or Gemini OAuth route. Gemini OAuth remains GCP-billed.
+
+### Cost estimates
+
+OpenAI estimates use list rates with one Batch discount, observed web-search fees,
+and reported cache read/write telemetry. Reasoning is already included in output
+tokens and is not billed twice; missing provider usage is called out in the run record.
 
 ### Gemini provider — known limitations
 
@@ -192,7 +211,13 @@ Each sweep writes to `<output-folder>/`:
 
 Existing `summary-*`, `sources-*`, and lane files are not overwritten unless `--overwrite` is passed. Re-synthesis is allowed to rewrite generated outputs.
 
-A lane that hits its provider's output-token cap (Claude `max_tokens`, OpenAI `incomplete_details`, Gemini `MAX_TOKENS`) has its narrative prefixed with `[TRUNCATED at max_tokens — findings incomplete]`; a truncated synthesis carries a `> [!warning] Synthesis truncated at max_tokens — increase depth tier or reduce lane volume.` callout in the markdown. Both are generated markers, not model prose — treat them as a signal to rerun with a lower lane volume or higher depth tier.
+Generated Markdown sanitises absolute brief paths; lane JSON sanitises both brief and
+output paths. Re-synthesis always writes to the requested folder, never a cached output
+path.
+
+A lane that hits its provider's output-token cap (Claude `max_tokens`, OpenAI `incomplete_details`, Gemini `MAX_TOKENS`) has its narrative prefixed with `[TRUNCATED at max_tokens — findings incomplete]`. If any upstream lane is marked truncated, the final summary deterministically receives a separate warning naming the affected lanes. This is distinct from a synthesis that itself truncates, which carries a `> [!warning] Synthesis truncated at max_tokens — increase depth tier or reduce lane volume.` callout. These are generated markers, not model prose — treat them as a signal to rerun with a lower lane volume or higher depth tier. A Claude synthesis refusal is a hard failure, so an empty response cannot overwrite a report or be recorded as a successful run.
+
+Batch synthesis failures stop with the batch id and terminal status rather than polling indefinitely.
 
 ## Security
 
@@ -211,5 +236,6 @@ npm run test         # vitest unit tests
 
 | Version | Date | Summary |
 |---|---|---|
+| v1.2.0 | 2026-07-28 | Non-breaking cost, quality, privacy and reliability improvements: accurate OpenAI batch/cache telemetry, bounded and deduplicated synthesis context, safe generated path references, batch failure diagnostics, refusal handling, and a documented comparison with Claude and OpenAI native research. |
 | v1.1.0 | 2026-07-19 | Strict lane JSON schema across the API-key routes (shared `LANE_RESPONSE_SCHEMA`), `jsonrepair`-based tolerant parser with per-lane `parseMode` stats, OpenAI migration to GPT-5.6 models, forced `web_search` on OpenAI lanes, `--resubmit-failed` batch recovery, and the publish-PR workflow. |
 | v1.0.0 | 2026-05-18 | Initial multi-lane research harness: `claude`/`openai`/`gemini` providers, sync and batch modes, API-key and OAuth/subscription auth routes, and Obsidian-ready synthesised output. |

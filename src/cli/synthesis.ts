@@ -6,6 +6,7 @@ import * as path from "path";
 import { DEPTH_CONFIG } from "../config";
 import { researchRoot } from "../env";
 import { loadJob } from "../jobs";
+import { normaliseUrlKey } from "../lane-schema";
 import { computeFileNames, writeOutput } from "../output";
 import { createProvider } from "../providers";
 import { LaneResult, Provider, ProviderAdapter, SweepConfig } from "../types";
@@ -13,23 +14,47 @@ import { AuthOverrides } from "./auth-flags";
 
 export function capLaneSourcesByDepth(config: SweepConfig, laneResults: LaneResult[]): LaneResult[] {
   const maxSources = DEPTH_CONFIG[config.depth].sourcesPerLane;
-  return laneResults.map((result) => ({
-    ...result,
-    sources: result.sources.slice(0, maxSources),
-  }));
+  const seenUrls = new Set<string>();
+  return laneResults.map((result) => {
+    const sources = result.sources
+      .filter((source) => {
+        if (!source.url) return true;
+        const key = normaliseUrlKey(source.url);
+        if (seenUrls.has(key)) return false;
+        seenUrls.add(key);
+        return true;
+      })
+      .slice(0, maxSources);
+    return { ...result, sources };
+  });
 }
+
+const SYNTHESIS_BATCH_SUCCESS_STATUSES = new Set(["completed", "ended"]);
+// Provider adapters normalise their native states into this small shared set.
+// Do not poll arbitrary values: a new terminal state must fail visibly rather
+// than keep an expensive run alive forever.
+const SYNTHESIS_BATCH_IN_PROGRESS_STATUSES = new Set([
+  "validating",
+  "pending",
+  "queued",
+  "in_progress",
+  "running",
+  "finalizing",
+  "cancelling",
+  "canceling",
+]);
 
 export async function runSynthesisOptimised(
   provider: ProviderAdapter,
   config: SweepConfig,
   laneResults: LaneResult[],
   sourcesName: string
-): Promise<{ markdown: string; tokensIn: number; tokensOut: number }> {
+): Promise<{ markdown: string; tokensIn: number; tokensOut: number; reasoningOut?: number; openaiCachedIn?: number; openaiCacheWriteIn?: number; batched: boolean }> {
   if (usesSyncOnlyAuth(config)) {
-    return provider.runSynthesis(config, laneResults, sourcesName);
+    return { ...(await provider.runSynthesis(config, laneResults, sourcesName)), batched: false };
   }
   if (!provider.submitBatchSynthesis || !provider.collectBatchSynthesisResult) {
-    return provider.runSynthesis(config, laneResults, sourcesName);
+    return { ...(await provider.runSynthesis(config, laneResults, sourcesName)), batched: false };
   }
 
   console.log("\n  [Synthesis] Submitting as batch job...");
@@ -39,14 +64,17 @@ export async function runSynthesisOptimised(
   while (true) {
     await new Promise((resolve) => setTimeout(resolve, pollMs));
     const status = await provider.getBatchStatus(synthBatchId);
-    if (status.status === "completed" || status.status === "ended") break;
+    if (SYNTHESIS_BATCH_SUCCESS_STATUSES.has(status.status)) break;
+    if (!SYNTHESIS_BATCH_IN_PROGRESS_STATUSES.has(status.status)) {
+      throw new Error(`Synthesis batch ${synthBatchId} ended with status "${status.status}".`);
+    }
     console.log(`  [Synthesis] Waiting... (${status.status})`);
   }
 
   console.log("  [Synthesis] Collecting result...");
   const result = await provider.collectBatchSynthesisResult(synthBatchId);
   console.log(`  [Synthesis] Complete (${result.tokensIn.toLocaleString()} in / ${result.tokensOut.toLocaleString()} out)`);
-  return result;
+  return { ...result, batched: true };
 }
 
 export function usesSyncOnlyAuth(config: SweepConfig): boolean {
@@ -75,6 +103,9 @@ export async function reSynthesise(folder: string, batchId?: string, authOverrid
   if (jsonFiles.length > 0) {
     ({ config, lanes } = JSON.parse(fs.readFileSync(path.join(lanesDir, jsonFiles[0]), "utf-8")));
     config.provider = config.provider || "claude";
+    // The cached config is output metadata, not authority for where a new
+    // synthesis should be written. It may have been sanitised for publishing.
+    config.outputDir = outputDir;
     source = "local cache";
   } else if (batchId) {
     const job = loadJob(batchId);
