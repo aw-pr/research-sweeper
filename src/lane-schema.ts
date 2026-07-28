@@ -118,7 +118,7 @@ type WebSearchResult = { type?: string; title?: string; url?: string; page_age?:
 
 // Normalise a URL for dedup: lowercase host, drop fragment and trailing slash.
 // Returns the original string on parse failure so odd URLs still dedup exactly.
-function normaliseUrlKey(url: string): string {
+export function normaliseUrlKey(url: string): string {
   try {
     const u = new URL(url);
     const path = u.pathname.replace(/\/+$/, "");

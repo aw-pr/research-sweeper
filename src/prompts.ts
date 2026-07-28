@@ -43,7 +43,7 @@ The JSON object must follow this exact shape:
     }
   ],
   "narrative": "A short summary (2–4 paragraphs, each 2–4 sentences) of what this lane's sources reveal. Tight paragraphs, these are published. Be specific: name publications, people, numbers.",
-  "model_context": "Analytical background from your training knowledge about this lane's domain, 3–5 short paragraphs (2–4 sentences each) on key structural dynamics, historical context, dominant players, or conceptual framing that web searches alone may not surface. This is explicitly model knowledge, not sourced claims. Do not include URLs here."
+  "model_context": "Optional analytical background from your training knowledge. Follow the depth-specific budget in the lane instructions. Use an empty string when it adds no essential framing. This is explicitly model knowledge, not sourced claims. Do not include URLs here."
 }
 
 ## Source quality rules
@@ -73,7 +73,7 @@ Before returning, verify:
 1. The output is a single JSON object, parseable, with no surrounding prose.
 2. Every URL in "sources" is real and exact, not paraphrased.
 3. "narrative" contains 2–4 short paragraphs and no markdown hyperlinks.
-4. "model_context" contains 3–5 short paragraphs of explicit model knowledge with no URLs.
+4. "model_context" follows the depth-specific budget, contains no URLs, and is an empty string when no essential framing is needed.
 5. Style rules are observed. British English. No em dashes. No banned vocabulary.
 `;
 
@@ -98,6 +98,11 @@ ${config.briefing}`
   const searchInstruction = config.noSearch
     ? `Draw on your training knowledge to identify the most relevant sources for this topic within your lane. Include sources you know to be authoritative and relevant.`
     : `You MUST use the web_search tool to find sources, do not rely on training data for source discovery. All entries in "sources" must come from actual web searches. Run up to ${dc.searchRounds} targeted searches. If a search returns no useful results, try a different query.`;
+  const modelContextInstruction = {
+    shallow: `Return an empty string ("") for "model_context".`,
+    standard: `Optional: only add non-obvious framing that the retrieved sources do not already provide. At most one short paragraph (about 80 words); otherwise return an empty string ("").`,
+    deep: `Optional: only add non-obvious framing that the retrieved sources do not already provide. At most one short paragraph (about 120 words); otherwise return an empty string ("").`,
+  }[config.depth];
 
   // Lane-specific addendum only, the shared scaffolding (schema, style rules,
   // citation rules, output discipline) lives in the system array and is cached
@@ -110,6 +115,10 @@ LANE: ${lc.label} (id: ${lane})
 OUTLETS TO PRIORITISE: ${lc.outlets.join(", ")}
 SEARCH FOCUS: ${lc.searchFocus}
 TARGET SOURCES: approximately ${dc.sourcesPerLane} high-quality sources
+
+## Model context budget
+
+${modelContextInstruction}
 
 ## Search behaviour
 

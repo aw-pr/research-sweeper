@@ -6,6 +6,7 @@ import * as path from "path";
 import { DEPTH_CONFIG } from "../config";
 import { researchRoot } from "../env";
 import { loadJob } from "../jobs";
+import { normaliseUrlKey } from "../lane-schema";
 import { computeFileNames, writeOutput } from "../output";
 import { createProvider } from "../providers";
 import { LaneResult, Provider, ProviderAdapter, SweepConfig } from "../types";
@@ -13,10 +14,19 @@ import { AuthOverrides } from "./auth-flags";
 
 export function capLaneSourcesByDepth(config: SweepConfig, laneResults: LaneResult[]): LaneResult[] {
   const maxSources = DEPTH_CONFIG[config.depth].sourcesPerLane;
-  return laneResults.map((result) => ({
-    ...result,
-    sources: result.sources.slice(0, maxSources),
-  }));
+  const seenUrls = new Set<string>();
+  return laneResults.map((result) => {
+    const sources = result.sources
+      .filter((source) => {
+        if (!source.url) return true;
+        const key = normaliseUrlKey(source.url);
+        if (seenUrls.has(key)) return false;
+        seenUrls.add(key);
+        return true;
+      })
+      .slice(0, maxSources);
+    return { ...result, sources };
+  });
 }
 
 export async function runSynthesisOptimised(
