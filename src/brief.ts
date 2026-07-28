@@ -6,6 +6,22 @@ export interface ParsedBrief {
   title?: string;
   topic?: string;
   briefing?: string;
+  ignoredSections: string[];
+}
+
+// Only "Topic string" and "Sub-questions" are read; everything else in a brief
+// file never reaches a model. These are the headings that are meant to be
+// human-facing, so they stay quiet. Anything else is reported, because a
+// directive placed under its own heading looks correct and does nothing.
+const READ_HEADINGS = [/^topic string/i, /^sub-questions/i];
+const HUMAN_FACING_HEADINGS = [/^suggested command/i, /^notes\b/i, /^depth guide/i, /^date anchor guide/i, /^research brief/i];
+
+export function findIgnoredSections(markdown: string): string[] {
+  const headings = [...markdown.matchAll(/^##\s+(.+?)\s*$/gm)].map((match) => match[1]);
+  return headings.filter((heading) => {
+    const known = [...READ_HEADINGS, ...HUMAN_FACING_HEADINGS];
+    return !known.some((pattern) => pattern.test(heading));
+  });
 }
 
 function extractSection(markdown: string, headingPattern: RegExp): string {
@@ -51,5 +67,15 @@ export function parseBriefFile(filePath: string): ParsedBrief {
     title: extractTitle(markdown),
     topic: topic || undefined,
     briefing: subQuestionSection ? normalizeBriefing(subQuestionSection) : undefined,
+    ignoredSections: findIgnoredSections(markdown),
   };
+}
+
+export function warnOnIgnoredSections(brief: ParsedBrief): void {
+  if (brief.ignoredSections.length === 0) return;
+  console.warn(
+    `\n  Warning: ${brief.ignoredSections.length} section(s) in this brief are not read by the sweep and will not reach any model:`
+  );
+  for (const heading of brief.ignoredSections) console.warn(`    - ## ${heading}`);
+  console.warn(`  Only "## Topic string" and "## Sub-questions" are passed through. Move directives inside "## Sub-questions" (### subheadings work).\n`);
 }

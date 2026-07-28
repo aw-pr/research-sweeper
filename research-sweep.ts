@@ -2,7 +2,7 @@
 
 import * as path from "path";
 import * as readline from "readline";
-import { parseBriefFile } from "./src/brief";
+import { parseBriefFile, warnOnIgnoredSections } from "./src/brief";
 import { DEPTH_CONFIG, LANE_CONFIG } from "./src/config";
 import { runAuthCheck } from "./src/auth-check";
 import { loadDotEnv, researchRoot } from "./src/env";
@@ -112,6 +112,7 @@ async function promptUser(question: string, defaultVal?: string): Promise<string
 
 async function resolveConfig(partial: Partial<SweepConfig>): Promise<SweepConfig> {
   const parsedBrief = partial.briefFile ? parseBriefFile(partial.briefFile) : undefined;
+  if (parsedBrief) warnOnIgnoredSections(parsedBrief);
   const topic = partial.topic || parsedBrief?.topic || (await promptUser("Research topic"));
   const fromYear = partial.fromYear || parseInt(await promptUser("From year", "2019"), 10);
 
