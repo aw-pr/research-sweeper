@@ -90,7 +90,7 @@ The retired MCP server was launched with an empty environment and never called `
 
 `run-secure-sweep.sh` strips `ANTHROPIC_API_KEY` from the child environment after `op run` hydrates `.env`, and the provider also removes it in-process before importing the Agent SDK. This is what prevents accidental API-key billing during Claude OAuth sync — the protection lives in two places by design.
 
-**Do not** run Claude OAuth sync as raw `npx ts-node research-sweep.ts ...` unless `CLAUDE_CODE_OAUTH_TOKEN` is exported as a real token in that shell. Raw invocations bypass `.env` and `op://` hydration.
+**Do not** run Claude OAuth sync as raw `npx ts-node research-sweep.ts ...` unless `CLAUDE_CODE_OAUTH_TOKEN` is available through fill-only `.env`/`.env.local` loading or the exported environment. Raw invocations bypass `op-fetch` and `op://` hydration.
 
 For OpenAI: `--sync --provider openai` strips `OPENAI_API_KEY` before invoking `codex exec` (lane output is schema-enforced via `codex exec --output-schema`). An explicit `--openai-auth api-key` overrides the codex default and fetches the API key instead.
 

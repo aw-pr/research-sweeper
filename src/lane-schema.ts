@@ -10,9 +10,10 @@ import { SourceItem } from "./types";
 //   - OpenAI api-key: Responses API `text.format` json_schema (strict).
 //   - OpenAI codex-cli: the same schema passed via `codex exec --output-schema`
 //     (verified available on codex-cli 0.144.4).
-//   - Claude api-key: a forced `submit_lane_findings` tool whose input_schema
-//     is the contract (web_search runs first, then the model returns via the
-//     tool).
+//   - Claude api-key: a `submit_lane_findings` tool whose input_schema is the
+//     contract. With search enabled, `tool_choice: any` forces some tool use;
+//     the prompt requests web search first, but that setting alone cannot
+//     guarantee which offered tool the model chooses.
 //
 // Gemini is excluded: Google Search grounding and JSON structured output are
 // mutually exclusive in the Gemini API. The Claude OAuth / Agent SDK route is
@@ -87,8 +88,9 @@ export const CLAUDE_LANE_TOOL = {
 type ContentBlock = { type: string; name?: string; input?: unknown; text?: string; content?: unknown };
 
 // Claude tool/tool_choice for a lane request. With search on, both web_search
-// and the submit tool are offered and tool use is forced; the model searches
-// then submits. With search off, the submit tool is forced directly.
+// and the submit tool are offered and some tool use is forced; the prompt asks
+// the model to search before submitting, but the API setting alone cannot
+// guarantee web_search. With search off, the submit tool is forced directly.
 export function claudeLaneToolConfig(noSearch: boolean): { tools: unknown[]; tool_choice: unknown } {
   if (noSearch) {
     return { tools: [CLAUDE_LANE_TOOL], tool_choice: { type: "tool", name: CLAUDE_LANE_TOOL_NAME } };
