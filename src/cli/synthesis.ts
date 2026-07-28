@@ -29,6 +29,21 @@ export function capLaneSourcesByDepth(config: SweepConfig, laneResults: LaneResu
   });
 }
 
+const SYNTHESIS_BATCH_SUCCESS_STATUSES = new Set(["completed", "ended"]);
+// Provider adapters normalise their native states into this small shared set.
+// Do not poll arbitrary values: a new terminal state must fail visibly rather
+// than keep an expensive run alive forever.
+const SYNTHESIS_BATCH_IN_PROGRESS_STATUSES = new Set([
+  "validating",
+  "pending",
+  "queued",
+  "in_progress",
+  "running",
+  "finalizing",
+  "cancelling",
+  "canceling",
+]);
+
 export async function runSynthesisOptimised(
   provider: ProviderAdapter,
   config: SweepConfig,
@@ -49,7 +64,10 @@ export async function runSynthesisOptimised(
   while (true) {
     await new Promise((resolve) => setTimeout(resolve, pollMs));
     const status = await provider.getBatchStatus(synthBatchId);
-    if (status.status === "completed" || status.status === "ended") break;
+    if (SYNTHESIS_BATCH_SUCCESS_STATUSES.has(status.status)) break;
+    if (!SYNTHESIS_BATCH_IN_PROGRESS_STATUSES.has(status.status)) {
+      throw new Error(`Synthesis batch ${synthBatchId} ended with status "${status.status}".`);
+    }
     console.log(`  [Synthesis] Waiting... (${status.status})`);
   }
 

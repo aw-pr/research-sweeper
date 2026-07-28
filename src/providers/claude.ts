@@ -408,7 +408,11 @@ export class ClaudeProvider implements ProviderAdapter {
       } as unknown as Anthropic.MessageCreateParamsNonStreaming)
     );
     let markdown = response.content.filter((block) => block.type === "text").map((block) => block.text).join("\n");
-    if (classifyStopReason(response.stop_reason) === "max_tokens") {
+    const stopClass = classifyStopReason(response.stop_reason);
+    if (stopClass === "refusal") {
+      throw new Error("Synthesis refused by Claude (stop_reason: refusal).");
+    }
+    if (stopClass === "max_tokens") {
       console.warn("  [Synthesis] Warning: response truncated at max_tokens — synthesis incomplete");
       markdown = appendSynthesisTruncationWarning(markdown);
     }
@@ -504,7 +508,11 @@ export class ClaudeProvider implements ProviderAdapter {
       if (item.custom_id === "synthesis" && item.result.type === "succeeded") {
         const message = item.result.message;
         let markdown = message.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n");
-        if (classifyStopReason(message.stop_reason) === "max_tokens") {
+        const stopClass = classifyStopReason(message.stop_reason);
+        if (stopClass === "refusal") {
+          throw new Error(`Synthesis batch ${batchId} refused by Claude (stop_reason: refusal).`);
+        }
+        if (stopClass === "max_tokens") {
           console.warn("  [Synthesis] Warning: batch response truncated at max_tokens — synthesis incomplete");
           markdown = appendSynthesisTruncationWarning(markdown);
         }

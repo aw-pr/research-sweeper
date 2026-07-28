@@ -144,6 +144,18 @@ describe("ClaudeProvider.runSynthesis — max_tokens truncation warning (API-key
     expect(markdown).toContain("[!warning] Synthesis truncated at max_tokens");
   });
 
+  it("fails rather than writing an empty synthesis on refusal", async () => {
+    mockCreate.mockResolvedValueOnce({
+      content: [],
+      usage: { input_tokens: 100, output_tokens: 2 },
+      stop_reason: "refusal",
+    });
+
+    await expect(new ClaudeProvider().runSynthesis(makeConfig(), [], "sources.md")).rejects.toThrow(
+      "Synthesis refused by Claude (stop_reason: refusal)."
+    );
+  });
+
   it("does not append the callout on a normal end_turn completion", async () => {
     mockCreate.mockResolvedValueOnce({
       content: [{ type: "text", text: "# Full Brief" }],

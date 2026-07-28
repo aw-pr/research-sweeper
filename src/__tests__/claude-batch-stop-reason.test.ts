@@ -124,6 +124,28 @@ describe("ClaudeProvider.collectBatchSynthesisResult — max_tokens truncation w
     expect(markdown).toContain("[!warning] Synthesis truncated at max_tokens");
   });
 
+  it("fails with the batch id and stop reason on refusal", async () => {
+    mockResultsIter.mockReturnValue(
+      asAsyncIter([
+        {
+          custom_id: "synthesis",
+          result: {
+            type: "succeeded",
+            message: {
+              stop_reason: "refusal",
+              content: [],
+              usage: { input_tokens: 100, output_tokens: 2 },
+            },
+          },
+        },
+      ])
+    );
+
+    await expect(new ClaudeProvider().collectBatchSynthesisResult("msgbatch_refusal")).rejects.toThrow(
+      "Synthesis batch msgbatch_refusal refused by Claude (stop_reason: refusal)."
+    );
+  });
+
   it("does not append the callout on a normal stop_reason", async () => {
     mockResultsIter.mockReturnValue(
       asAsyncIter([
