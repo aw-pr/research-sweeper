@@ -27,12 +27,28 @@ describe("computeRunCost", () => {
     expect(cost).toBeCloseTo(7.0, 6);
   });
 
-  it("applies 50% batch discount to lane portion only", () => {
+  it("applies the 50% batch discount to lanes and to batched synthesis", () => {
     const sync = computeRunCost("claude", baseTokens, haikuModels, false);
     const batch = computeRunCost("claude", baseTokens, haikuModels, true);
-    // lane was 3.5 sync -> 1.75 batch; synth unchanged at 3.5
-    expect(batch).toBeCloseTo(1.75 + 3.5, 6);
+    // lane 3.5 -> 1.75, synth 3.5 -> 1.75; claude batches both halves
+    expect(batch).toBeCloseTo(1.75 + 1.75, 6);
     expect(batch).toBeLessThan(sync);
+  });
+
+  it("keeps synthesis at full price on a batch run that synthesised synchronously", () => {
+    // openai batches lanes but has no batch-synthesis endpoint, so the
+    // synthesis half bills at full rate even though mode is "batch".
+    const cost = computeRunCost("claude", baseTokens, haikuModels, true, false);
+    expect(cost).toBeCloseTo(1.75 + 3.5, 6);
+  });
+
+  it("defaults synthesisBatched to the run mode when the caller omits it", () => {
+    expect(computeRunCost("claude", baseTokens, haikuModels, true)).toBe(
+      computeRunCost("claude", baseTokens, haikuModels, true, true)
+    );
+    expect(computeRunCost("claude", baseTokens, haikuModels, false)).toBe(
+      computeRunCost("claude", baseTokens, haikuModels, false, false)
+    );
   });
 
   it("returns 0 for unknown model without throwing", () => {
@@ -112,9 +128,9 @@ describe("computeRunCost", () => {
     expect(cost).toBeCloseTo(1.55, 6);
   });
 
-  it("applies 50% batch discount to gemini lane portion only", () => {
-    // sync lane = 0.30, batch lane = 0.15; synth = 1.25 unchanged
-    // sync total = 1.55, batch total = 1.40
+  it("applies the 50% batch discount to gemini lanes and batched synthesis", () => {
+    // sync lane = 0.30, batch lane = 0.15; synth 1.25 -> 0.625
+    // sync total = 1.55, batch total = 0.775
     const geminiModels: ProviderModels = {
       lane: "gemini-2.5-flash-lite",
       synthesis: "gemini-2.5-pro",
@@ -122,7 +138,7 @@ describe("computeRunCost", () => {
     const sync = computeRunCost("gemini", baseTokens, geminiModels, false);
     const batch = computeRunCost("gemini", baseTokens, geminiModels, true);
     expect(sync).toBeCloseTo(1.55, 6);
-    expect(batch).toBeCloseTo(1.40, 6);
+    expect(batch).toBeCloseTo(0.775, 6);
     expect(batch).toBeLessThan(sync);
   });
 

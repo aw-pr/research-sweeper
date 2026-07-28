@@ -68,15 +68,27 @@ export function generateRunId(config: SweepConfig, mode: "sync" | "batch"): stri
 const CACHE_WRITE_MULT = 1.25;
 const CACHE_READ_MULT = 0.10;
 
-export function computeRunCost(provider: Provider, tokens: TokenBreakdown, models: ProviderModels, isBatch: boolean): number {
+// A batch run always batches its lanes, but synthesis is a separate decision:
+// claude and gemini submit it as its own batch job, while openai has no
+// batch-synthesis endpoint wired up and runs it synchronously at full price.
+// Callers that know which path ran pass synthesisBatched explicitly; the
+// default assumes it followed the lanes.
+export function computeRunCost(
+  provider: Provider,
+  tokens: TokenBreakdown,
+  models: ProviderModels,
+  isBatch: boolean,
+  synthesisBatched: boolean = isBatch
+): number {
   const pricing = MODEL_PRICING[provider];
   const lanePricing = pricing[models.lane];
   const synthesisPricing = pricing[models.synthesis];
   if (!lanePricing || !synthesisPricing) return 0;
   const discount = isBatch ? 0.5 : 1;
+  const synthesisDiscount = synthesisBatched ? 0.5 : 1;
   // Base lane + synthesis token costs.
   const laneCost = ((tokens.lanesIn / 1e6) * lanePricing.inPer1M + (tokens.lanesOut / 1e6) * lanePricing.outPer1M) * discount;
-  const synthesisCost = (tokens.synthesisIn / 1e6) * synthesisPricing.inPer1M + (tokens.synthesisOut / 1e6) * synthesisPricing.outPer1M;
+  const synthesisCost = ((tokens.synthesisIn / 1e6) * synthesisPricing.inPer1M + (tokens.synthesisOut / 1e6) * synthesisPricing.outPer1M) * synthesisDiscount;
   // Anthropic prompt-caching adjustments. The aggregated cache token counts
   // come from lanes only — the synthesis pass is deliberately uncached (no
   // shared prefix across a sweep to cache; see providers/claude.ts), priced
@@ -108,7 +120,8 @@ export function buildRunStats(
   tokens: TokenBreakdown,
   outputFiles: string[],
   authMode?: RunStats["authMode"],
-  parseModes?: RunStats["parseModes"]
+  parseModes?: RunStats["parseModes"],
+  synthesisBatched: boolean = mode === "batch"
 ): RunStats {
   const provider = getProvider(config.provider);
   const models = provider.getModels(config, mode);
@@ -127,10 +140,11 @@ export function buildRunStats(
     submittedAt,
     tokens,
     models,
-    estimatedCostUSD: computeRunCost(config.provider, tokens, models, mode === "batch"),
+    estimatedCostUSD: computeRunCost(config.provider, tokens, models, mode === "batch", synthesisBatched),
     outputFiles: outputFiles.map(toHomeRelative),
     authMode,
     parseModes,
+    synthesisBatched,
   };
 }
 

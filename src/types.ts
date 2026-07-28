@@ -137,6 +137,9 @@ export interface RunStats {
   outputFiles: string[];
   authMode?: "api_key" | "claude_oauth" | "codex_cli" | "gemini_oauth";
   parseModes?: Partial<Record<Lane, LaneParseMode>>;
+  // False on a batch run whose provider has no batch-synthesis endpoint, so
+  // the synthesis half billed at full price. Drives the cost estimate.
+  synthesisBatched?: boolean;
 }
 
 export interface FileNames {

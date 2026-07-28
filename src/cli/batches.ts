@@ -69,7 +69,7 @@ export async function resumeBatch(batchId: string): Promise<void> {
     cacheReadIn: laneTotals.cacheRead,
     reasoningOut: laneTotals.reasoning,
   };
-  appendRunStats(buildRunStats(job.config, "batch", null, job.submittedAt, tokens, [output.summaryPath, output.sourcesPath, ...output.lanesPaths], "api_key", collectParseModes(laneResults)));
+  appendRunStats(buildRunStats(job.config, "batch", null, job.submittedAt, tokens, [output.summaryPath, output.sourcesPath, ...output.lanesPaths], "api_key", collectParseModes(laneResults), synthesis.batched));
 
   console.log(`
 Tokens:  ${tokens.totalIn.toLocaleString()} in / ${tokens.totalOut.toLocaleString()} out (total)

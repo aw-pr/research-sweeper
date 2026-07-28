@@ -24,12 +24,12 @@ export async function runSynthesisOptimised(
   config: SweepConfig,
   laneResults: LaneResult[],
   sourcesName: string
-): Promise<{ markdown: string; tokensIn: number; tokensOut: number }> {
+): Promise<{ markdown: string; tokensIn: number; tokensOut: number; batched: boolean }> {
   if (usesSyncOnlyAuth(config)) {
-    return provider.runSynthesis(config, laneResults, sourcesName);
+    return { ...(await provider.runSynthesis(config, laneResults, sourcesName)), batched: false };
   }
   if (!provider.submitBatchSynthesis || !provider.collectBatchSynthesisResult) {
-    return provider.runSynthesis(config, laneResults, sourcesName);
+    return { ...(await provider.runSynthesis(config, laneResults, sourcesName)), batched: false };
   }
 
   console.log("\n  [Synthesis] Submitting as batch job...");
@@ -46,7 +46,7 @@ export async function runSynthesisOptimised(
   console.log("  [Synthesis] Collecting result...");
   const result = await provider.collectBatchSynthesisResult(synthBatchId);
   console.log(`  [Synthesis] Complete (${result.tokensIn.toLocaleString()} in / ${result.tokensOut.toLocaleString()} out)`);
-  return result;
+  return { ...result, batched: true };
 }
 
 export function usesSyncOnlyAuth(config: SweepConfig): boolean {
