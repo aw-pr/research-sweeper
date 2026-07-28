@@ -27,6 +27,37 @@ interface CodexExecResult {
   tokensOut: number;
 }
 
+interface OpenAIUsageCounts {
+  tokensIn: number;
+  tokensOut: number;
+  reasoningOut: number;
+  openaiCachedIn?: number;
+  openaiCacheWriteIn?: number;
+}
+
+type OpenAIUsageCarrier = {
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    output_tokens_details?: { reasoning_tokens?: number };
+    input_tokens_details?: { cached_tokens?: number; cache_write_tokens?: number };
+  };
+};
+
+// Keep optional cache fields absent when the response did not report them;
+// a reported zero is meaningful telemetry and must be preserved.
+export function extractOpenAIUsage(response: OpenAIUsageCarrier): OpenAIUsageCounts {
+  const usage = response.usage;
+  const inputDetails = usage?.input_tokens_details;
+  return {
+    tokensIn: usage?.input_tokens || 0,
+    tokensOut: usage?.output_tokens || 0,
+    reasoningOut: usage?.output_tokens_details?.reasoning_tokens || 0,
+    ...(inputDetails?.cached_tokens !== undefined ? { openaiCachedIn: inputDetails.cached_tokens } : {}),
+    ...(inputDetails?.cache_write_tokens !== undefined ? { openaiCacheWriteIn: inputDetails.cache_write_tokens } : {}),
+  };
+}
+
 function countsFromBatch(batch: { request_counts?: { completed?: number; failed?: number; total?: number }; status?: string }): UsageCounts {
   const total = batch.request_counts?.total || 0;
   const succeeded = batch.request_counts?.completed || 0;
@@ -254,6 +285,8 @@ export class OpenAIProvider implements ProviderAdapter {
       let truncated = false;
 
       let reasoningOut = 0;
+      let openaiCachedIn: number | undefined;
+      let openaiCacheWriteIn: number | undefined;
       if (this.resolveAuthMode(config) === "api_key") {
         const client = this.getClient();
         const response = await withOpenAIRetry(definition.label, () => client.responses.create({
@@ -266,9 +299,12 @@ export class OpenAIProvider implements ProviderAdapter {
           max_output_tokens: DEPTH_CONFIG[config.depth].laneMaxTokens,
         }));
         rawText = extractOutputText(response);
-        tokensIn = response.usage?.input_tokens || 0;
-        tokensOut = response.usage?.output_tokens || 0;
-        reasoningOut = (response.usage as unknown as { output_tokens_details?: { reasoning_tokens?: number } })?.output_tokens_details?.reasoning_tokens || 0;
+        const usage = extractOpenAIUsage(response);
+        tokensIn = usage.tokensIn;
+        tokensOut = usage.tokensOut;
+        reasoningOut = usage.reasoningOut;
+        openaiCachedIn = usage.openaiCachedIn;
+        openaiCacheWriteIn = usage.openaiCacheWriteIn;
         const outputItems = (response.output ?? []) as Array<{ type?: string }>;
         searchesFired = outputItems.filter((o) => typeof o.type === "string" && o.type.startsWith("web_search")).length;
         truncated = isOpenAIResponseTruncated(response);
@@ -287,26 +323,49 @@ export class OpenAIProvider implements ProviderAdapter {
         console.warn(`  [${definition.label}] Warning: could not parse JSON response, using fallback`);
         const fallback = fallbackLaneResult(lane, definition, rawText, tokensIn, tokensOut, model);
         if (truncated) fallback.narrative = markNarrativeTruncated(fallback.narrative);
-        return { ...fallback, reasoningOut, searchesFired };
+        return {
+          ...fallback,
+          reasoningOut,
+          ...(openaiCachedIn !== undefined ? { openaiCachedIn } : {}),
+          ...(openaiCacheWriteIn !== undefined ? { openaiCacheWriteIn } : {}),
+          searchesFired,
+        };
       }
 
       const searchLabel = searchesFired === undefined ? "" : `, ${searchesFired} search${searchesFired !== 1 ? "es" : ""}`;
       const reasoningLabel = reasoningOut ? `, ${reasoningOut.toLocaleString()} reasoning` : "";
       console.log(`  [${definition.label}] Complete — ${parsed.sources.length} sources${searchLabel} (${tokensIn.toLocaleString()} in / ${tokensOut.toLocaleString()} out${reasoningLabel})`);
-      return { lane, label: definition.label, sources: parsed.sources, narrative: truncated ? markNarrativeTruncated(parsed.narrative) : parsed.narrative, parseMode: parsed.parseMode, rawText, tokensIn, tokensOut, reasoningOut, model, searchesFired };
+      return {
+        lane,
+        label: definition.label,
+        sources: parsed.sources,
+        narrative: truncated ? markNarrativeTruncated(parsed.narrative) : parsed.narrative,
+        model_context: parsed.model_context,
+        parseMode: parsed.parseMode,
+        rawText,
+        tokensIn,
+        tokensOut,
+        reasoningOut,
+        ...(openaiCachedIn !== undefined ? { openaiCachedIn } : {}),
+        ...(openaiCacheWriteIn !== undefined ? { openaiCacheWriteIn } : {}),
+        model,
+        searchesFired,
+      };
     } catch (error) {
       console.error(`  [${definition.label}] Error:`, error);
       return { lane, label: definition.label, sources: [], narrative: `Error during sweep: ${error}`, rawText: "", tokensIn: 0, tokensOut: 0, model: config.test ? TEST_MODEL : LANE_MODEL };
     }
   }
 
-  async runSynthesis(config: SweepConfig, laneResults: LaneResult[], sourcesName: string): Promise<{ markdown: string; tokensIn: number; tokensOut: number; reasoningOut?: number }> {
+  async runSynthesis(config: SweepConfig, laneResults: LaneResult[], sourcesName: string): Promise<{ markdown: string; tokensIn: number; tokensOut: number; reasoningOut?: number; openaiCachedIn?: number; openaiCacheWriteIn?: number }> {
     console.log("\n  [Synthesis] Assembling research brief...");
     const model = this.getModels(config, "sync").synthesis;
     let markdown = "";
     let tokensIn = 0;
     let tokensOut = 0;
     let reasoningOut = 0;
+    let openaiCachedIn: number | undefined;
+    let openaiCacheWriteIn: number | undefined;
 
     if (this.resolveAuthMode(config) === "api_key") {
       const client = this.getClient();
@@ -317,9 +376,12 @@ export class OpenAIProvider implements ProviderAdapter {
         max_output_tokens: DEPTH_CONFIG[config.depth].synthesisMaxTokens,
       }));
       markdown = extractOutputText(response);
-      tokensIn = response.usage?.input_tokens || 0;
-      tokensOut = response.usage?.output_tokens || 0;
-      reasoningOut = (response.usage as unknown as { output_tokens_details?: { reasoning_tokens?: number } })?.output_tokens_details?.reasoning_tokens || 0;
+      const usage = extractOpenAIUsage(response);
+      tokensIn = usage.tokensIn;
+      tokensOut = usage.tokensOut;
+      reasoningOut = usage.reasoningOut;
+      openaiCachedIn = usage.openaiCachedIn;
+      openaiCacheWriteIn = usage.openaiCacheWriteIn;
       if (isOpenAIResponseTruncated(response)) markdown = appendSynthesisTruncationWarning(markdown);
     } else {
       const result = await this.runViaCodexCli(buildSynthesisPrompt(config, laneResults, sourcesName), model, false, SYNTHESIS_REASONING_EFFORT);
@@ -330,7 +392,7 @@ export class OpenAIProvider implements ProviderAdapter {
 
     const reasoningLabel = reasoningOut ? `, ${reasoningOut.toLocaleString()} reasoning` : "";
     console.log(`  [Synthesis] Complete (${tokensIn.toLocaleString()} in / ${tokensOut.toLocaleString()} out${reasoningLabel})`);
-    return { markdown, tokensIn, tokensOut, reasoningOut };
+    return { markdown, tokensIn, tokensOut, reasoningOut, openaiCachedIn, openaiCacheWriteIn };
   }
 
   async submitBatchLanes(config: SweepConfig): Promise<string> {
@@ -373,36 +435,48 @@ export class OpenAIProvider implements ProviderAdapter {
     return batch.id;
   }
 
-  async collectBatchSynthesisResult(batchId: string): Promise<{ markdown: string; tokensIn: number; tokensOut: number; reasoningOut?: number }> {
+  async collectBatchSynthesisResult(batchId: string): Promise<{ markdown: string; tokensIn: number; tokensOut: number; reasoningOut?: number; openaiCachedIn?: number; openaiCacheWriteIn?: number }> {
     requireApiKeyModeOrThrow("openai", this.resolveAuthMode());
     const client = this.getClient();
     const batch = await client.batches.retrieve(batchId);
-    if (!batch.output_file_id) throw new Error("Synthesis batch produced no output file");
+    if (!batch.output_file_id) {
+      const errors = batch.errors?.data?.map((error) => error.message).filter((message): message is string => !!message).join("; ");
+      throw new Error(`Synthesis batch ${batchId} produced no output file${errors ? `: ${errors}` : ""}`);
+    }
     const fileResponse = await client.files.content(batch.output_file_id);
     const items = (await fileResponse.text())
       .split("\n")
       .map((line) => line.trim())
       .filter(Boolean)
-      .map((line) => JSON.parse(line) as { custom_id: string; response?: { body?: OpenAI.Responses.Response }; error?: { message?: string } });
+      .map((line) => JSON.parse(line) as {
+        custom_id: string;
+        response?: { status_code?: number; body?: OpenAI.Responses.Response | { error?: { message?: string } } };
+        error?: { message?: string };
+      });
 
     for (const item of items) {
       if (item.custom_id !== "synthesis") continue;
-      if (item.error) throw new Error(`Synthesis batch request failed: ${item.error.message}`);
+      if (item.error) throw new Error(`Synthesis batch ${batchId} request failed: ${item.error.message || "unknown error"}`);
+      const responseStatus = item.response?.status_code;
       const body = item.response?.body;
-      if (!body) throw new Error("Synthesis batch result missing response body");
-      let markdown = extractOutputText(body);
-      if (isOpenAIResponseTruncated(body)) {
+      if (responseStatus !== undefined && (responseStatus < 200 || responseStatus >= 300)) {
+        const message = (body as { error?: { message?: string } } | undefined)?.error?.message || "unknown error";
+        throw new Error(`Synthesis batch ${batchId} request failed (HTTP ${responseStatus}): ${message}`);
+      }
+      if (!body) throw new Error(`Synthesis batch ${batchId} result missing response body`);
+      const responseBody = body as OpenAI.Responses.Response;
+      let markdown = extractOutputText(responseBody);
+      if (isOpenAIResponseTruncated(responseBody)) {
         console.warn("  [Synthesis] Warning: batch response truncated at max_output_tokens — synthesis incomplete");
         markdown = appendSynthesisTruncationWarning(markdown);
       }
+      const usage = extractOpenAIUsage(responseBody);
       return {
         markdown,
-        tokensIn: body.usage?.input_tokens || 0,
-        tokensOut: body.usage?.output_tokens || 0,
-        reasoningOut: (body.usage as unknown as { output_tokens_details?: { reasoning_tokens?: number } })?.output_tokens_details?.reasoning_tokens || 0,
+        ...usage,
       };
     }
-    throw new Error("Synthesis batch result not found or failed");
+    throw new Error(`Synthesis batch ${batchId} result not found`);
   }
 
   async getBatchStatus(batchId: string): Promise<BatchStatus> {
@@ -444,12 +518,11 @@ export class OpenAIProvider implements ProviderAdapter {
         continue;
       }
       const outputItems = (responseBody.output ?? []) as Array<{ type?: string }>;
+      const usage = extractOpenAIUsage(responseBody);
       laneMap.set(lane, assembleLaneResult(lane, definition, {
         rawText: extractOutputText(responseBody),
-        tokensIn: responseBody.usage?.input_tokens || 0,
-        tokensOut: responseBody.usage?.output_tokens || 0,
+        ...usage,
         model: batchModel,
-        reasoningOut: (responseBody.usage as unknown as { output_tokens_details?: { reasoning_tokens?: number } })?.output_tokens_details?.reasoning_tokens || 0,
         searchesFired: outputItems.filter((o) => typeof o.type === "string" && o.type.startsWith("web_search")).length,
         truncated: isOpenAIResponseTruncated(responseBody),
       }));

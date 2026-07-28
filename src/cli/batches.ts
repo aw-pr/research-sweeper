@@ -49,8 +49,10 @@ export async function resumeBatch(batchId: string): Promise<void> {
       cacheCreate: acc.cacheCreate + (result.cacheCreateIn || 0),
       cacheRead: acc.cacheRead + (result.cacheReadIn || 0),
       reasoning: acc.reasoning + (result.reasoningOut || 0),
+      openaiCached: acc.openaiCached + (result.openaiCachedIn || 0),
+      openaiCacheWrite: acc.openaiCacheWrite + (result.openaiCacheWriteIn || 0),
     }),
-    { in: 0, out: 0, cacheCreate: 0, cacheRead: 0, reasoning: 0 }
+    { in: 0, out: 0, cacheCreate: 0, cacheRead: 0, reasoning: 0, openaiCached: 0, openaiCacheWrite: 0 }
   );
   const files = computeFileNames(job.config.topic);
   // Fail before paying for synthesis, not after. writeOutput runs this same
@@ -73,6 +75,24 @@ export async function resumeBatch(batchId: string): Promise<void> {
     cacheCreateIn: laneTotals.cacheCreate,
     cacheReadIn: laneTotals.cacheRead,
     reasoningOut: laneTotals.reasoning + (synthesis.reasoningOut || 0),
+    ...(job.provider === "openai"
+      ? {
+          ...(laneResults.every((result) => result.openaiCachedIn !== undefined && result.openaiCacheWriteIn !== undefined)
+            ? { openaiLaneCachedIn: laneTotals.openaiCached, openaiLaneCacheWriteIn: laneTotals.openaiCacheWrite }
+            : {}),
+          ...((synthesis as { openaiCachedIn?: number }).openaiCachedIn !== undefined
+            ? { openaiSynthesisCachedIn: (synthesis as { openaiCachedIn?: number }).openaiCachedIn }
+            : {}),
+          ...((synthesis as { openaiCacheWriteIn?: number }).openaiCacheWriteIn !== undefined
+            ? { openaiSynthesisCacheWriteIn: (synthesis as { openaiCacheWriteIn?: number }).openaiCacheWriteIn }
+            : {}),
+          ...(job.config.noSearch
+            ? { openaiWebSearchCalls: 0 }
+            : laneResults.every((result) => result.searchesFired !== undefined)
+              ? { openaiWebSearchCalls: laneResults.reduce((sum, result) => sum + (result.searchesFired || 0), 0) }
+              : {}),
+        }
+      : {}),
   };
   appendRunStats(buildRunStats(job.config, "batch", null, job.submittedAt, tokens, [output.summaryPath, output.sourcesPath, ...output.lanesPaths], "api_key", collectParseModes(laneResults), synthesis.batched));
 

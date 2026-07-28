@@ -355,8 +355,10 @@ Starting parallel lane sweeps...
       cacheCreate: acc.cacheCreate + (result.cacheCreateIn || 0),
       cacheRead: acc.cacheRead + (result.cacheReadIn || 0),
       reasoning: acc.reasoning + (result.reasoningOut || 0),
+      openaiCached: acc.openaiCached + (result.openaiCachedIn || 0),
+      openaiCacheWrite: acc.openaiCacheWrite + (result.openaiCacheWriteIn || 0),
     }),
-    { in: 0, out: 0, cacheCreate: 0, cacheRead: 0, reasoning: 0 }
+    { in: 0, out: 0, cacheCreate: 0, cacheRead: 0, reasoning: 0, openaiCached: 0, openaiCacheWrite: 0 }
   );
   console.log(`\nAll lanes complete in ${((Date.now() - startTime) / 1000).toFixed(1)}s — lanes total: ${laneTotals.in.toLocaleString()} in / ${laneTotals.out.toLocaleString()} out`);
 
@@ -364,6 +366,14 @@ Starting parallel lane sweeps...
   const synthCacheCreate = (synthesis as { cacheCreateIn?: number }).cacheCreateIn || 0;
   const synthCacheRead = (synthesis as { cacheReadIn?: number }).cacheReadIn || 0;
   const synthReasoning = (synthesis as { reasoningOut?: number }).reasoningOut || 0;
+  const synthOpenAICached = (synthesis as { openaiCachedIn?: number }).openaiCachedIn;
+  const synthOpenAICacheWrite = (synthesis as { openaiCacheWriteIn?: number }).openaiCacheWriteIn;
+  const openaiLaneCacheKnown =
+    config.provider !== "openai" || laneResults.every((result) => result.openaiCachedIn !== undefined && result.openaiCacheWriteIn !== undefined);
+  const openaiWebSearchCalls =
+    config.provider !== "openai" ? undefined : config.noSearch ? 0 : laneResults.every((result) => result.searchesFired !== undefined)
+      ? laneResults.reduce((sum, result) => sum + (result.searchesFired || 0), 0)
+      : undefined;
   const output = writeOutput(config, synthesis.markdown, laneResults, files, models.synthesis, { allowOverwrite: config.overwrite });
   const totalTime = parseFloat(((Date.now() - startTime) / 1000).toFixed(1));
   const tokens: TokenBreakdown = {
@@ -376,6 +386,16 @@ Starting parallel lane sweeps...
     cacheCreateIn: laneTotals.cacheCreate + synthCacheCreate,
     cacheReadIn: laneTotals.cacheRead + synthCacheRead,
     reasoningOut: laneTotals.reasoning + synthReasoning,
+    ...(config.provider === "openai"
+      ? {
+          ...(openaiLaneCacheKnown
+            ? { openaiLaneCachedIn: laneTotals.openaiCached, openaiLaneCacheWriteIn: laneTotals.openaiCacheWrite }
+            : {}),
+          ...(synthOpenAICached !== undefined ? { openaiSynthesisCachedIn: synthOpenAICached } : {}),
+          ...(synthOpenAICacheWrite !== undefined ? { openaiSynthesisCacheWriteIn: synthOpenAICacheWrite } : {}),
+          ...(openaiWebSearchCalls !== undefined ? { openaiWebSearchCalls } : {}),
+        }
+      : {}),
   };
 
   // Single observable line proving prompt caching is firing on the API path.

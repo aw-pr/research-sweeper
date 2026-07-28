@@ -113,6 +113,20 @@ describe("OpenAIProvider — retry wiring on the API-key path", () => {
     expect(mockConstructorOptions[0].maxRetries).toBe(0);
   });
 
+  it("preserves model context and a reported zero cached-input count on a sync lane", async () => {
+    mockCreate.mockResolvedValue({
+      output_text: JSON.stringify({ sources: [], narrative: "narrative text", model_context: "model background" }),
+      usage: { input_tokens: 10, output_tokens: 5, input_tokens_details: { cached_tokens: 0, cache_write_tokens: 0 } },
+      output: [],
+    });
+
+    const result = await new OpenAIProvider().runLane(makeConfig(), "frontier");
+
+    expect(result.model_context).toBe("model background");
+    expect(result.openaiCachedIn).toBe(0);
+    expect(result.openaiCacheWriteIn).toBe(0);
+  });
+
   it("retries a transient 503 once and then succeeds, without degrading the lane", async () => {
     mockCreate.mockRejectedValueOnce(openaiError(503)).mockResolvedValueOnce(laneResponse());
 

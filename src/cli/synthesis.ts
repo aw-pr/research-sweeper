@@ -34,7 +34,7 @@ export async function runSynthesisOptimised(
   config: SweepConfig,
   laneResults: LaneResult[],
   sourcesName: string
-): Promise<{ markdown: string; tokensIn: number; tokensOut: number; reasoningOut?: number; batched: boolean }> {
+): Promise<{ markdown: string; tokensIn: number; tokensOut: number; reasoningOut?: number; openaiCachedIn?: number; openaiCacheWriteIn?: number; batched: boolean }> {
   if (usesSyncOnlyAuth(config)) {
     return { ...(await provider.runSynthesis(config, laneResults, sourcesName)), batched: false };
   }

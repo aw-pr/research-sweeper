@@ -1,5 +1,16 @@
-import { describe, expect, it } from "vitest";
-import { buildSynthesisBatchRequest } from "../providers/openai";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const mockRetrieve = vi.fn();
+const mockContent = vi.fn();
+vi.mock("openai", () => ({
+  default: class MockOpenAI {
+    batches = { retrieve: (id: string) => mockRetrieve(id) };
+    files = { content: (id: string) => mockContent(id) };
+    constructor(_options: Record<string, unknown>) {}
+  },
+}));
+
+import { buildSynthesisBatchRequest, OpenAIProvider } from "../providers/openai";
 import { DEPTH_CONFIG } from "../config";
 import type { Depth, LaneResult, SweepConfig } from "../types";
 
@@ -14,6 +25,7 @@ function makeConfig(depth: Depth = "deep"): SweepConfig {
     outputDir: "/tmp/does-not-matter",
     test: false,
     overwrite: false,
+    openaiAuth: "api_key",
   };
 }
 
@@ -62,5 +74,71 @@ describe("buildSynthesisBatchRequest", () => {
 
     expect(prompt).toContain("Some findings.");
     expect(prompt).toContain("Batch synthesis test topic");
+  });
+});
+
+describe("OpenAIProvider.collectBatchSynthesisResult", () => {
+  beforeEach(() => {
+    process.env.OPENAI_API_KEY = "test-key-not-real";
+    mockRetrieve.mockReset();
+    mockContent.mockReset();
+  });
+
+  afterEach(() => {
+    delete process.env.OPENAI_API_KEY;
+  });
+
+  it("surfaces an HTTP failure from the batch output with its batch id", async () => {
+    mockRetrieve.mockResolvedValue({ output_file_id: "output-file" });
+    mockContent.mockResolvedValue({
+      text: async () => JSON.stringify({
+        custom_id: "synthesis",
+        response: { status_code: 400, body: { error: { message: "Unsupported model" } } },
+      }),
+    });
+
+    const provider = new OpenAIProvider();
+    provider.requireApiKey(makeConfig());
+
+    await expect(provider.collectBatchSynthesisResult("batch-synthesis-123")).rejects.toThrow(
+      "Synthesis batch batch-synthesis-123 request failed (HTTP 400): Unsupported model"
+    );
+  });
+
+  it("includes batch-level validation errors when no output file exists", async () => {
+    mockRetrieve.mockResolvedValue({
+      errors: { data: [{ message: "Invalid request at line 1" }] },
+    });
+
+    const provider = new OpenAIProvider();
+    provider.requireApiKey(makeConfig());
+
+    await expect(provider.collectBatchSynthesisResult("batch-synthesis-123")).rejects.toThrow(
+      "Synthesis batch batch-synthesis-123 produced no output file: Invalid request at line 1"
+    );
+  });
+
+  it("preserves a reported zero cached-input count as known telemetry", async () => {
+    mockRetrieve.mockResolvedValue({ output_file_id: "output-file" });
+    mockContent.mockResolvedValue({
+      text: async () => JSON.stringify({
+        custom_id: "synthesis",
+        response: {
+          status_code: 200,
+          body: {
+            output_text: "# Complete",
+            output: [],
+            usage: { input_tokens: 10, output_tokens: 2, input_tokens_details: { cached_tokens: 0, cache_write_tokens: 0 } },
+          },
+        },
+      }),
+    });
+
+    const provider = new OpenAIProvider();
+    provider.requireApiKey(makeConfig());
+    const result = await provider.collectBatchSynthesisResult("batch-synthesis-123");
+
+    expect(result.openaiCachedIn).toBe(0);
+    expect(result.openaiCacheWriteIn).toBe(0);
   });
 });
