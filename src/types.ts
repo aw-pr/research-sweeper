@@ -180,7 +180,7 @@ export interface ProviderAdapter {
   getBatchStatus(batchId: string): Promise<BatchStatus>;
   collectBatchResults(batchId: string, lanes: Lane[], submittedModel?: string): Promise<LaneResult[]>;
   submitBatchSynthesis?(config: SweepConfig, laneResults: LaneResult[], sourcesName: string): Promise<string>;
-  collectBatchSynthesisResult?(batchId: string): Promise<{ markdown: string; tokensIn: number; tokensOut: number }>;
+  collectBatchSynthesisResult?(batchId: string): Promise<{ markdown: string; tokensIn: number; tokensOut: number; reasoningOut?: number }>;
   // Batch-recovery path (`--resubmit-failed`). Claude-only for now — the
   // Batches API best practice of resubmitting exactly the failed custom_ids
   // (errored/expired/canceled are unbilled) doesn't map onto the OpenAI/Gemini

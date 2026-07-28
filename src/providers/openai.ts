@@ -38,6 +38,22 @@ function responseInputItem(text: string) {
   return [{ role: "user" as const, content: [{ type: "input_text" as const, text }] }];
 }
 
+// Batch synthesis carries no tool config and no json_schema text format:
+// synthesis is free markdown by design, unlike the schema-enforced lanes.
+export function buildSynthesisBatchRequest(config: SweepConfig, model: string, laneResults: LaneResult[], sourcesName: string) {
+  return {
+    custom_id: "synthesis",
+    method: "POST" as const,
+    url: "/v1/responses",
+    body: {
+      model,
+      input: responseInputItem(buildSynthesisPrompt(config, laneResults, sourcesName)),
+      reasoning: { effort: SYNTHESIS_REASONING_EFFORT },
+      max_output_tokens: DEPTH_CONFIG[config.depth].synthesisMaxTokens,
+    },
+  };
+}
+
 export function extractOutputText(response: OpenAI.Responses.Response): string {
   if (response.output_text) return response.output_text;
   const output = response.output as unknown as Array<{ content?: Array<{ type?: string; text?: string }> }> | undefined;
@@ -340,6 +356,53 @@ export class OpenAIProvider implements ProviderAdapter {
     fs.unlinkSync(batchFilePath);
     const batch = await client.batches.create({ endpoint: "/v1/responses", completion_window: "24h", input_file_id: uploadedFile.id });
     return batch.id;
+  }
+
+  // Synthesis batches through the same /v1/responses endpoint as the lanes,
+  // as a one-request file. Unlike a lane it carries no tool config and no
+  // json_schema text format — synthesis stays free markdown by design.
+  async submitBatchSynthesis(config: SweepConfig, laneResults: LaneResult[], sourcesName: string): Promise<string> {
+    requireApiKeyModeOrThrow("openai", this.resolveAuthMode(config));
+    const client = this.getClient();
+    const request = buildSynthesisBatchRequest(config, this.getModels(config, "batch").synthesis, laneResults, sourcesName);
+    const batchFilePath = tempFilePath("-synthesis-batch.jsonl");
+    fs.writeFileSync(batchFilePath, JSON.stringify(request) + "\n", "utf-8");
+    const uploadedFile = await client.files.create({ file: fs.createReadStream(batchFilePath), purpose: "batch" });
+    fs.unlinkSync(batchFilePath);
+    const batch = await client.batches.create({ endpoint: "/v1/responses", completion_window: "24h", input_file_id: uploadedFile.id });
+    return batch.id;
+  }
+
+  async collectBatchSynthesisResult(batchId: string): Promise<{ markdown: string; tokensIn: number; tokensOut: number; reasoningOut?: number }> {
+    requireApiKeyModeOrThrow("openai", this.resolveAuthMode());
+    const client = this.getClient();
+    const batch = await client.batches.retrieve(batchId);
+    if (!batch.output_file_id) throw new Error("Synthesis batch produced no output file");
+    const fileResponse = await client.files.content(batch.output_file_id);
+    const items = (await fileResponse.text())
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => JSON.parse(line) as { custom_id: string; response?: { body?: OpenAI.Responses.Response }; error?: { message?: string } });
+
+    for (const item of items) {
+      if (item.custom_id !== "synthesis") continue;
+      if (item.error) throw new Error(`Synthesis batch request failed: ${item.error.message}`);
+      const body = item.response?.body;
+      if (!body) throw new Error("Synthesis batch result missing response body");
+      let markdown = extractOutputText(body);
+      if (isOpenAIResponseTruncated(body)) {
+        console.warn("  [Synthesis] Warning: batch response truncated at max_output_tokens — synthesis incomplete");
+        markdown = appendSynthesisTruncationWarning(markdown);
+      }
+      return {
+        markdown,
+        tokensIn: body.usage?.input_tokens || 0,
+        tokensOut: body.usage?.output_tokens || 0,
+        reasoningOut: (body.usage as unknown as { output_tokens_details?: { reasoning_tokens?: number } })?.output_tokens_details?.reasoning_tokens || 0,
+      };
+    }
+    throw new Error("Synthesis batch result not found or failed");
   }
 
   async getBatchStatus(batchId: string): Promise<BatchStatus> {
