@@ -369,7 +369,11 @@ export class ClaudeProvider implements ProviderAdapter {
           allowedTools: config.noSearch ? [] : LANE_ALLOWED_TOOLS,
           disallowedTools: CLI_DISALLOWED_TOOLS,
           permissionMode: "bypassPermissions",
-          maxTurns: DEPTH_CONFIG[config.depth].searchRounds + 3,
+          // A "search round" routinely spans more than one SDK turn (tool
+          // batches, retries, the final write-up), so the cap needs slack
+          // beyond searchRounds or lanes die at "maximum number of turns" —
+          // three lanes did exactly that on a deep sweep at rounds + 3.
+          maxTurns: DEPTH_CONFIG[config.depth].searchRounds * 2 + 5,
           settingSources: [],
         },
       });
