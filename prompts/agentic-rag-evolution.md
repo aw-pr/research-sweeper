@@ -1,8 +1,8 @@
 # Research Brief: Agentic RAG — Evolution, Challenges, and Decision Criteria
 
-## Audience and tone
+## Synthesis directive
 
-Senior engineering and AI leaders evaluating RAG architectures for production. Dry, analytical, specific. Written for publication on iTone (consistently curious). British English. Short paragraphs (2–4 sentences). No corporate-deck adjectives, no hedging, no AI-tell vocabulary.
+Write for senior engineering and AI leaders evaluating RAG architectures for production. Dry, analytical, specific. Written for publication on iTone (consistently curious). British English. Short paragraphs (2–4 sentences). No corporate-deck adjectives, no hedging, no AI-tell vocabulary.
 
 ## Topic string (paste into --topic)
 

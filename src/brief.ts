@@ -20,7 +20,15 @@ export interface ParsedBrief {
 // audience, or output contract the brief author writes is passed through
 // verbatim to the six lane agents and to the synthesis pass respectively.
 const READ_HEADINGS = [/^topic string/i, /^sub-questions/i, /^lane directive/i, /^synthesis directive/i];
-const HUMAN_FACING_HEADINGS = [/^suggested command/i, /^notes\b/i, /^depth guide/i, /^date anchor guide/i, /^research brief/i];
+const HUMAN_FACING_HEADINGS = [
+  /^suggested command/i,
+  /^notes\b/i,
+  /^depth guide/i,
+  /^date anchor guide/i,
+  /^research brief/i,
+  // Bookkeeping between related briefs, deliberately for the author only.
+  /^distinction from sister brief/i,
+];
 
 export function findIgnoredSections(markdown: string): string[] {
   const headings = [...markdown.matchAll(/^##\s+(.+?)\s*$/gm)].map((match) => match[1]);

@@ -65,9 +65,9 @@ Engineering AI control planes for software delivery from July 1, 2025 through Ap
 - What should an engineering leader implement first when building a pragmatic AI control plane for software delivery?
 - What open questions remain around liability, maintainability, developer skill formation, software supply chain risk, and long-term system health?
 
-## Desired Output
+## Lane directive
 
-Prioritize concrete evidence over broad commentary.
+Prioritise concrete evidence over broad commentary.
 
 Look for:
 
