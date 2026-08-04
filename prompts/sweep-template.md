@@ -11,6 +11,18 @@ Example structure:
 
 Tip: Include the date range in the topic string itself — lane agents use it as a search anchor and are less likely to skip recent coverage.
 
+## Lane directive
+
+Optional. Free-form direction for the six lane agents: the role they should adopt, how deep to go, what to label or record, what to treat sceptically. Passed through verbatim in the cached lane system prefix, so it costs one cache write per sweep no matter how many lanes run. Omit the section entirely if you don't need it.
+
+> Example: "Act as an infrastructure architect. Retrieve figures, not adjectives. Label every hardware claim SHIPPED, ANNOUNCED, or RUMOURED with its source class."
+
+## Synthesis directive
+
+Optional. Free-form direction for the synthesis pass: the role, the audience, the register. Replaces the default "senior technology research analyst" persona. Use it when the lanes should dig at one altitude and the report should land at another.
+
+> Example: "Write as a technology strategist for senior decision-makers. Strategic in altitude, technical in evidence: every strategic claim rests on a named source from the lanes."
+
 ## Sub-questions for synthesis to address
 
 When you run with `--brief-file`, these are passed through to both the lane prompts and the synthesis prompt. Use them to shape what evidence gets collected and what the final report must answer.
@@ -56,7 +68,7 @@ When you run with `--brief-file`, these are passed through to both the lane prom
 ## Notes
 
 - Output lands in `~/obsidian/research/[folder]/`
-- `--brief-file` extracts the topic string plus sub-questions from the markdown brief
+- `--brief-file` reads four sections and ignores the rest: topic string, sub-questions, lane directive, synthesis directive. Anything under another `##` heading is reported at submit time and reaches no model
 - A `_research-sweeper-stub.md` note is created before the sweep starts
 - Existing `summary-*`, `sources-*`, and lane files are protected unless you pass `--overwrite`
 - Re-run synthesis without new searches: `npx ts-node research-sweep.ts --re-synthesise [folder]`

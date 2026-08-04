@@ -41,6 +41,14 @@ Write the brief using this exact structure:
 
 Tip: Include the date range in the topic string itself — lane agents use it as a search anchor.
 
+## Lane directive
+
+[Optional. Role the six lane agents adopt, how deep to dig, what to label or record, what to treat sceptically. Omit the heading entirely if the sweep needs no directive.]
+
+## Synthesis directive
+
+[Optional. Role, audience and register for the report. Replaces the default "senior technology research analyst" persona.]
+
 ## Sub-questions for synthesis to address
 
 **[Theme 1]**
@@ -90,6 +98,12 @@ Add `--wait` to auto-resume when the batch finishes. Default provider is `claude
 - Seed 3–6 named tools, vendors, standards, or competitors when the topic has them (e.g. "Serena, SCIP, KuzuDB") — concrete names give lane agents search anchors and surface comparisons a generic phrasing would miss
 - No URLs
 - No em dashes. The topic string is stored verbatim in output frontmatter and rendered as the published subtitle; use colons, commas, or parentheses instead. Also avoid opening the topic with the brief title verbatim, so the subtitle does not just repeat the title
+
+**Directives (only these four sections reach a model):**
+- `## Topic string` and `## Sub-questions` reach both the lanes and the synthesis. `## Lane directive` reaches only the six lane agents; `## Synthesis directive` reaches only the synthesis pass. Anything under any other `##` heading is warned about at submit time and reaches nothing — never put a role or output contract under an invented heading
+- Both directive sections are optional and free-form. Use them when the lanes should work at a different altitude from the report: lanes as domain specialists retrieving detail, synthesis as strategist or writer answering the question from that detail
+- Put per-claim output contracts (labelling rules, one-claim-per-bullet, recency gates, quantitative-over-adjectival) in the lane directive. Put audience, register, and house style in the synthesis directive
+- Keep directives short and declarative. They steer the model; they should not attempt to re-specify the JSON schema or citation rules the tool already enforces
 
 **Sub-questions:**
 - Group into 3–4 named themes — each theme is a bold heading

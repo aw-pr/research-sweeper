@@ -79,9 +79,24 @@ only, not training).
 
 ### Writing a research brief
 
-Briefs are plain markdown files in `prompts/`. A brief carries the topic string
-and the themed sub-questions; `--brief-file prompts/<name>.md` passes both
-through to the lane agents and the synthesis step.
+Briefs are plain markdown files in `prompts/`. `--brief-file prompts/<name>.md`
+reads four sections and ignores everything else:
+
+| Section | Reaches |
+|---|---|
+| `## Topic string` | lanes and synthesis |
+| `## Sub-questions` | lanes and synthesis |
+| `## Lane directive` (optional) | the six lane agents only |
+| `## Synthesis directive` (optional) | the synthesis pass only |
+
+The two directive sections are free-form: role, audience, register, output
+contract, whatever the brief needs. They let the lanes work at one altitude
+(retrieve the engineering detail) while the report lands at another (answer the
+strategic question from that detail). The lane directive rides in the cached
+system prefix, so it costs one cache write per sweep however many lanes run.
+
+Anything under any other `##` heading is reported at submit time and reaches no
+model, so a role block in the wrong place fails loudly rather than silently.
 
 Three ways, easiest first:
 
@@ -104,8 +119,8 @@ cp prompts/sweep-template.md prompts/my-topic.md
 ```
 
 The template documents the expected structure (topic string with a date range,
-then themed sub-question blocks). The repo ships ~24 real briefs in `prompts/`
-as worked examples.
+themed sub-question blocks, and the optional directive sections). The repo ships
+~24 real briefs in `prompts/` as worked examples.
 
 ## Quick start (with 1Password, optional)
 
