@@ -98,11 +98,11 @@ describe("computeRunCost", () => {
 
   it("applies the OpenAI batch discount exactly once to lanes and synthesis", () => {
     const models: ProviderModels = { lane: "gpt-5.6-terra", synthesis: "gpt-5.6-sol" };
-    // List price: lane 1M * $2.50 + 0.5M * $15 = $10; synthesis $1 + $3 = $4.
-    expect(computeRunCost("openai", baseTokens, models, false)).toBeCloseTo(14, 6);
-    expect(computeRunCost("openai", baseTokens, models, true, true)).toBeCloseTo(7, 6);
-    // A hypothetical sync synthesis attached to a batch lane bills $5 + $4.
-    expect(computeRunCost("openai", baseTokens, models, true, false)).toBeCloseTo(9, 6);
+    // List price: lane 1M * $2.00 + 0.5M * $12 = $8; synthesis $1 + $3 = $4.
+    expect(computeRunCost("openai", baseTokens, models, false)).toBeCloseTo(12, 6);
+    expect(computeRunCost("openai", baseTokens, models, true, true)).toBeCloseTo(6, 6);
+    // A hypothetical sync synthesis attached to a batch lane bills $4 + $4.
+    expect(computeRunCost("openai", baseTokens, models, true, false)).toBeCloseTo(8, 6);
   });
 
   it("prices OpenAI cached input at the cache-read rate without charging it twice", () => {
@@ -116,9 +116,9 @@ describe("computeRunCost", () => {
       openaiLaneCachedIn: 400_000,
       openaiSynthesisCachedIn: 200_000,
     };
-    // Terra: 0.6M * $2.50 + 0.4M * $0.25 = $1.60.
-    // Sol:   0.8M * $5.00 + 0.2M * $0.50 = $4.10. Total = $5.70.
-    expect(computeRunCost("openai", tokens, { lane: "gpt-5.6-terra", synthesis: "gpt-5.6-sol" }, false)).toBeCloseTo(5.7, 6);
+    // Terra: 0.6M * $2.00 + 0.4M * $0.20 = $1.28.
+    // Sol:   0.8M * $5.00 + 0.2M * $0.50 = $4.10. Total = $5.38.
+    expect(computeRunCost("openai", tokens, { lane: "gpt-5.6-terra", synthesis: "gpt-5.6-sol" }, false)).toBeCloseTo(5.38, 6);
   });
 
   it("prices OpenAI cache writes as replacement input components and clamps mixed usage", () => {
@@ -135,9 +135,9 @@ describe("computeRunCost", () => {
       openaiLaneCacheWriteIn: 800_000,
       openaiSynthesisCacheWriteIn: 1_000_000,
     };
-    // Terra lane: 0.8M * $0.25 + 0.2M * $3.125 = $0.825.
-    // Sol synthesis: 1M * $6.25 = $6.25. Total = $7.075.
-    expect(computeRunCost("openai", tokens, { lane: "gpt-5.6-terra", synthesis: "gpt-5.6-sol" }, false)).toBeCloseTo(7.075, 6);
+    // Terra lane: 0.8M * $0.20 + 0.2M * $2.50 = $0.66.
+    // Sol synthesis: 1M * $6.25 = $6.25. Total = $6.91.
+    expect(computeRunCost("openai", tokens, { lane: "gpt-5.6-terra", synthesis: "gpt-5.6-sol" }, false)).toBeCloseTo(6.91, 6);
   });
 
   it("ignores malformed negative, NaN, and infinite OpenAI cache telemetry", () => {
@@ -153,8 +153,8 @@ describe("computeRunCost", () => {
       openaiSynthesisCachedIn: Number.NaN,
       openaiSynthesisCacheWriteIn: -1,
     };
-    // Malformed optional values are ignored: normal Terra + Sol input = $7.50.
-    expect(computeRunCost("openai", tokens, { lane: "gpt-5.6-terra", synthesis: "gpt-5.6-sol" }, false)).toBeCloseTo(7.5, 6);
+    // Malformed optional values are ignored: normal Terra + Sol input = $7.00.
+    expect(computeRunCost("openai", tokens, { lane: "gpt-5.6-terra", synthesis: "gpt-5.6-sol" }, false)).toBeCloseTo(7.0, 6);
   });
 
   it("uses the established standard rate for non-5.6 OpenAI models", () => {
