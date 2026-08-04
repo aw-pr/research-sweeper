@@ -10,7 +10,7 @@ import { LANE_RESPONSE_SCHEMA, OPENAI_LANE_TEXT_FORMAT, openaiLaneToolConfig } f
 import { withTransientRetry } from "../retry";
 import { appendSynthesisTruncationWarning, isOpenAIResponseTruncated, markNarrativeTruncated } from "../stop-reason";
 import { assembleLaneResult, emptyLaneResult, finalizeLaneResults } from "../batch-collect";
-import { buildLanePrompt, buildSynthesisPrompt, SHARED_LANE_SCAFFOLDING } from "../prompts";
+import { buildLanePrompt, buildSynthesisPrompt, buildLaneSystemPrefix } from "../prompts";
 import { BatchStatus, Lane, LaneResult, ProviderAdapter, ProviderModels, SweepConfig, UsageCounts } from "../types";
 
 const LANE_MODEL = "gpt-5.6-terra";
@@ -292,7 +292,7 @@ export class OpenAIProvider implements ProviderAdapter {
         const response = await withOpenAIRetry(definition.label, () => client.responses.create({
           model,
           input: responseInputItem(buildLanePrompt(lane, config)),
-          instructions: `${SHARED_LANE_SCAFFOLDING}\n\n${definition.systemPrompt}`,
+          instructions: `${buildLaneSystemPrefix(config)}\n\n${definition.systemPrompt}`,
           ...(openaiLaneToolConfig(!!config.noSearch) as Pick<OpenAI.Responses.ResponseCreateParamsNonStreaming, "tools" | "tool_choice">),
           text: OPENAI_LANE_TEXT_FORMAT,
           reasoning: { effort: LANE_REASONING_EFFORT },
@@ -310,7 +310,7 @@ export class OpenAIProvider implements ProviderAdapter {
         truncated = isOpenAIResponseTruncated(response);
         if (truncated) console.warn(`  [${definition.label}] Hit max_output_tokens — marking narrative truncated`);
       } else {
-        const combinedPrompt = `${SHARED_LANE_SCAFFOLDING}\n\n${definition.systemPrompt}\n\n${buildLanePrompt(lane, config)}`;
+        const combinedPrompt = `${buildLaneSystemPrefix(config)}\n\n${definition.systemPrompt}\n\n${buildLanePrompt(lane, config)}`;
         const result = await this.runViaCodexCli(combinedPrompt, model, !config.noSearch, LANE_REASONING_EFFORT, LANE_RESPONSE_SCHEMA);
         rawText = result.text;
         tokensIn = result.tokensIn;
@@ -405,7 +405,7 @@ export class OpenAIProvider implements ProviderAdapter {
       body: {
         model: config.test ? TEST_MODEL : LANE_MODEL_BATCH,
         input: responseInputItem(buildLanePrompt(lane, config)),
-        instructions: `${SHARED_LANE_SCAFFOLDING}\n\n${LANE_CONFIG[lane].systemPrompt}`,
+        instructions: `${buildLaneSystemPrefix(config)}\n\n${LANE_CONFIG[lane].systemPrompt}`,
         ...openaiLaneToolConfig(!!config.noSearch),
         text: OPENAI_LANE_TEXT_FORMAT,
         reasoning: { effort: LANE_REASONING_EFFORT },

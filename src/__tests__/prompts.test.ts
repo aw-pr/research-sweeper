@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildLanePrompt, SHARED_LANE_SCAFFOLDING } from "../prompts";
+import { buildLanePrompt, buildLaneSystemPrefix, buildSynthesisPrompt, SHARED_LANE_SCAFFOLDING } from "../prompts";
 import type { Depth, SweepConfig } from "../types";
 
 function config(depth: Depth): SweepConfig {
@@ -32,5 +32,38 @@ describe("model_context prompt budget", () => {
   it("has no contradictory multi-paragraph model_context instruction", () => {
     expect(SHARED_LANE_SCAFFOLDING).not.toMatch(/3\s*[–-]\s*5 short paragraphs/);
     expect(SHARED_LANE_SCAFFOLDING).toContain("Follow the depth-specific budget");
+  });
+});
+
+describe("brief directive placement", () => {
+  const withDirectives = (): SweepConfig => ({
+    ...config("deep"),
+    laneDirective: "Act as an infrastructure architect. Retrieve numbers, not adjectives.",
+    synthesisDirective: "Write as a technology strategist for senior decision-makers.",
+  });
+
+  it("carries the lane directive in the cached system prefix, not the per-lane message", () => {
+    const cfg = withDirectives();
+    expect(buildLaneSystemPrefix(cfg)).toContain("infrastructure architect");
+    expect(buildLanePrompt("academic", cfg)).not.toContain("infrastructure architect");
+  });
+
+  it("keeps the lane directive out of the synthesis prompt and vice versa", () => {
+    const cfg = withDirectives();
+    const synthesis = buildSynthesisPrompt(cfg, [], "sources-test");
+    expect(synthesis).toContain("technology strategist");
+    expect(synthesis).not.toContain("infrastructure architect");
+    expect(buildLaneSystemPrefix(cfg)).not.toContain("technology strategist");
+  });
+
+  it("keeps the output schema rules after the directive so they cannot be displaced", () => {
+    const prefix = buildLaneSystemPrefix(withDirectives());
+    expect(prefix.indexOf("## Output schema")).toBeLessThan(prefix.indexOf("infrastructure architect"));
+    expect(prefix).toContain("keep the schema");
+  });
+
+  it("falls back to the default analyst persona with no directive", () => {
+    expect(buildSynthesisPrompt(config("deep"), [], "sources-test")).toContain("senior technology research analyst");
+    expect(buildLaneSystemPrefix(config("deep"))).toBe(SHARED_LANE_SCAFFOLDING);
   });
 });

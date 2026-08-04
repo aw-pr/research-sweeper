@@ -2,7 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import { detectGeminiAuthMode, GeminiAuthMode, requireApiKeyModeOrThrow } from "../auth/detect";
 import { DEPTH_CONFIG, LANE_CONFIG } from "../config";
 import { fallbackLaneResult, parseLaneResponse } from "../parsing";
-import { buildLanePrompt, buildSynthesisPrompt, SHARED_LANE_SCAFFOLDING } from "../prompts";
+import { buildLanePrompt, buildSynthesisPrompt, buildLaneSystemPrefix } from "../prompts";
 import { withTransientRetry } from "../retry";
 import { appendSynthesisTruncationWarning, isGeminiResponseTruncated, markNarrativeTruncated } from "../stop-reason";
 import { assembleLaneResult, emptyLaneResult, finalizeLaneResults } from "../batch-collect";
@@ -173,7 +173,7 @@ export class GeminiProvider implements ProviderAdapter {
       const generateConfig: Record<string, unknown> = {
         maxOutputTokens: DEPTH_CONFIG[config.depth].laneMaxTokens,
         temperature: 0.2,
-        systemInstruction: `${SHARED_LANE_SCAFFOLDING}\n\n${definition.systemPrompt}`,
+        systemInstruction: `${buildLaneSystemPrefix(config)}\n\n${definition.systemPrompt}`,
       };
 
       // Google Search grounding cannot be forced — model decides. When noSearch
@@ -297,7 +297,7 @@ export class GeminiProvider implements ProviderAdapter {
       const generateConfig: Record<string, unknown> = {
         maxOutputTokens: DEPTH_CONFIG[config.depth].laneMaxTokens,
         temperature: 0.2,
-        systemInstruction: `${SHARED_LANE_SCAFFOLDING}\n\n${LANE_CONFIG[lane].systemPrompt}`,
+        systemInstruction: `${buildLaneSystemPrefix(config)}\n\n${LANE_CONFIG[lane].systemPrompt}`,
       };
       if (!config.noSearch) {
         generateConfig.tools = [{ googleSearch: {} }];

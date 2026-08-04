@@ -3,7 +3,7 @@ import { ClaudeAuthMode, detectClaudeAuthMode, requireApiKeyModeOrThrow } from "
 import { DEPTH_CONFIG, LANE_CONFIG } from "../config";
 import { fallbackLaneResult, parseLaneResponse } from "../parsing";
 import { claudeLaneToolConfig, countClaudeSearches, extractClaudeLaneRaw, harvestClaudeSearchSources, mergeLaneSources } from "../lane-schema";
-import { buildLanePrompt, buildSynthesisPrompt, SHARED_LANE_SCAFFOLDING } from "../prompts";
+import { buildLanePrompt, buildSynthesisPrompt, buildLaneSystemPrefix } from "../prompts";
 import { withTransientRetry } from "../retry";
 import {
   appendSynthesisTruncationWarning,
@@ -129,7 +129,7 @@ export function buildLaneBatchRequests(config: SweepConfig, lanes: Lane[]): Clau
       model: config.test ? LANE_MODEL_HAIKU : resolveLaneModel(config),
       max_tokens: DEPTH_CONFIG[config.depth].laneMaxTokens,
       system: [
-        { type: "text", text: SHARED_LANE_SCAFFOLDING, cache_control: { type: "ephemeral" } },
+        { type: "text", text: buildLaneSystemPrefix(config), cache_control: { type: "ephemeral" } },
         { type: "text", text: LANE_CONFIG[lane].systemPrompt, cache_control: { type: "ephemeral" } },
       ],
       messages: [{ role: "user", content: buildLanePrompt(lane, config) }],
@@ -282,7 +282,7 @@ export class ClaudeProvider implements ProviderAdapter {
         // addendum and gets its own ephemeral marker as a second cacheable
         // block (useful when the same lane runs back-to-back).
         system: [
-          { type: "text", text: SHARED_LANE_SCAFFOLDING, cache_control: { type: "ephemeral" } },
+          { type: "text", text: buildLaneSystemPrefix(config), cache_control: { type: "ephemeral" } },
           { type: "text", text: definition.systemPrompt, cache_control: { type: "ephemeral" } },
         ],
         messages: [{ role: "user", content: buildLanePrompt(lane, config) }],
@@ -365,7 +365,7 @@ export class ClaudeProvider implements ProviderAdapter {
           // still apply its internal caching if available. Explicit
           // cache_control blocks are not exposed by the Agent SDK's options
           // surface, so we rely on the SDK's own caching here.
-          systemPrompt: `${SHARED_LANE_SCAFFOLDING}\n\n${definition.systemPrompt}`,
+          systemPrompt: `${buildLaneSystemPrefix(config)}\n\n${definition.systemPrompt}`,
           allowedTools: config.noSearch ? [] : LANE_ALLOWED_TOOLS,
           disallowedTools: CLI_DISALLOWED_TOOLS,
           permissionMode: "bypassPermissions",

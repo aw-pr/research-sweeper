@@ -82,6 +82,22 @@ function toLabel(config: SweepConfig): string {
   return config.toYear != null ? String(config.toYear) : presentDate();
 }
 
+// The lane directive is identical across all six lanes, so it belongs in the
+// cached system prefix rather than the per-lane user message: one cache write
+// per sweep, one read per lane. It is appended after the schema and output
+// discipline so it can shape voice, priorities, and what a lane records,
+// without displacing the rules that keep the response parseable.
+export function buildLaneSystemPrefix(config: SweepConfig): string {
+  if (!config.laneDirective) return SHARED_LANE_SCAFFOLDING;
+  return `${SHARED_LANE_SCAFFOLDING}
+## Brief directive
+
+The research brief supplies the following direction for this lane. Treat it as the operating instruction for how you work and what you prioritise, alongside the rules above. Where it cannot be reconciled with the output schema, keep the schema and follow the directive in the content you put inside it.
+
+${config.laneDirective}
+`;
+}
+
 export function buildLanePrompt(lane: Lane, config: SweepConfig): string {
   const lc = LANE_CONFIG[lane];
   const dc = DEPTH_CONFIG[config.depth];
@@ -158,7 +174,13 @@ ${config.briefing}
 `
     : "";
 
-  return `You are a senior technology research analyst assembling a sweep summary from parallel specialist research agents.
+  const persona = config.synthesisDirective
+    ? config.synthesisDirective
+    : "You are a senior technology research analyst.";
+
+  return `${persona}
+
+You are assembling a sweep summary from parallel specialist research agents.
 
 Each lane provides two things: (1) sourced findings from real web searches with citations, and (2) domain context from model knowledge. Use sourced findings as the evidentiary backbone, cite them inline. Use domain context to add depth, framing, and structural understanding where sources alone are thin. Never cite model context as if it were a retrieved source.
 

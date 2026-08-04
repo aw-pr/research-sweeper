@@ -8,6 +8,11 @@ export interface SweepConfig {
   briefFile?: string;
   briefTitle?: string;
   briefing?: string;
+  // Free-form brief directives (role, audience, output contract). laneDirective
+  // rides in the cached lane system prefix, written once per sweep and read by
+  // every lane; synthesisDirective replaces the default analyst persona.
+  laneDirective?: string;
+  synthesisDirective?: string;
   fromYear: number;
   toYear: number | null;
   lanes: Lane[];

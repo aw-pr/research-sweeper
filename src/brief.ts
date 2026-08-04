@@ -6,14 +6,20 @@ export interface ParsedBrief {
   title?: string;
   topic?: string;
   briefing?: string;
+  laneDirective?: string;
+  synthesisDirective?: string;
   ignoredSections: string[];
 }
 
-// Only "Topic string" and "Sub-questions" are read; everything else in a brief
-// file never reaches a model. These are the headings that are meant to be
-// human-facing, so they stay quiet. Anything else is reported, because a
-// directive placed under its own heading looks correct and does nothing.
-const READ_HEADINGS = [/^topic string/i, /^sub-questions/i];
+// Read headings reach a model; everything else in a brief file does not. These
+// are the headings that are meant to be human-facing, so they stay quiet.
+// Anything else is reported, because a directive placed under its own heading
+// looks correct and does nothing.
+//
+// "Lane directive" and "Synthesis directive" are free-form: whatever role,
+// audience, or output contract the brief author writes is passed through
+// verbatim to the six lane agents and to the synthesis pass respectively.
+const READ_HEADINGS = [/^topic string/i, /^sub-questions/i, /^lane directive/i, /^synthesis directive/i];
 const HUMAN_FACING_HEADINGS = [/^suggested command/i, /^notes\b/i, /^depth guide/i, /^date anchor guide/i, /^research brief/i];
 
 export function findIgnoredSections(markdown: string): string[] {
@@ -60,6 +66,8 @@ export function parseBriefFile(filePath: string): ParsedBrief {
   const markdown = fs.readFileSync(resolved, "utf-8");
   const topicSection = extractSection(markdown, /^##\s+Topic string.*$/m);
   const subQuestionSection = extractSection(markdown, /^##\s+Sub-questions.*$/m);
+  const laneDirective = extractSection(markdown, /^##\s+Lane directive.*$/m);
+  const synthesisDirective = extractSection(markdown, /^##\s+Synthesis directive.*$/m);
   const topic = extractTopic(topicSection);
 
   return {
@@ -67,6 +75,8 @@ export function parseBriefFile(filePath: string): ParsedBrief {
     title: extractTitle(markdown),
     topic: topic || undefined,
     briefing: subQuestionSection ? normalizeBriefing(subQuestionSection) : undefined,
+    laneDirective: laneDirective || undefined,
+    synthesisDirective: synthesisDirective || undefined,
     ignoredSections: findIgnoredSections(markdown),
   };
 }
@@ -77,5 +87,7 @@ export function warnOnIgnoredSections(brief: ParsedBrief): void {
     `\n  Warning: ${brief.ignoredSections.length} section(s) in this brief are not read by the sweep and will not reach any model:`
   );
   for (const heading of brief.ignoredSections) console.warn(`    - ## ${heading}`);
-  console.warn(`  Only "## Topic string" and "## Sub-questions" are passed through. Move directives inside "## Sub-questions" (### subheadings work).\n`);
+  console.warn(
+    `  Passed through: "## Topic string", "## Sub-questions", "## Lane directive" (to the lane agents), "## Synthesis directive" (to the synthesis pass). Move directives into one of those.\n`
+  );
 }

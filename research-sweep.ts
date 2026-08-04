@@ -144,6 +144,8 @@ async function resolveConfig(partial: Partial<SweepConfig>): Promise<SweepConfig
     briefFile: parsedBrief?.briefFile || partial.briefFile,
     briefTitle: parsedBrief?.title,
     briefing: partial.briefing || parsedBrief?.briefing,
+    laneDirective: parsedBrief?.laneDirective,
+    synthesisDirective: parsedBrief?.synthesisDirective,
     fromYear,
     toYear,
     lanes,

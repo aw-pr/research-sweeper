@@ -80,3 +80,48 @@ describe("parseBriefFile", () => {
     expect(parsed.topic).toBe("A plain-text topic line.");
   });
 });
+
+describe("brief directives", () => {
+  const md = [
+    "# Research Brief: Directive Routing",
+    "",
+    "## Topic string",
+    "",
+    "```",
+    "Does directive routing work?",
+    "```",
+    "",
+    "## Lane directive",
+    "",
+    "Act as an infrastructure architect. Label every hardware claim SHIPPED or RUMOURED.",
+    "",
+    "## Synthesis directive",
+    "",
+    "Write as a technology strategist for a board audience.",
+    "",
+    "## Sub-questions",
+    "",
+    "- What patterns dominate?",
+  ].join("\n");
+
+  it("routes lane and synthesis directives separately", () => {
+    mockedReadFileSync.mockReturnValue(md);
+    const parsed = parseBriefFile("/fake/path/brief.md");
+    expect(parsed.laneDirective).toContain("infrastructure architect");
+    expect(parsed.laneDirective).not.toContain("board audience");
+    expect(parsed.synthesisDirective).toContain("technology strategist");
+    expect(parsed.synthesisDirective).not.toContain("SHIPPED");
+  });
+
+  it("does not warn about directive headings", () => {
+    mockedReadFileSync.mockReturnValue(md);
+    expect(parseBriefFile("/fake/path/brief.md").ignoredSections).toEqual([]);
+  });
+
+  it("leaves both undefined when the brief has no directive sections", () => {
+    mockedReadFileSync.mockReturnValue("## Topic string\n\nplain topic\n");
+    const parsed = parseBriefFile("/fake/path/brief.md");
+    expect(parsed.laneDirective).toBeUndefined();
+    expect(parsed.synthesisDirective).toBeUndefined();
+  });
+});
