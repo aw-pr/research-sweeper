@@ -67,15 +67,21 @@ branch (the PR source) without the `PUBLISH_GUARD_OK` sentinel — the PR review
 is the safeguard on that path — but it still runs the private-file tree scan,
 fail-closed, exactly as it does on the `main` path. See "The gate" below.
 
-## Fast path: `git publish` (ff-push, no PR)
+## Fast path: `git publish` (ff-push, requires the PR attestation)
 
-For trivial or already-reviewed batches, skip the PR and ff-push straight to
-`PUB/main`:
+The pre-push hook now enforces the PR boundary (`publishguard.boundary`,
+default `pr`): the push to `PUB/main` is rejected unless
+`PUBLISH_PR_REVIEWED=1` is set, attesting that a `publish → main` PR was
+opened and its diff reviewed. The ff push then completes the PR — GitHub
+marks it merged when the base receives the head SHAs. Repo-level opt-out:
+`git config publishguard.boundary direct`.
+
+For a batch whose PR diff has been reviewed, finish with:
 
 ```sh
 git switch publish
 git merge --ff-only dev          # publish catches up to dev's tip; always a clean ff
-git publish                      # backs up to origin, then ff-pushes PUB main behind the gate
+PUBLISH_PR_REVIEWED=1 git publish  # backs up to origin, then ff-pushes PUB main behind the gate
 git switch dev                   # back to the working branch
 ```
 
