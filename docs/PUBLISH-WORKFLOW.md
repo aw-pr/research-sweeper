@@ -156,11 +156,17 @@ committed on `dev` reaches `PUB` on the next fast-forward. Privacy is enforced b
 
 - **Gitignored, never public:** `.env*`, `*.local`, `op-refs.local.sh`,
   `.publish-guard.local`, `HANDOFF.md` (the dated operator log stays private),
-  `runs/*.json` (job/state), and `logs/`.
-- **Tracked, intentionally public:** `runs/stats.json` (run metadata — paths are
-  recorded relative to home dir so it is publish-safe), the ~25 briefs already
-  tracked under `prompts/` (shipped as worked examples), and the three curated
+  `runs/*.json` (job/state **and** `stats.json`), and `logs/`.
+- **Tracked, intentionally public:** the ~25 briefs already tracked under
+  `prompts/` (shipped as worked examples) and the three curated
   `results/2026-04-07-*.md` examples.
+
+`runs/stats.json` used to be tracked on the grounds that its paths are recorded
+relative to the home dir. Path-safety was the wrong test: the ledger also records
+the **topic string of every sweep**, so publishing it publishes a running log of
+what the operator researches and when. Treat the run ledger as operator activity,
+not repo documentation. `scripts/analyze-cache.ts` still reads it from the local
+working copy; a fresh clone simply has no run history to analyse yet.
 - **Gitignored directory with a curated tracked subset:** both `prompts/` and
   `results/` are listed in `.gitignore`, so *new* files dropped there are not
   auto-staged. Only briefs and examples you deliberately `git add` become

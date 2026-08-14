@@ -54,10 +54,10 @@ tmp-runs/
 # Batch job state
 jobs/
 
-# Runs directory: ignore job/state JSON and logs, keep stats.json tracked
+# Runs directory: private. stats.json records the topic of every sweep, which
+# is operator activity rather than repo documentation.
 runs/*.json
 runs/*.log
-!runs/stats.json
 
 # macOS
 .DS_Store
