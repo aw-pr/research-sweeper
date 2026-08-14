@@ -5,8 +5,9 @@ Read this before pushing to the public remote, or before changing the
 publish-guard configuration.
 
 Placeholders: `PRIV` = the private working remote (`origin`), `PUB` = the public
-mirror (`aw-pr`, default branch `main`), `PUBLISH_BRANCH` = the line that becomes
-public (`publish`).
+mirror (default branch `main`), `PUB_MATCH` = a substring of the public remote
+URL (e.g. `myorg/myrepo`), `PUBLISH_BRANCH` = the line that becomes public
+(`publish`).
 
 ## Model (read this first)
 
@@ -43,16 +44,16 @@ guard still runs underneath it, but the PR diff is the *visible* check.
 git switch publish
 git merge --ff-only dev          # publish catches up to dev's tip; always a clean ff
 git publish-pr                   # backs up to origin, pushes publish as a non-default
-                                  # branch on aw-pr, then prints the gh pr create command
+                                  # branch on PUB, then prints the gh pr create command
 git switch dev                   # back to the working branch
 ```
 
 `git publish-pr` is the alias
-`git push origin publish && git push aw-pr publish:publish`, followed by an
+`git push origin publish && git push PUB publish:publish`, followed by an
 echoed reminder. Run the reminded command (or the equivalent):
 
 ```sh
-gh pr create --repo aw-pr/research-sweeper --base main --head publish
+gh pr create --repo PUB_MATCH --base main --head publish
 ```
 
 Then **review the PR diff** — confirm no private-tier path (`HANDOFF.md`,
@@ -62,7 +63,7 @@ present — and merge on GitHub. Keep the merge fast-forward/clean (GitHub's
 and `main` share linear history; avoid squash-merging on GitHub, which would
 rewrite the commits already reviewed in the PR).
 
-The `pre-push` gate allows `publish` to be pushed to `aw-pr` as a non-default
+The `pre-push` gate allows `publish` to be pushed to `PUB` as a non-default
 branch (the PR source) without the `PUBLISH_GUARD_OK` sentinel — the PR review
 is the safeguard on that path — but it still runs the private-file tree scan,
 fail-closed, exactly as it does on the `main` path. See "The gate" below.
@@ -86,9 +87,9 @@ git switch dev                   # back to the working branch
 ```
 
 `git publish` is the alias
-`git push origin publish && PUBLISH_GUARD_OK=1 git push aw-pr publish:main`. It
+`git push origin publish && PUBLISH_GUARD_OK=1 git push PUB publish:main`. It
 backs up to the private remote first, then publishes. Never hand-type
-`git push aw-pr publish:main`: the gate blocks it and points you back here.
+`git push PUB publish:main`: the gate blocks it and points you back here.
 
 If `git merge --ff-only dev` refuses, `publish` has commits `dev` does not
 (someone committed directly on `publish`). That should not happen in this model;
@@ -126,8 +127,8 @@ Set once per machine via `git config --local`; never committed, which keeps org
 and repo names out of the tracked tree. Current values for this repo:
 
 ```sh
-git config publishguard.publicmatch   'aw-pr/research-sweeper'
-git config publishguard.publicremote  'aw-pr'
+git config publishguard.publicmatch   'PUB_MATCH'
+git config publishguard.publicremote  'PUB'
 git config publishguard.privateremote 'origin'
 git config publishguard.publishbranch 'publish'
 git config publishguard.sentinel      'PUBLISH_GUARD_OK'

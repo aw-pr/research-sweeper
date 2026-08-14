@@ -292,7 +292,7 @@ describe("toHomeRelative", () => {
   });
 
   it("reduces an absolute path outside $HOME to its basename so no machine prefix leaks", () => {
-    const p = "/private/tmp/claude-501/-Users-AnthonyWest-repos-research-sweeper/abc/scratchpad/lane-blogs-smoke.md";
+    const p = "/private/tmp/agent-scratch/-Users-someone-repos-research-sweeper/abc/scratchpad/lane-blogs-smoke.md";
     expect(toHomeRelative(p)).toBe("lane-blogs-smoke.md");
   });
 
