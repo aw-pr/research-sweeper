@@ -10,18 +10,23 @@ A multi-lane research harness that writes Obsidian-ready outputs. It supports `c
 
 Private work → public mirror, **linear and atomic** — no per-batch squash.
 Remotes: `origin` (`PRIV`) = private working remote, `PUB` = public mirror.
-Work on **`dev`** with atomic, per-agent-authored commits, fast-forward
-`publish` up to `dev` (`git switch publish && git merge --ff-only dev`), then
-publish. Default: `git publish-pr` — pushes `publish` to `PUB` as a
+Work on **`dev`** with atomic, per-agent-authored commits, then advance
+`publish` by curated replay (`bash scripts/publish-sync.sh --apply`), which
+replays `dev`'s new commits with `publishguard.privatefile` paths stripped.
+**Never `git merge --ff-only dev`** — a fast-forward would publish
+`HANDOFF.md`, which is tracked on `dev` on purpose. `publish` therefore
+diverges from `dev`; that is the model, not drift.
+Default: `git publish-pr` — pushes `publish` to `PUB` as a
 non-default branch, then open/review a `publish → main` PR (`gh pr create
 --repo PUB_MATCH --base main --head publish`) before merging. Fast path for
 trivial batches: `git publish` (ff-pushes straight to `PUB/main` behind the
 sentinel gate). Never hand-push to `PUB`; the fail-closed pre-push gate
 blocks anything else.
-Privacy is enforced by `.gitignore` + the pre-commit guard, not by branch
-separation: anything tracked on `dev` reaches the public mirror on the next
-fast-forward, so private files (`HANDOFF.md`, `.env*`, `*.local`) must be
-gitignored. Never rewrite commits already on the public remote. Full model +
+Privacy has two tiers: `.gitignore` + the pre-commit guard for what must never
+be committed (`.env*`, `*.local`, `runs/*.json`), and `publishguard.privatefile`
+for what is tracked on `dev` but stripped at publish (`HANDOFF.md`, so it
+follows worktrees and clones without reaching `PUB`). Never rewrite commits
+already on the public remote. Full model +
 setup: `docs/PUBLISH-WORKFLOW.md`. Gate config lives in local `git config`
 (`publishguard.*`, including `publishguard.prsource` for the PR-source branch)
 and personal block patterns in the gitignored `.publish-guard.local` — neither
