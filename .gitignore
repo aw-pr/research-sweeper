@@ -25,7 +25,6 @@ op-refs.local.sh.bak
 .publish-guard.local
 /LOCAL.md
 # Operator handoff notes — dev-only, never published (publishguard.privatefile)
-HANDOFF.md
 
 # Local Claude Code settings + runtime state (machine-specific)
 .claude/settings.local.json
