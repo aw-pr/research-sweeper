@@ -85,7 +85,7 @@ Add `--wait` to auto-resume when the batch finishes. Default provider is `claude
 
 ## Notes
 
-- Output lands in `$RESEARCH_SWEEPER_OUTPUT_DIR/[folder-slug]/` (defaults to `~/obsidian/research/[folder-slug]/`)
+- Output lands in `$RESEARCH_SWEEPER_OUTPUT_DIR/[folder-slug]/` (defaults to `output/[folder-slug]/` in the repo)
 - Re-run synthesis: `npx ts-node research-sweep.ts --re-synthesise [folder-slug]`
 - Check batches: `./list-batches.sh`; resume a finished batch with `./resume-batch.sh`
 ```

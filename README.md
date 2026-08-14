@@ -62,8 +62,10 @@ npm run sweep -- \
 secure wrappers (`./batch-search.sh`, etc.) also work without 1Password — they
 detect that `op-fetch` is unavailable and fall back to the `.env` keys.
 
-Generated output defaults to `~/obsidian/research/<folder>/`; set
-`RESEARCH_SWEEPER_OUTPUT_DIR` (env or `.env`) to write elsewhere.
+Generated output defaults to `output/<folder>/` inside the checkout, which is
+gitignored, so a fresh clone runs without writing anywhere else. Set
+`RESEARCH_SWEEPER_OUTPUT_DIR` (env or `.env`) to write into a notes vault or any
+other directory.
 
 The single synthesis call defaults to `claude-opus-4-8` (a reasoning-dominated
 call where the extra capability earns its cost once per sweep); the six lanes

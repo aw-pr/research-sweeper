@@ -15,7 +15,7 @@ _batch_search_completion() {
     '--provider[Model provider]:provider:(claude openai)' \
     '--depth[Search depth]:depth:(shallow standard deep)' \
     '--lanes[Source lanes (comma-separated)]:lanes:(financial frontier academic vc blogs tech)' \
-    '--folder[Output folder name under ~/obsidian/research/]:folder:' \
+    '--folder[Output folder name under the output dir]:folder:' \
     '--overwrite[Replace an existing summary/sources set for the same topic slug]' \
     '--test[Use lower-cost models for testing]' \
     '--no-search[Disable web_search tool — model-knowledge only]' \

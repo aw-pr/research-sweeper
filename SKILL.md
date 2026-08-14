@@ -74,7 +74,7 @@ npm run sweep:secure -- --topic "…" --brief-file prompts/x.md \
 | Gemini OAuth sync (GCP-billed) | `./run-secure-sweep.sh --sync --provider gemini --gemini-auth gemini-oauth ...` |
 | Gemini API-key batch | `npm run sweep:gemini -- ...` (needs paid-tier billing) |
 
-Output lands under `RESEARCH_SWEEPER_OUTPUT_DIR` (default `~/obsidian/research`), one folder per topic slug; deep and standard summaries include a Mermaid timeline section.
+Output lands under `RESEARCH_SWEEPER_OUTPUT_DIR` (default `output/` in the repo), one folder per topic slug; deep and standard summaries include a Mermaid timeline section.
 
 ## Auth & billing safety
 

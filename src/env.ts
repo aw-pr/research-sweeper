@@ -1,5 +1,4 @@
 import * as fs from "fs";
-import * as os from "os";
 import * as path from "path";
 
 /**
@@ -41,10 +40,11 @@ export function loadDotEnv(rootDir: string = path.join(__dirname, "..")): void {
 }
 
 /**
- * Root directory for generated research output. Defaults to
- * `~/obsidian/research` to preserve existing behaviour; override with
- * `RESEARCH_SWEEPER_OUTPUT_DIR` for any other environment.
+ * Root directory for generated research output. Defaults to `output/` inside
+ * the repo, which is gitignored, so a fresh clone runs without writing outside
+ * the checkout. Point `RESEARCH_SWEEPER_OUTPUT_DIR` at a vault or any other
+ * directory to publish elsewhere.
  */
 export function researchRoot(): string {
-  return process.env.RESEARCH_SWEEPER_OUTPUT_DIR || path.join(os.homedir(), "obsidian", "research");
+  return process.env.RESEARCH_SWEEPER_OUTPUT_DIR || path.join(__dirname, "..", "output");
 }
