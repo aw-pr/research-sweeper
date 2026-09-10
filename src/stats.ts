@@ -26,6 +26,10 @@ interface ModelPricing {
   cacheWriteInPer1M?: number;
 }
 
+// Every model a sweep can dispatch to needs a row here. computeRunCost returns
+// 0 for an unpriced id rather than throwing, so a missing row does not fail a
+// run -- it reports the run as free. claude-opus-5 and claude-fable-5-1 were
+// both absent for exactly that reason and every sweep on them recorded $0.
 const MODEL_PRICING: Record<Provider, Record<string, ModelPricing>> = {
   claude: {
     "claude-haiku-4-5-20251001": { inPer1M: 1.0, outPer1M: 5.0 },
@@ -36,7 +40,9 @@ const MODEL_PRICING: Record<Provider, Record<string, ModelPricing>> = {
     "claude-opus-4-5": { inPer1M: 5.0, outPer1M: 25.0 },
     "claude-opus-4-7": { inPer1M: 5.0, outPer1M: 25.0 },
     "claude-opus-4-8": { inPer1M: 5.0, outPer1M: 25.0 },
+    "claude-opus-5": { inPer1M: 5.0, outPer1M: 25.0 },
     "claude-fable-5": { inPer1M: 10.0, outPer1M: 50.0 },
+    "claude-fable-5-1": { inPer1M: 10.0, outPer1M: 50.0 },
   },
   openai: {
     // List (non-batch) rates. computeRunCost applies the published 50% Batch
