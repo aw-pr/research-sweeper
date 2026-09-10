@@ -48,6 +48,7 @@ const MODEL_PRICING: Record<Provider, Record<string, ModelPricing>> = {
     // List (non-batch) rates. computeRunCost applies the published 50% Batch
     // API discount once, per lane/synthesis leg. These used to be batch rates
     // and were discounted again, understating OpenAI batch spend by half.
+    "gpt-6-astra": { inPer1M: 10.0, cachedInPer1M: 1.0, cacheWriteInPer1M: 12.5, outPer1M: 50.0 },
     "gpt-5.6-sol": { inPer1M: 5.0, cachedInPer1M: 0.5, cacheWriteInPer1M: 6.25, outPer1M: 30.0 },
     // Terra/Luna reflect the 2026-07-30 OpenAI price cut (Terra -20%, Luna -80%).
     "gpt-5.6-terra": { inPer1M: 2.0, cachedInPer1M: 0.2, cacheWriteInPer1M: 2.5, outPer1M: 12.0 },

@@ -15,7 +15,7 @@ import { BatchStatus, Lane, LaneResult, ProviderAdapter, ProviderModels, SweepCo
 
 const LANE_MODEL = "gpt-5.6-terra";
 const LANE_MODEL_BATCH = "gpt-5.6-terra";
-const SYNTHESIS_MODEL = "gpt-5.6-sol";
+const SYNTHESIS_MODEL = "gpt-6-astra";
 const TEST_MODEL = "gpt-5.6-luna";
 const LANE_REASONING_EFFORT = "low";
 const SYNTHESIS_REASONING_EFFORT = "high";
