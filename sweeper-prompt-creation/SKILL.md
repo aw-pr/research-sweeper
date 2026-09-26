@@ -153,7 +153,7 @@ Manual steps (run in your own terminal if needed):
 3. `--from [from] --to [to] --lanes [lanes] --depth [depth] --folder "[folder]"'`
 
 
-Confirm with `tmux ls`. Remind user to check `./list-batches.sh` to monitor. Then kill the tmux waiter once "Batch submitted" appears: `batch-search.sh` always passes `--wait-all`, which auto-resumes every pending job with the default Opus synthesis on the API key, which defeats a two-step subscription-synthesis plan.
+Confirm with `tmux ls`. Remind user to check `./list-batches.sh` to monitor. Add `--wait` to the command only when the user wants the job to auto-resume, with the default synthesis, on the API key. For a two-step plan where synthesis runs on a subscription route, launch without it and, if a waiter is running, stop it with `tmux kill-session -t sweep-[slug]` once "Batch submitted" appears.
 
 ## Reference
 

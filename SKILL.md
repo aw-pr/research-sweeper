@@ -80,7 +80,7 @@ Output lands under `RESEARCH_SWEEPER_OUTPUT_DIR`, one folder per topic slug; dee
 RESEARCH_SWEEPER_OUTPUT_DIR=/absolute/path/to/obsidian/research
 ```
 
-Before launching a sweep, confirm that line exists (`grep RESEARCH_SWEEPER_OUTPUT_DIR .env`). If it is missing, add it first; a run that lands in `output/` has to be copied into the vault by hand afterwards. The `Output:` line the CLI prints at submit time shows where the run will write, so check it reads the vault path.
+Before launching a sweep, confirm that line exists and holds an absolute path: `grep -E '^RESEARCH_SWEEPER_OUTPUT_DIR=' .env.local .env`. Both files are read, and `.env.local` wins over `.env` when both set it, so the `.env.local` value is the one that applies. If neither has it, add it first; a run that lands in `output/` has to be copied into the vault by hand afterwards. The `Output:` line the CLI prints at submit time is confirmation after the fact, not a check to act on: by then the stub is already written to that folder.
 
 ## Auth & billing safety
 
