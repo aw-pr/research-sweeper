@@ -162,6 +162,10 @@ into the original run automatically — combine the two by hand (see the guidanc
 `--resume` on a resubmitted job) or fold the resubmitted lane files into the original folder's
 `lanes/` directory and re-run `--re-synthesise <original-folder>`.
 
+## Running in a Claude Code cloud session
+
+A cloud session has no 1Password and no vault. `./cloud-sweep.sh --brief-file prompts/x.md --folder <slug> ...` runs a sync sweep on the Claude subscription route (the session needs `CLAUDE_CODE_OAUTH_TOKEN` as a secret), then commits the result on branch `sweeps/<slug>` and pushes it, since the sandbox disappears with the session. Locally, `./cloud-sweep.sh --collect <slug>` fetches that branch and copies the folder into `RESEARCH_SWEEPER_OUTPUT_DIR`. Cloud runs are sync only, so they forgo the batch discount.
+
 ## Auth routes
 
 | Route | When to use | Credential source |

@@ -93,6 +93,10 @@ Claude sync runs can consume Max/Pro subscription quota via the Agent SDK. Use t
 - Auto-detect precedence: when both `ANTHROPIC_API_KEY` and the OAuth token are present and no explicit flag is given, detection refuses to guess and throws (the API-key route bills credits) — pass an explicit `--claude-auth`. `claude-oauth` is auto-selected only when `ANTHROPIC_API_KEY` is absent and the OAuth token is set. The legacy alias `claude-cli` is still accepted.
 - Search divergence: the Agent SDK exposes the built-in `WebSearch` tool, not the API's `web_search_20250305`. Source selection may differ vs. the API-key path. `runs/stats.json` records `authMode` per run so cross-route comparisons stay honest.
 
+### Cloud session route (Claude sync on a branch)
+
+`./cloud-sweep.sh --brief-file ... --folder <slug>` is the launcher for a Claude Code cloud session: sync sweep on `--claude-auth claude-oauth` (the session must hold `CLAUDE_CODE_OAUTH_TOKEN`), output under `sweeps/<slug>`, force-added and pushed on branch `sweeps/<slug>` because the sandbox is ephemeral and `sweeps/` is gitignored. Locally, `./cloud-sweep.sh --collect <slug>` fetches that branch and copies the folder into `RESEARCH_SWEEPER_OUTPUT_DIR`. The secure wrappers pass `RESEARCH_SWEEPER_OUTPUT_DIR` and `CODEX_HOME` through `op-fetch`, so a runner that injects them as environment variables is honoured on the secure path too.
+
 ### Gemini auth routes
 
 Two credential routes are supported via `--gemini-auth api-key|gemini-oauth`. The CLI flag is Gemini-specific and has no effect on other providers.
