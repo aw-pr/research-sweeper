@@ -144,9 +144,9 @@ Confirm the file path to the user.
 
 ### Step 5 — Offer to launch
 
-Ask: "Ready to launch? I can start it as a batch run in a tmux session."
+Ask: "Ready to launch? I can start it as a batch run in a tmux session here, or hand it to a Claude Code cloud session."
 
-If yes:
+**Local batch (default, API key, 50% batch discount):**
 Manual steps (run in your own terminal if needed):
 1. `tmux new-session -d -s sweep-[slug] \`
 2. `'./batch-search.sh --brief-file "prompts/[filename].md" \`
@@ -154,6 +154,22 @@ Manual steps (run in your own terminal if needed):
 
 
 Confirm with `tmux ls`. Remind user to check `./list-batches.sh` to monitor. Add `--wait` to the command only when the user wants the job to auto-resume, with the default synthesis, on the API key. For a two-step plan where synthesis runs on a subscription route, launch without it and, if a waiter is running, stop it with `tmux kill-session -t sweep-[slug]` once "Batch submitted" appears.
+
+**Cloud session (Claude subscription, sync, no batch discount):**
+
+A Claude Code cloud session has no 1Password and no vault, so the sweep runs on the Claude OAuth route and carries its result out on a git branch. Requirements: the cloud environment holds `CLAUDE_CODE_OAUTH_TOKEN` as a secret (from `claude setup-token`) and can push to `origin`. Give the session this task, filled in:
+
+```
+npm ci && ./cloud-sweep.sh --brief-file "prompts/[filename].md" --from [from] --to [to] --lanes [lanes] --depth [depth] --folder "[folder]"
+```
+
+`cloud-sweep.sh` runs the sync sweep, commits `sweeps/[folder]` on branch `sweeps/[folder]`, pushes it, and returns the session to its starting branch. The brief must already be committed and pushed so the session can read it. When the session reports the branch, pull the result into the vault locally:
+
+```
+./cloud-sweep.sh --collect [folder]
+```
+
+That fetches the branch and copies the folder into `RESEARCH_SWEEPER_OUTPUT_DIR`. Codex and Gemini routes are not wired for the cloud path: Codex needs an `auth.json` written under `CODEX_HOME` and Gemini needs an API key, neither of which the script provisions.
 
 ## Reference
 
