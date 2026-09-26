@@ -40,6 +40,12 @@ describe("cloud-sweep.sh", () => {
     expect(fs.readFileSync(script, "utf-8")).toMatch(/id -u.*== "0".*\n\s*export IS_SANDBOX=1/);
   });
 
+  it("adds origin from SWEEP_REMOTE_URL when the clone has no remote", () => {
+    const source = fs.readFileSync(script, "utf-8");
+    expect(source).toMatch(/git remote get-url origin/);
+    expect(source).toMatch(/git remote add origin "\$SWEEP_REMOTE_URL"/);
+  });
+
   it("stages a gitignored brief on the sweep branch and pushes it", () => {
     const lines = run(["--stage", "prompts/x.md", "--folder", "demo"]);
     expect(lines).toContain("+ git checkout -B sweeps/demo");

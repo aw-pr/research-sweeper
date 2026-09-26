@@ -123,6 +123,17 @@ author_flag=()
 [[ -z "${SWEEP_COMMIT_AUTHOR:-}" ]] || author_flag=(--author="$SWEEP_COMMIT_AUTHOR")
 run git commit ${author_flag[@]+"${author_flag[@]}"} -m "sweep(${folder}): results from a cloud session"
 if (( push )); then
+  # A clone made by `claude --cloud` can arrive with no remotes at all. The
+  # cloud environment can name the repo through SWEEP_REMOTE_URL (an https
+  # GitHub URL; the session's GitHub proxy supplies the credentials).
+  if ! git remote get-url origin >/dev/null 2>&1; then
+    if [[ -n "${SWEEP_REMOTE_URL:-}" ]]; then
+      run git remote add origin "$SWEEP_REMOTE_URL"
+    else
+      echo "cloud-sweep: results are committed on ${branch} but this clone has no origin; set SWEEP_REMOTE_URL=https://github.com/<owner>/<repo>.git in the cloud environment, or add the remote and push by hand" >&2
+      exit 3
+    fi
+  fi
   run git push -u origin "$branch"
 fi
 [[ "$start_branch" == "$branch" ]] || run git checkout "$start_branch"

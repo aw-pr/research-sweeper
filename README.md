@@ -164,7 +164,7 @@ into the original run automatically — combine the two by hand (see the guidanc
 
 ## Running in a Claude Code cloud session
 
-A cloud session has no 1Password and no vault. `./cloud-sweep.sh --brief-file prompts/x.md --folder <slug> ...` runs a sync sweep on the Claude subscription route (the session needs `SWEEP_CLAUDE_OAUTH_TOKEN`, which the script maps onto `CLAUDE_CODE_OAUTH_TOKEN` because the cloud runtime filters that name), then commits the result on branch `sweeps/<slug>` and pushes it, since the sandbox disappears with the session. Locally, `./cloud-sweep.sh --collect <slug>` fetches that branch and copies the folder into `RESEARCH_SWEEPER_OUTPUT_DIR`. Cloud runs are sync only, so they forgo the batch discount.
+A cloud session has no 1Password and no vault. `./cloud-sweep.sh --brief-file prompts/x.md --folder <slug> ...` runs a sync sweep on the Claude subscription route (the session needs `SWEEP_CLAUDE_OAUTH_TOKEN`, which the script maps onto `CLAUDE_CODE_OAUTH_TOKEN` because the cloud runtime filters that name, plus `SWEEP_REMOTE_URL` for the https GitHub URL when the clone has no remote), then commits the result on branch `sweeps/<slug>` and pushes it, since the sandbox disappears with the session. Locally, `./cloud-sweep.sh --collect <slug>` fetches that branch and copies the folder into `RESEARCH_SWEEPER_OUTPUT_DIR`. Cloud runs are sync only, so they forgo the batch discount.
 
 ## Auth routes
 
