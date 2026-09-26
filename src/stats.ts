@@ -21,8 +21,9 @@ import { LaneResult, Provider, ProviderModels, RunStats, SweepConfig, TokenBreak
 interface ModelPricing {
   inPer1M: number;
   outPer1M: number;
-  // OpenAI prices prompt-cache reads separately. Other providers keep their
-  // cache accounting in cacheCreateIn/cacheReadIn below.
+  // Prompt-cache read rate. OpenAI prices it per model; for Claude it
+  // overrides the flat CACHE_READ_MULT where a model's published rate
+  // differs (Opus 5.5 reads at 0.05x input, not 0.10x).
   cachedInPer1M?: number;
   cacheWriteInPer1M?: number;
 }
@@ -42,6 +43,7 @@ const MODEL_PRICING: Record<Provider, Record<string, ModelPricing>> = {
     "claude-opus-4-7": { inPer1M: 5.0, outPer1M: 25.0 },
     "claude-opus-4-8": { inPer1M: 5.0, outPer1M: 25.0 },
     "claude-opus-5": { inPer1M: 5.0, outPer1M: 25.0 },
+    "claude-opus-5-5": { inPer1M: 4.0, outPer1M: 20.0, cachedInPer1M: 0.2 },
     "claude-fable-5": { inPer1M: 10.0, outPer1M: 50.0 },
     "claude-fable-5-1": { inPer1M: 10.0, outPer1M: 50.0 },
   },
@@ -115,7 +117,7 @@ export function generateRunId(config: SweepConfig, mode: "sync" | "batch"): stri
 
 // Anthropic prompt-caching multipliers, applied against the model's input rate.
 // Cache writes (first-time creation of an ephemeral block) bill at 1.25x input.
-// Cache reads (subsequent requests that match the cached prefix) bill at 0.10x.
+// Cache reads (subsequent requests that match the cached prefix) bill at 0.10x unless the model row sets cachedInPer1M.
 const CACHE_WRITE_MULT = 1.25;
 const CACHE_READ_MULT = 0.10;
 const OPENAI_WEB_SEARCH_PER_CALL_USD = 0.01;
@@ -172,7 +174,8 @@ export function computeRunCost(
   // shared prefix across a sweep to cache; see providers/claude.ts), priced
   // at the lane-model's input rate.
   const cacheCreate = ((tokens.cacheCreateIn || 0) / 1e6) * lanePricing.inPer1M * CACHE_WRITE_MULT * discount;
-  const cacheRead = ((tokens.cacheReadIn || 0) / 1e6) * lanePricing.inPer1M * CACHE_READ_MULT * discount;
+  const cacheReadPer1M = lanePricing.cachedInPer1M ?? lanePricing.inPer1M * CACHE_READ_MULT;
+  const cacheRead = ((tokens.cacheReadIn || 0) / 1e6) * cacheReadPer1M * discount;
   // Responses usage.output_tokens already includes reasoning tokens. Retain
   // reasoningOut as a quality/effort signal, but never charge it twice.
   const openaiWebSearchCost = provider === "openai" ? nonNegativeFinite(tokens.openaiWebSearchCalls) * OPENAI_WEB_SEARCH_PER_CALL_USD : 0;
