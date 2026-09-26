@@ -86,6 +86,8 @@ if [[ "$claude_oauth" == "1" && "$from_batch" == "1" ]]; then
   # provider switch synthesis to Claude OAuth and strip ANTHROPIC_API_KEY before
   # importing the Agent SDK.
   exec op-fetch \
+    --pass RESEARCH_SWEEPER_OUTPUT_DIR \
+    --pass CODEX_HOME \
     ANTHROPIC_API_KEY="$OP_REF_ANTHROPIC_API_KEY" \
     CLAUDE_CODE_OAUTH_TOKEN="$OP_REF_CLAUDE_CODE_OAUTH_TOKEN" \
     -- npx ts-node research-sweep.ts "$@"
@@ -93,6 +95,8 @@ fi
 
 if [[ "$claude_oauth" == "1" ]]; then
   exec op-fetch \
+    --pass RESEARCH_SWEEPER_OUTPUT_DIR \
+    --pass CODEX_HOME \
     CLAUDE_CODE_OAUTH_TOKEN="$OP_REF_CLAUDE_CODE_OAUTH_TOKEN" \
     -- npx ts-node research-sweep.ts "$@"
 fi
@@ -100,25 +104,35 @@ fi
 if [[ "$openai_sync" == "1" && " $* " == *" --sync "* && "$openai_api_key" != "1" ]]; then
   # Codex auth route: no op refs needed. Still go through op-fetch with no pairs
   # so we get the same sanitized child env (no inherited OPENAI_API_KEY etc.).
-  exec op-fetch -- npx ts-node research-sweep.ts "$@"
+  exec op-fetch \
+    --pass RESEARCH_SWEEPER_OUTPUT_DIR \
+    --pass CODEX_HOME \
+    -- npx ts-node research-sweep.ts "$@"
 fi
 
 if [[ "$provider_gemini" == "1" && "$gemini_oauth" == "1" ]]; then
   # GCP-billed OAuth route: GOOGLE_ACCESS_TOKEN must come from the caller's env
   # (not vaulted). Inject nothing; go through op-fetch with no pairs so the
   # child env is still sanitized (no inherited GEMINI_API_KEY etc.).
-  exec op-fetch -- npx ts-node research-sweep.ts "$@"
+  exec op-fetch \
+    --pass RESEARCH_SWEEPER_OUTPUT_DIR \
+    --pass CODEX_HOME \
+    -- npx ts-node research-sweep.ts "$@"
 fi
 
 if [[ "$provider_gemini" == "1" ]]; then
   # Gemini API-key route (sync or batch). Fetch only the Gemini key.
   exec op-fetch \
+    --pass RESEARCH_SWEEPER_OUTPUT_DIR \
+    --pass CODEX_HOME \
     GEMINI_API_KEY="$OP_REF_GEMINI_API_KEY" \
     -- npx ts-node research-sweep.ts "$@"
 fi
 
 # Default API-key route (sync or batch). Fetch both provider keys.
 exec op-fetch \
+  --pass RESEARCH_SWEEPER_OUTPUT_DIR \
+  --pass CODEX_HOME \
   ANTHROPIC_API_KEY="$OP_REF_ANTHROPIC_API_KEY" \
   OPENAI_API_KEY="$OP_REF_OPENAI_API_KEY" \
   -- npx ts-node research-sweep.ts "$@"

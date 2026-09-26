@@ -1,5 +1,12 @@
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
+
+export function expandHome(value: string): string {
+  if (value === "~") return os.homedir();
+  if (value.startsWith("~/")) return path.join(os.homedir(), value.slice(2));
+  return value;
+}
 
 /**
  * Parse a dotenv-style file into a flat key/value map. Blank lines and
@@ -46,5 +53,6 @@ export function loadDotEnv(rootDir: string = path.join(__dirname, "..")): void {
  * directory to publish elsewhere.
  */
 export function researchRoot(): string {
-  return process.env.RESEARCH_SWEEPER_OUTPUT_DIR || path.join(__dirname, "..", "output");
+  const configured = process.env.RESEARCH_SWEEPER_OUTPUT_DIR;
+  return configured ? expandHome(configured) : path.join(__dirname, "..", "output");
 }

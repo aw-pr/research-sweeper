@@ -7,7 +7,11 @@ export type OpenAIAuthMode = "api_key" | "codex_cli";
 export type GeminiAuthMode = "api_key" | "gemini_oauth";
 export type AnyAuthMode = ClaudeAuthMode | OpenAIAuthMode | GeminiAuthMode;
 
-export const CODEX_AUTH_FILE = path.join(os.homedir(), ".codex", "auth.json");
+export function codexAuthFile(): string {
+  return path.join(process.env.CODEX_HOME || path.join(os.homedir(), ".codex"), "auth.json");
+}
+
+export const CODEX_AUTH_FILE = codexAuthFile();
 
 export function hasClaudeOAuthToken(): boolean {
   // The Agent SDK reads CLAUDE_CODE_OAUTH_TOKEN from env. On macOS the `claude`
@@ -18,8 +22,9 @@ export function hasClaudeOAuthToken(): boolean {
 
 export function hasCodexChatGPTAuth(): boolean {
   try {
-    if (!fs.existsSync(CODEX_AUTH_FILE)) return false;
-    const raw = fs.readFileSync(CODEX_AUTH_FILE, "utf-8");
+    const authFile = codexAuthFile();
+    if (!fs.existsSync(authFile)) return false;
+    const raw = fs.readFileSync(authFile, "utf-8");
     const parsed = JSON.parse(raw) as { auth_mode?: unknown; tokens?: { access_token?: unknown } };
     return parsed.auth_mode === "chatgpt" && typeof parsed.tokens?.access_token === "string" && parsed.tokens.access_token.length > 0;
   } catch {
@@ -61,7 +66,7 @@ export function detectOpenAIAuthMode(prefer?: OpenAIAuthMode): OpenAIAuthMode {
     return "api_key";
   }
   if (prefer === "codex_cli") {
-    if (!hasCodex) throw new Error("Error: --openai-auth codex requested but no Codex ChatGPT auth was found. Run `codex login` (chatgpt mode) so ~/.codex/auth.json holds a chatgpt access token.");
+    if (!hasCodex) throw new Error("Error: --openai-auth codex requested but no Codex ChatGPT auth was found. Run `codex login` (chatgpt mode) so ~/.codex/auth.json, or CODEX_HOME/auth.json, holds a chatgpt access token.");
     return "codex_cli";
   }
 
