@@ -139,22 +139,33 @@ export function determineFailedLanes(items: BatchResultTypeItem[], lanes: Lane[]
   return failures;
 }
 
+// Shared by the sync lane call and the batch builder so both carry the same
+// model-appropriate tool_choice and, where it cannot be forced, the same
+// submit instruction.
+export function buildLaneRequestParams(config: SweepConfig, lane: Lane): Record<string, unknown> {
+  const model = config.test ? haikuLaneModel() : resolveLaneModel(config);
+  const { tools, tool_choice, instruction } = claudeLaneToolConfig(!!config.noSearch, model);
+  const prompt = buildLanePrompt(lane, config);
+  return {
+    model,
+    max_tokens: DEPTH_CONFIG[config.depth].laneMaxTokens,
+    // Two-block system array: the shared scaffolding clears 1024 tokens
+    // (Sonnet/Opus minimum) and is the real cache target across all six
+    // lanes of the sweep. The lane systemPrompt is a small per-lane
+    // addendum and gets its own ephemeral marker as a second cacheable
+    // block (useful when the same lane runs back-to-back).
+    system: [
+      { type: "text", text: buildLaneSystemPrefix(config), cache_control: { type: "ephemeral" } },
+      { type: "text", text: LANE_CONFIG[lane].systemPrompt, cache_control: { type: "ephemeral" } },
+    ],
+    messages: [{ role: "user", content: instruction ? `${prompt}\n\n${instruction}` : prompt }],
+    tools,
+    tool_choice,
+  };
+}
+
 export function buildLaneBatchRequests(config: SweepConfig, lanes: Lane[]): ClaudeBatchRequest[] {
-  return lanes.map((lane) => {
-    const params: Record<string, unknown> = {
-      model: config.test ? haikuLaneModel() : resolveLaneModel(config),
-      max_tokens: DEPTH_CONFIG[config.depth].laneMaxTokens,
-      system: [
-        { type: "text", text: buildLaneSystemPrefix(config), cache_control: { type: "ephemeral" } },
-        { type: "text", text: LANE_CONFIG[lane].systemPrompt, cache_control: { type: "ephemeral" } },
-      ],
-      messages: [{ role: "user", content: buildLanePrompt(lane, config) }],
-    };
-    const { tools, tool_choice } = claudeLaneToolConfig(!!config.noSearch);
-    params.tools = tools;
-    params.tool_choice = tool_choice;
-    return { custom_id: lane, params };
-  });
+  return lanes.map((lane) => ({ custom_id: lane, params: buildLaneRequestParams(config, lane) }));
 }
 
 // Transient Anthropic API errors worth a bounded retry: 429 (rate limit),
@@ -289,24 +300,7 @@ export class ClaudeProvider implements ProviderAdapter {
     const model = config.test ? haikuLaneModel() : resolveLaneModel(config);
 
     try {
-      const requestParams: Record<string, unknown> = {
-        model,
-        max_tokens: DEPTH_CONFIG[config.depth].laneMaxTokens,
-        // Two-block system array: the shared scaffolding clears 1024 tokens
-        // (Sonnet/Opus minimum) and is the real cache target across all six
-        // lanes of the sweep. The lane systemPrompt is a small per-lane
-        // addendum and gets its own ephemeral marker as a second cacheable
-        // block (useful when the same lane runs back-to-back).
-        system: [
-          { type: "text", text: buildLaneSystemPrefix(config), cache_control: { type: "ephemeral" } },
-          { type: "text", text: definition.systemPrompt, cache_control: { type: "ephemeral" } },
-        ],
-        messages: [{ role: "user", content: buildLanePrompt(lane, config) }],
-      };
-
-      const { tools, tool_choice } = claudeLaneToolConfig(!!config.noSearch);
-      requestParams.tools = tools;
-      requestParams.tool_choice = tool_choice;
+      const requestParams = buildLaneRequestParams(config, lane);
 
       const createFn = client.messages.create.bind(client.messages) as unknown as (params: Record<string, unknown>) => Promise<ClaudeMessageLike>;
 

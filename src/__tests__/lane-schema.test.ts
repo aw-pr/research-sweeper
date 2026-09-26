@@ -31,19 +31,44 @@ describe("lane response schema", () => {
 });
 
 describe("claudeLaneToolConfig", () => {
+  const FORCING = "claude-sonnet-5";
+
   it("offers web_search + submit tool and forces tool use when searching", () => {
-    const { tools, tool_choice } = claudeLaneToolConfig(false);
+    const { tools, tool_choice, instruction } = claudeLaneToolConfig(false, FORCING);
     expect(tool_choice).toEqual({ type: "any" });
+    expect(instruction).toBeUndefined();
     const names = (tools as Array<{ name?: string }>).map((t) => t.name);
     expect(names).toContain("web_search");
     expect(names).toContain(CLAUDE_LANE_TOOL_NAME);
   });
 
   it("forces the submit tool directly when search is disabled", () => {
-    const { tools, tool_choice } = claudeLaneToolConfig(true);
+    const { tools, tool_choice } = claudeLaneToolConfig(true, FORCING);
     expect(tool_choice).toEqual({ type: "tool", name: CLAUDE_LANE_TOOL_NAME });
     expect(tools).toHaveLength(1);
   });
+
+  it.each(["claude-haiku-4-5-20251001", "claude-haiku-4-5", "claude-sonnet-5", "claude-sonnet-4-6", "claude-opus-4-8", "claude-opus-5"])(
+    "keeps forced tool_choice on %s, which accepts it",
+    (model) => {
+      expect(claudeLaneToolConfig(false, model).tool_choice).toEqual({ type: "any" });
+      expect(claudeLaneToolConfig(true, model).tool_choice).toEqual({ type: "tool", name: CLAUDE_LANE_TOOL_NAME });
+    }
+  );
+
+  it.each(["claude-opus-5-5", "claude-fable-5-1", "claude-opus-6", "claude-sonnet-5-5", "claude-something-new"])(
+    "uses auto + a submit instruction on %s, which rejects (or may reject) forced tool_choice",
+    (model) => {
+      for (const noSearch of [false, true]) {
+        const { tools, tool_choice, instruction } = claudeLaneToolConfig(noSearch, model);
+        expect(tool_choice).toEqual({ type: "auto" });
+        expect(instruction).toContain(CLAUDE_LANE_TOOL_NAME);
+        expect(tools).toContain(CLAUDE_LANE_TOOL);
+        expect(CLAUDE_LANE_TOOL.strict).toBe(true);
+      }
+      expect(claudeLaneToolConfig(false, model).instruction).toMatch(/finished searching/);
+    }
+  );
 });
 
 describe("extractClaudeLaneRaw", () => {
