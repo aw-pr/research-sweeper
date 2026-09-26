@@ -14,6 +14,7 @@ export function toHomeRelative(filePath: string): string {
   // records never leak the absolute location.
   return path.isAbsolute(filePath) ? path.basename(filePath) : filePath;
 }
+import { registryPricing } from "./model-registry";
 import { getProvider } from "./providers";
 import { LaneResult, Provider, ProviderModels, RunStats, SweepConfig, TokenBreakdown } from "./types";
 
@@ -26,10 +27,10 @@ interface ModelPricing {
   cacheWriteInPer1M?: number;
 }
 
-// Every model a sweep can dispatch to needs a row here. computeRunCost returns
-// 0 for an unpriced id rather than throwing, so a missing row does not fail a
-// run -- it reports the run as free. claude-opus-5 and claude-fable-5-1 were
-// both absent for exactly that reason and every sweep on them recorded $0.
+// Every model a sweep can dispatch to needs a row here or in the MODEL_REGISTRY
+// pricing map. An id found in neither is reported as unknown cost (null), never
+// as $0: claude-opus-5 and claude-fable-5-1 were once missing and every sweep
+// on them silently recorded as free.
 const MODEL_PRICING: Record<Provider, Record<string, ModelPricing>> = {
   claude: {
     "claude-haiku-4-5-20251001": { inPer1M: 1.0, outPer1M: 5.0 },
@@ -68,6 +69,36 @@ const MODEL_PRICING: Record<Provider, Record<string, ModelPricing>> = {
   },
 };
 
+export function lookupPricing(provider: Provider, modelId: string): ModelPricing | undefined {
+  return MODEL_PRICING[provider][modelId] ?? registryPricing(modelId);
+}
+
+export function findUnpricedModels(provider: Provider, models: ProviderModels): string[] {
+  return [...new Set([models.lane, models.synthesis])].filter((id) => id && !lookupPricing(provider, id));
+}
+
+const warnedUnpriced = new Set<string>();
+
+// Loud, once per model id per process: a sweep prints this at start (before
+// any spend) and buildRunStats would otherwise repeat it at the end.
+export function warnUnpricedModels(provider: Provider, models: ProviderModels): string[] {
+  const unpriced = findUnpricedModels(provider, models);
+  for (const id of unpriced) {
+    const key = `${provider}:${id}`;
+    if (warnedUnpriced.has(key)) continue;
+    warnedUnpriced.add(key);
+    console.warn(
+      `\n  WARNING: no price known for ${provider} model "${id}". This run's cost will be recorded as UNKNOWN.\n` +
+        `  Add a row to MODEL_PRICING in src/stats.ts or to the MODEL_REGISTRY pricing map.\n`
+    );
+  }
+  return unpriced;
+}
+
+export function resetUnpricedWarnings(): void {
+  warnedUnpriced.clear();
+}
+
 function runsDir(): string {
   return path.join(__dirname, "..", "runs");
 }
@@ -102,6 +133,7 @@ function nonNegativeFinite(value: number | undefined): number {
 }
 
 // A batch run always batches its lanes, but synthesis is a separate decision.
+// Returns null when either model is unpriced: an unknown cost, not a free run.
 // Callers that know which path ran pass synthesisBatched explicitly; the
 // default assumes it followed the lanes.
 export function computeRunCost(
@@ -110,11 +142,10 @@ export function computeRunCost(
   models: ProviderModels,
   isBatch: boolean,
   synthesisBatched: boolean = isBatch
-): number {
-  const pricing = MODEL_PRICING[provider];
-  const lanePricing = pricing[models.lane];
-  const synthesisPricing = pricing[models.synthesis];
-  if (!lanePricing || !synthesisPricing) return 0;
+): number | null {
+  const lanePricing = lookupPricing(provider, models.lane);
+  const synthesisPricing = lookupPricing(provider, models.synthesis);
+  if (!lanePricing || !synthesisPricing) return null;
   const discount = isBatch ? 0.5 : 1;
   const synthesisDiscount = synthesisBatched ? 0.5 : 1;
   // Base lane + synthesis token costs. OpenAI cache-hit input is included in
@@ -187,6 +218,7 @@ export function buildRunStats(
 ): RunStats {
   const provider = getProvider(config.provider);
   const models = provider.getModels(config, mode);
+  const unpricedModels = warnUnpricedModels(config.provider, models);
   return {
     runId: generateRunId(config, mode),
     timestamp: new Date().toISOString(),
@@ -203,6 +235,7 @@ export function buildRunStats(
     tokens,
     models,
     estimatedCostUSD: computeRunCost(config.provider, tokens, models, mode === "batch", synthesisBatched),
+    ...(unpricedModels.length > 0 ? { unpricedModels } : {}),
     ...(config.provider === "openai" ? { costEstimateNotes: openAICostEstimateNotes(tokens) } : {}),
     outputFiles: outputFiles.map(toHomeRelative),
     authMode,
@@ -228,6 +261,10 @@ export function appendRunStats(stats: RunStats): void {
   fs.writeFileSync(filePath, JSON.stringify(existing, null, 2), "utf-8");
 }
 
+function formatRunCost(cost: number | null): string {
+  return typeof cost === "number" ? `$${cost.toFixed(4)}` : "unknown";
+}
+
 export function displayStats(): void {
   const filePath = statsFilePath();
   if (!fs.existsSync(filePath)) {
@@ -242,7 +279,9 @@ export function displayStats(): void {
   }
 
   const runs = parsed.map((run) => ({ ...run, provider: run.provider || "claude" }));
-  const totalCost = runs.reduce((sum, run) => sum + run.estimatedCostUSD, 0);
+  const pricedRuns = runs.filter((run) => typeof run.estimatedCostUSD === "number");
+  const unknownCostRuns = runs.length - pricedRuns.length;
+  const totalCost = pricedRuns.reduce((sum, run) => sum + (run.estimatedCostUSD as number), 0);
   const totalTokensIn = runs.reduce((sum, run) => sum + run.tokens.totalIn, 0);
   const totalTokensOut = runs.reduce((sum, run) => sum + run.tokens.totalOut, 0);
 
@@ -254,7 +293,7 @@ Summary
 -------
 Total runs:     ${runs.length}
 Total tokens:   ${totalTokensIn.toLocaleString()} in / ${totalTokensOut.toLocaleString()} out
-Est. cost:      $${totalCost.toFixed(4)}
+Est. cost:      $${totalCost.toFixed(4)}${unknownCostRuns > 0 ? ` (excludes ${unknownCostRuns} run${unknownCostRuns !== 1 ? "s" : ""} with unknown cost)` : ""}
 `);
 
   const recent = [...runs].reverse().slice(0, 20);
@@ -266,7 +305,7 @@ ${"─".repeat(width)}`);
 
   recent.forEach((run, index) => {
     console.log(
-      `${String(recent.length - index).padEnd(3)}  ${run.timestamp.replace("T", " ").slice(0, 19)}  ${run.provider.padEnd(6)}  ${run.mode.padEnd(5)}  ${run.depth.slice(0, 3).padEnd(3)}  ${run.topic.slice(0, 32).padEnd(32)}  ${run.tokens.totalIn.toLocaleString().padStart(10)}  ${run.tokens.totalOut.toLocaleString().padStart(10)}  ${`$${run.estimatedCostUSD.toFixed(4)}`.padStart(9)}`
+      `${String(recent.length - index).padEnd(3)}  ${run.timestamp.replace("T", " ").slice(0, 19)}  ${run.provider.padEnd(6)}  ${run.mode.padEnd(5)}  ${run.depth.slice(0, 3).padEnd(3)}  ${run.topic.slice(0, 32).padEnd(32)}  ${run.tokens.totalIn.toLocaleString().padStart(10)}  ${run.tokens.totalOut.toLocaleString().padStart(10)}  ${formatRunCost(run.estimatedCostUSD).padStart(9)}`
     );
   });
   console.log("─".repeat(width));

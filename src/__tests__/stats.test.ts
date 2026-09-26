@@ -32,7 +32,7 @@ describe("computeRunCost", () => {
     const batch = computeRunCost("claude", baseTokens, haikuModels, true);
     // lane 3.5 -> 1.75, synth 3.5 -> 1.75; claude batches both halves
     expect(batch).toBeCloseTo(1.75 + 1.75, 6);
-    expect(batch).toBeLessThan(sync);
+    expect(batch!).toBeLessThan(sync!);
   });
 
   it("keeps synthesis at full price on a batch run that synthesised synchronously", () => {
@@ -51,14 +51,14 @@ describe("computeRunCost", () => {
     );
   });
 
-  it("returns 0 for unknown model without throwing", () => {
+  it("returns null (unknown), not 0, for an unpriced model", () => {
     const cost = computeRunCost(
       "claude",
       baseTokens,
       { lane: "claude-bogus-9000", synthesis: "claude-opus-4-7" },
       false
     );
-    expect(cost).toBe(0);
+    expect(cost).toBeNull();
   });
 
   it("returns 0 for zero tokens", () => {
@@ -252,7 +252,7 @@ describe("computeRunCost", () => {
     const batch = computeRunCost("gemini", baseTokens, geminiModels, true);
     expect(sync).toBeCloseTo(1.55, 6);
     expect(batch).toBeCloseTo(0.775, 6);
-    expect(batch).toBeLessThan(sync);
+    expect(batch!).toBeLessThan(sync!);
   });
 
   it("computes gemini flash sync cost correctly", () => {
@@ -267,14 +267,14 @@ describe("computeRunCost", () => {
     expect(cost).toBeCloseTo(1.86, 6);
   });
 
-  it("returns 0 for unknown gemini model without throwing", () => {
+  it("returns null (unknown) for an unpriced gemini model", () => {
     const cost = computeRunCost(
       "gemini",
       baseTokens,
       { lane: "gemini-bogus-9000", synthesis: "gemini-2.5-pro" },
       false
     );
-    expect(cost).toBe(0);
+    expect(cost).toBeNull();
   });
 
 });
