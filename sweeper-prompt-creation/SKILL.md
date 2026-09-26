@@ -157,13 +157,19 @@ Confirm with `tmux ls`. Remind user to check `./list-batches.sh` to monitor. Add
 
 **Cloud session (Claude subscription, sync, no batch discount):**
 
-A Claude Code cloud session has no 1Password and no vault, so the sweep runs on the Claude OAuth route and carries its result out on a git branch. Requirements: the cloud environment holds `CLAUDE_CODE_OAUTH_TOKEN` as a secret (from `claude setup-token`) and can push to `origin`. Give the session this task, filled in:
+A Claude Code cloud session has no 1Password and no vault, so the sweep runs on the Claude OAuth route and carries its result out on a git branch. Requirements: the cloud environment holds `CLAUDE_CODE_OAUTH_TOKEN` as a secret (from `claude setup-token`) and can push to `origin`. `prompts/` is gitignored, so first put the brief on the sweep branch from here:
 
 ```
-npm ci && ./cloud-sweep.sh --brief-file "prompts/[filename].md" --from [from] --to [to] --lanes [lanes] --depth [depth] --folder "[folder]"
+./cloud-sweep.sh --stage prompts/[filename].md --folder "[folder]"
 ```
 
-`cloud-sweep.sh` runs the sync sweep, commits `sweeps/[folder]` on branch `sweeps/[folder]`, pushes it, and returns the session to its starting branch. The brief must already be committed and pushed so the session can read it. When the session reports the branch, pull the result into the vault locally:
+Then open the cloud session on branch `sweeps/[folder]` and give it this task, filled in:
+
+```
+npm ci && ./cloud-sweep.sh --brief-file "prompts/[filename].md" --from [from] --to [to] --lanes [lanes] --depth [depth] --synthesis-model claude-fable-5-1 --folder "[folder]"
+```
+
+`cloud-sweep.sh` runs the sync sweep on the Claude OAuth route and commits `sweeps/[folder]` on the same branch, then pushes it. Fable 5.1 synthesis needs Agent SDK 0.3.283 or newer, which the lockfile pins. When the session reports the push, pull the result into the vault locally:
 
 ```
 ./cloud-sweep.sh --collect [folder]
