@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { execFileSync } from "child_process";
+import * as fs from "fs";
 import * as path from "path";
 
 const script = path.join(__dirname, "..", "..", "cloud-sweep.sh");
@@ -22,6 +23,17 @@ describe("cloud-sweep.sh", () => {
   it("honours --no-push and refuses without --folder", () => {
     expect(run(["--no-push", "--folder", "demo"])).not.toContain("+ git push -u origin sweeps/demo");
     expect(() => run(["--brief-file", "prompts/x.md"])).toThrow(/--folder is required/);
+  });
+
+  it("maps SWEEP_CLAUDE_OAUTH_TOKEN onto CLAUDE_CODE_OAUTH_TOKEN and refuses without either", () => {
+    const bare: NodeJS.ProcessEnv = { ...process.env, RESEARCH_SWEEPER_OUTPUT_DIR: "" };
+    delete bare.CLAUDE_CODE_OAUTH_TOKEN;
+    delete bare.SWEEP_CLAUDE_OAUTH_TOKEN;
+    expect(() =>
+      execFileSync("bash", [script, "--no-push", "--folder", "demo", "--brief-file", "x"], { encoding: "utf-8", env: bare, stdio: "pipe" })
+    ).toThrow(/no Claude OAuth token/);
+    const source = fs.readFileSync(script, "utf-8");
+    expect(source).toMatch(/export CLAUDE_CODE_OAUTH_TOKEN="\$SWEEP_CLAUDE_OAUTH_TOKEN"/);
   });
 
   it("stages a gitignored brief on the sweep branch and pushes it", () => {

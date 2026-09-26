@@ -157,7 +157,7 @@ Confirm with `tmux ls`. Remind user to check `./list-batches.sh` to monitor. Add
 
 **Cloud session (Claude subscription, sync, no batch discount):**
 
-A Claude Code cloud session has no 1Password and no vault, so the sweep runs on the Claude OAuth route and carries its result out on a git branch. Requirements: the cloud environment holds `CLAUDE_CODE_OAUTH_TOKEN` as a secret (from `claude setup-token`) and can push to `origin`. `prompts/` is gitignored, so first put the brief on the sweep branch from here:
+A Claude Code cloud session has no 1Password and no vault, so the sweep runs on the Claude OAuth route and carries its result out on a git branch. Requirements: the cloud environment holds `SWEEP_CLAUDE_OAUTH_TOKEN` (the value from `claude setup-token`; the runtime filters `CLAUDE_CODE_*` names, so the script maps this one across) and can push to `origin`. `prompts/` is gitignored, so first put the brief on the sweep branch from here:
 
 ```
 ./cloud-sweep.sh --stage prompts/[filename].md --folder "[folder]"

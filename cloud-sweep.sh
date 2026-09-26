@@ -7,8 +7,9 @@
 #   ./cloud-sweep.sh --stage prompts/x.md --folder my-topic   # locally: put the brief on branch sweeps/my-topic and push
 #   ./cloud-sweep.sh --collect my-topic                     # locally: fetch the branch and copy into the vault
 #
-# Cloud run: sync sweep on the Claude subscription route (CLAUDE_CODE_OAUTH_TOKEN
-# must be in the session environment), output under sweeps/<folder>, committed
+# Cloud run: sync sweep on the Claude subscription route (set
+# SWEEP_CLAUDE_OAUTH_TOKEN in the cloud environment; it is mapped to
+# CLAUDE_CODE_OAUTH_TOKEN, which the runtime filters out), output under sweeps/<folder>, committed
 # on branch sweeps/<folder> and pushed to origin. The sweep never writes to
 # the branch the session started on.
 #
@@ -92,8 +93,14 @@ if [[ -n "$stage" ]]; then
   echo "cloud-sweep: brief staged on ${branch}; point the cloud session at that branch"
   exit 0
 fi
+# The cloud runtime keeps CLAUDE_CODE_* names for its own auth, so an
+# environment variable under that name never reaches the session shell.
+# Accept SWEEP_CLAUDE_OAUTH_TOKEN and map it across for the Agent SDK.
+if [[ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" && -n "${SWEEP_CLAUDE_OAUTH_TOKEN:-}" ]]; then
+  export CLAUDE_CODE_OAUTH_TOKEN="$SWEEP_CLAUDE_OAUTH_TOKEN"
+fi
 if [[ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" && $dry -eq 0 ]]; then
-  echo "cloud-sweep: CLAUDE_CODE_OAUTH_TOKEN is not set; add it to the cloud environment's secrets" >&2
+  echo "cloud-sweep: no Claude OAuth token; set SWEEP_CLAUDE_OAUTH_TOKEN in the cloud environment (CLAUDE_CODE_OAUTH_TOKEN is filtered there)" >&2
   exit 2
 fi
 
