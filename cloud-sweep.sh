@@ -4,7 +4,8 @@
 # session ends.
 #
 #   ./cloud-sweep.sh --brief-file prompts/x.md --folder my-topic [--lanes ...] [--depth ...] [--from ...]
-#   ./cloud-sweep.sh --collect my-topic            # locally: fetch the branch and copy into the vault
+#   ./cloud-sweep.sh --stage prompts/x.md --folder my-topic   # locally: put the brief on branch sweeps/my-topic and push
+#   ./cloud-sweep.sh --collect my-topic                     # locally: fetch the branch and copy into the vault
 #
 # Cloud run: sync sweep on the Claude subscription route (CLAUDE_CODE_OAUTH_TOKEN
 # must be in the session environment), output under sweeps/<folder>, committed
@@ -15,18 +16,24 @@
 # RESEARCH_SWEEPER_OUTPUT_DIR (env, else .env.local, else .env), and leaves
 # the branch in place for review.
 #
-# Flags of its own: --collect <folder>, --into <dir>, --no-push, --dry-run.
+# Stage: prompts/ is gitignored (a brief is operator activity), so the brief
+# travels on the sweep branch: --stage force-adds it on sweeps/<folder> cut from
+# the current HEAD, pushes, and returns. The cloud session then checks out that
+# branch and runs the sweep, which commits on the same branch.
+#
+# Flags of its own: --stage <brief>, --collect <folder>, --into <dir>, --no-push, --dry-run.
 # Everything else is passed to research-sweep.ts unchanged.
 set -euo pipefail
 cd "$(dirname "$0")"
 
 usage() { sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
 
-collect="" into="" push=1 dry=0 folder=""
+collect="" stage="" into="" push=1 dry=0 folder=""
 passthrough=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --collect) collect="$2"; shift 2 ;;
+    --stage) stage="$2"; shift 2 ;;
     --into) into="$2"; shift 2 ;;
     --no-push) push=0; shift ;;
     --dry-run) dry=1; shift ;;
@@ -73,6 +80,18 @@ if [[ -z "$folder" ]]; then
   echo "cloud-sweep: --folder is required so the result has a branch to ride" >&2
   exit 2
 fi
+
+if [[ -n "$stage" ]]; then
+  branch="sweeps/${folder}"
+  start_branch="$(git rev-parse --abbrev-ref HEAD)"
+  run git checkout -B "$branch"
+  run git add -f "$stage"
+  run git commit -m "sweep(${folder}): stage the brief for a cloud session"
+  (( push == 0 )) || run git push -u origin "$branch"
+  run git checkout "$start_branch"
+  echo "cloud-sweep: brief staged on ${branch}; point the cloud session at that branch"
+  exit 0
+fi
 if [[ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" && $dry -eq 0 ]]; then
   echo "cloud-sweep: CLAUDE_CODE_OAUTH_TOKEN is not set; add it to the cloud environment's secrets" >&2
   exit 2
@@ -84,7 +103,7 @@ export RESEARCH_SWEEPER_OUTPUT_DIR="${RESEARCH_SWEEPER_OUTPUT_DIR:-$PWD/sweeps}"
 
 run npx ts-node research-sweep.ts --sync --provider claude --claude-auth claude-oauth "${passthrough[@]}"
 
-run git checkout -B "$branch"
+[[ "$start_branch" == "$branch" ]] || run git checkout -B "$branch"
 run git add -f "sweeps/${folder}"
 author_flag=()
 [[ -z "${SWEEP_COMMIT_AUTHOR:-}" ]] || author_flag=(--author="$SWEEP_COMMIT_AUTHOR")
@@ -92,5 +111,5 @@ run git commit ${author_flag[@]+"${author_flag[@]}"} -m "sweep(${folder}): resul
 if (( push )); then
   run git push -u origin "$branch"
 fi
-run git checkout "$start_branch"
+[[ "$start_branch" == "$branch" ]] || run git checkout "$start_branch"
 echo "cloud-sweep: results on branch ${branch}; locally run ./cloud-sweep.sh --collect ${folder}"

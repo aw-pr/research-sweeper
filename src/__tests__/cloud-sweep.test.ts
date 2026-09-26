@@ -24,6 +24,14 @@ describe("cloud-sweep.sh", () => {
     expect(() => run(["--brief-file", "prompts/x.md"])).toThrow(/--folder is required/);
   });
 
+  it("stages a gitignored brief on the sweep branch and pushes it", () => {
+    const lines = run(["--stage", "prompts/x.md", "--folder", "demo"]);
+    expect(lines).toContain("+ git checkout -B sweeps/demo");
+    expect(lines).toContain("+ git add -f prompts/x.md");
+    expect(lines).toContain("+ git push -u origin sweeps/demo");
+    expect(lines.some((l) => l.startsWith("+ npx ts-node"))).toBe(false);
+  });
+
   it("collects a branch into the configured output dir and lifts the sweeps/ prefix", () => {
     const lines = run(["--collect", "demo"], { RESEARCH_SWEEPER_OUTPUT_DIR: "/tmp/vault" });
     expect(lines).toContain("+ git fetch origin sweeps/demo");
