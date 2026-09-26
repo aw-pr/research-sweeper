@@ -71,3 +71,6 @@ state/logs/
 state/**
 !state/state.yaml
 !state/budget.json
+
+# Cloud sweep results ride their own sweeps/<folder> branch (force-added by cloud-sweep.sh)
+sweeps/
