@@ -64,7 +64,7 @@ npx ts-node research-sweep.ts --sync --provider openai --brief-file "prompts/exa
 
 Do not remove this route.
 
-When OpenAI sync is launched through `./run-secure-sweep.sh --sync --provider openai ...`, the wrapper and provider remove `OPENAI_API_KEY` before `codex exec` runs. This keeps the route on Codex/ChatGPT auth instead of silently using API-key billing. An explicit `--openai-auth api-key` with `--sync` overrides this: the wrapper then fetches `OPENAI_API_KEY` like the default route.
+When OpenAI sync is launched through `./run-secure-sweep.sh --sync --provider openai ...`, the wrapper and the shared `@openai/codex-sdk` client remove `OPENAI_API_KEY` and `CODEX_API_KEY` before the SDK starts its bundled Codex child. This keeps the route on Codex/ChatGPT auth instead of silently using API-key billing. An explicit `--openai-auth api-key` with `--sync` overrides this: the wrapper then fetches `OPENAI_API_KEY` like the default route.
 
 For spend-optimised finished batches, collect OpenAI API-key lanes and run only synthesis through Codex auth:
 
@@ -72,9 +72,9 @@ For spend-optimised finished batches, collect OpenAI API-key lanes and run only 
 ./run-secure-sweep.sh --provider openai --re-synthesise <folder> --from-batch <batchId> --openai-auth codex
 ```
 
-The wrapper exposes the API key for batch collection; the provider switches synthesis to Codex auth and strips `OPENAI_API_KEY` before `codex exec`.
+The wrapper exposes the API key for batch collection; the provider switches synthesis to Codex auth and strips `OPENAI_API_KEY` and `CODEX_API_KEY` before the SDK starts its bundled Codex child.
 
-Codex lanes carry the lane JSON schema via `codex exec --output-schema` (available on codex-cli 0.144+), so lane output is schema-enforced on this route too; synthesis stays free markdown by design.
+Codex lanes pass the lane JSON schema to the SDK turn's `outputSchema` option, with model, read-only sandbox, search, and reasoning effort set as thread options. Lane output is schema-enforced on this route too; synthesis stays free markdown by design.
 
 ### Claude Agent SDK OAuth route (Claude sync, Max/Pro quota)
 
@@ -185,7 +185,7 @@ Flows:
 
 1. CLI resolves config and auth mode.
 2. `prepareOutputTarget()` creates the stub and blocks accidental overwrite.
-3. Lanes run in parallel or submit as batch jobs. Claude API lanes are instructed to use `web_search_20250305` and receive a forced `submit_lane_findings` schema tool (`tool_choice: any`); this forces some tool use, not independently a web-search invocation. Models that reject forced `tool_choice` (Opus 5.5, Fable 5.1, and any id missing from the allowlist in `src/claude-capabilities.ts`) get `tool_choice: auto` plus a prompt instruction naming the tool. OpenAI API-key lanes force `web_search` via `tool_choice: {type: "web_search"}`; Gemini uses Google Search grounding (model-decided, not forced). Lane output is schema-enforced wherever the route can carry a schema — OpenAI api-key via Responses `text.format` json_schema (strict), OpenAI codex via `codex exec --output-schema`, Claude api-key via the forced tool's `input_schema` with `strict: true` (one shared `LANE_RESPONSE_SCHEMA` in `src/lane-schema.ts` backs all three); the tolerant parser (`src/parsing.ts`, repairs via the `jsonrepair` library) remains the safety net for the Claude OAuth and Gemini routes. Claude search-result blocks are harvested and merged with model sources in shared `assembleLaneResult`, so provenance is not model-transcribed. Sources are then normalised and deduplicated globally by URL before depth caps. Each lane returns `sources`, `narrative`, and depth-bounded `model_context` (separate from retrieved sources), and records `parseMode` (`clean`/`repaired`/`salvaged`/`fallback`).
+3. Lanes run in parallel or submit as batch jobs. Claude API lanes are instructed to use `web_search_20250305` and receive a forced `submit_lane_findings` schema tool (`tool_choice: any`); this forces some tool use, not independently a web-search invocation. Models that reject forced `tool_choice` (Opus 5.5, Fable 5.1, and any id missing from the allowlist in `src/claude-capabilities.ts`) get `tool_choice: auto` plus a prompt instruction naming the tool. OpenAI API-key lanes force `web_search` via `tool_choice: {type: "web_search"}`; Gemini uses Google Search grounding (model-decided, not forced). Lane output is schema-enforced wherever the route can carry a schema — OpenAI api-key via Responses `text.format` json_schema (strict), OpenAI codex via the SDK turn's `outputSchema`, Claude api-key via the forced tool's `input_schema` with `strict: true` (one shared `LANE_RESPONSE_SCHEMA` in `src/lane-schema.ts` backs all three); the tolerant parser (`src/parsing.ts`, repairs via the `jsonrepair` library) remains the safety net for the Claude OAuth and Gemini routes. Claude search-result blocks are harvested and merged with model sources in shared `assembleLaneResult`, so provenance is not model-transcribed. Sources are then normalised and deduplicated globally by URL before depth caps. Each lane returns `sources`, `narrative`, and depth-bounded `model_context` (separate from retrieved sources), and records `parseMode` (`clean`/`repaired`/`salvaged`/`fallback`).
 4. Synthesis (Opus / gemini-2.5-pro) combines sourced findings and `model_context`. In batch/resume mode, synthesis is itself submitted as a batch job for the 50% cost discount on all three providers (Gemini and OpenAI batch both require API-key auth). OpenAI batches synthesis through the same `/v1/responses` endpoint as its lanes, which means a batched OpenAI sweep waits on two sequential batch windows rather than one batch plus a fast sync call; terminal batch failures report the batch id and status rather than polling forever.
 5. `appendRunStats()` records run metadata and cost-estimate caveats in `runs/stats.json`.
 

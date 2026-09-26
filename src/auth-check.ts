@@ -1,11 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { GoogleGenAI } from "@google/genai";
-import { spawn } from "child_process";
 import * as fs from "fs";
-import * as os from "os";
 import * as path from "path";
-import { CODEX_AUTH_FILE, hasClaudeOAuthToken, hasGeminiOAuthToken } from "./auth/detect";
+import { codexAuthFile, hasClaudeOAuthToken, hasGeminiOAuthToken } from "./auth/detect";
+import { runCodexTurn } from "./codex-sdk";
 import { parseEnvFile } from "./env";
 
 const ANTHROPIC_TEST_MODEL = "claude-haiku-4-5-20251001";
@@ -79,47 +78,25 @@ async function checkOpenAI(): Promise<CheckResult> {
 }
 
 async function checkCodex(): Promise<CheckResult> {
-  if (!fs.existsSync(CODEX_AUTH_FILE)) {
-    return { name: "Codex auth", state: "missing", detail: `No auth file found at ${CODEX_AUTH_FILE}` };
+  const authFile = codexAuthFile();
+  if (!fs.existsSync(authFile)) {
+    return { name: "Codex auth", state: "missing", detail: `No auth file found at ${authFile}` };
   }
 
-  const outputPath = path.join(os.tmpdir(), `research-sweeper-codex-auth-${Date.now()}.txt`);
-  const args = [
-    "exec",
-    "--json",
-    "--model",
-    CODEX_TEST_MODEL,
-    "--sandbox",
-    "read-only",
-    "--skip-git-repo-check",
-    "--output-last-message",
-    outputPath,
-    "Reply with OK.",
-  ];
-
   try {
-    const stderr = await new Promise<string>((resolve, reject) => {
-      const child = spawn("codex", args, { stdio: ["ignore", "pipe", "pipe"] });
-      const err: Buffer[] = [];
-      child.stderr.on("data", (chunk) => err.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
-      child.on("error", reject);
-      child.on("close", (code) => {
-        if (code !== 0) {
-          reject(new Error(Buffer.concat(err).toString("utf-8") || `codex exec failed with ${code}`));
-          return;
-        }
-        resolve(Buffer.concat(err).toString("utf-8"));
-      });
+    const result = await runCodexTurn({
+      prompt: "Reply with OK.",
+      model: CODEX_TEST_MODEL,
+      reasoningEffort: "low",
+      useSearch: false,
     });
-    const text = fs.existsSync(outputPath) ? fs.readFileSync(outputPath, "utf-8").trim() : "";
-    if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+    const text = result.text.trim();
     return {
       name: "Codex auth",
       state: "ok",
-      detail: `codex exec succeeded with ${CODEX_TEST_MODEL}${text ? `; response: ${text.slice(0, 40)}` : stderr ? `; stderr: ${stderr.slice(0, 40)}` : ""}`,
+      detail: `Codex SDK succeeded with ${CODEX_TEST_MODEL}; response: ${(text || "(empty response)").slice(0, 40)}`,
     };
   } catch (error) {
-    if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
     return {
       name: "Codex auth",
       state: "failed",
@@ -227,6 +204,7 @@ function maskSecret(value: string | undefined): string {
 
 export async function runAuthCheck(envFilePath: string, target: AuthCheckTarget = "all"): Promise<void> {
   const envValues = parseEnvFile(envFilePath);
+  const codexAuthPath = codexAuthFile();
   console.log(`
 Auth Check
 ----------
@@ -234,7 +212,7 @@ Env file: ${path.resolve(envFilePath)}${fs.existsSync(envFilePath) ? "" : " (not
 ANTHROPIC_API_KEY in env file: ${maskSecret(envValues.ANTHROPIC_API_KEY)}
 OPENAI_API_KEY in env file: ${maskSecret(envValues.OPENAI_API_KEY)}
 GEMINI_API_KEY in env file: ${maskSecret(envValues.GEMINI_API_KEY)}
-Codex auth file: ${CODEX_AUTH_FILE}${fs.existsSync(CODEX_AUTH_FILE) ? "" : " (missing)"}
+Codex auth file: ${codexAuthPath}${fs.existsSync(codexAuthPath) ? "" : " (missing)"}
 CLAUDE_CODE_OAUTH_TOKEN: ${process.env.CLAUDE_CODE_OAUTH_TOKEN ? "(set)" : "(missing)"}
 GOOGLE_ACCESS_TOKEN: ${process.env.GOOGLE_ACCESS_TOKEN ? "(set)" : "(missing)"}
 ANTHROPIC_API_KEY in process: ${process.env.ANTHROPIC_API_KEY ? "(set)" : "(absent)"}

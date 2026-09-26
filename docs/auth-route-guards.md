@@ -29,7 +29,7 @@ Route guard:
 - `src/providers/claude.ts` also deletes `process.env.ANTHROPIC_API_KEY` before importing/running the Agent SDK.
 - `run-secure-sweep.sh --sync --provider openai ...`
   strips `OPENAI_API_KEY` after `op run` hydration.
-- `src/providers/openai.ts` also deletes `OPENAI_API_KEY` before spawning `codex exec`.
+- `src/codex-sdk.ts` deletes `OPENAI_API_KEY` and `CODEX_API_KEY` and supplies an explicit sanitised environment before the SDK starts its bundled Codex child.
 
 Smoke test:
 
@@ -92,7 +92,7 @@ Key hydration:
 
 Route guard:
 
-- the default `SCORER=openai_codex` path removes `OPENAI_API_KEY` from the `codex exec` child process environment.
+- the default `SCORER=openai_codex` path removes `OPENAI_API_KEY` from the Codex CLI child process environment.
 - explicit `SCORER=openai_api` still uses `OPENAI_API_KEY`.
 - explicit `SCORER=claude` still uses `ANTHROPIC_API_KEY`.
 
