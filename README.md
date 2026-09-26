@@ -67,7 +67,7 @@ gitignored, so a fresh clone runs without writing anywhere else. Set
 `RESEARCH_SWEEPER_OUTPUT_DIR` (env or `.env`) to write into a notes vault or any
 other directory.
 
-The single synthesis call defaults to `claude-opus-4-8` (a reasoning-dominated
+The single synthesis call defaults to `claude-opus-5-5` (a reasoning-dominated
 call where the extra capability earns its cost once per sweep); the six lanes
 stay on haiku/sonnet. Override the synthesis model without a code change via
 `SYNTHESIS_MODEL` (env or `.env`), e.g. `SYNTHESIS_MODEL=claude-fable-5`, or the

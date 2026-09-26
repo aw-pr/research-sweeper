@@ -27,7 +27,7 @@ Specifically:
 3. **Run sweep** — drive the secure CLI wrapper (see Command surface). Default mode is **batch** (submits and prints a `batchId`); add `--sync` for an immediate single-shot result. Always pass `--topic` — without it the CLI drops to an interactive prompt and stalls in a non-interactive shell; redirect `< /dev/null` as a guard.
 4. **Poll / collect** — for batch runs, list with `./list-batches.sh` and collect a finished batch with `./run-secure-sweep.sh --resume <id> --provider <p>`.
 5. **Verify outputs exist** — check the output folder before reporting success.
-6. **Synthesise** — default synthesis model is `claude-opus-4-8`; override via `--synthesis-model`. Rebuild a report from cached lane data without re-fetching via `--re-synthesise <folder>`. A lane or synthesis call that hits `max_tokens` is flagged, not silently accepted: a truncated lane narrative is prefixed `[TRUNCATED at max_tokens — findings incomplete]`, and a truncated synthesis markdown carries a `> [!warning]` callout — both are generated markers, so treat them as a cue to rerun with fewer lanes or a deeper tier.
+6. **Synthesise** — default synthesis model is `claude-opus-5-5`; override via `--synthesis-model`. Rebuild a report from cached lane data without re-fetching via `--re-synthesise <folder>`. A lane or synthesis call that hits `max_tokens` is flagged, not silently accepted: a truncated lane narrative is prefixed `[TRUNCATED at max_tokens — findings incomplete]`, and a truncated synthesis markdown carries a `> [!warning]` callout — both are generated markers, so treat them as a cue to rerun with fewer lanes or a deeper tier.
 
 ## Command surface
 

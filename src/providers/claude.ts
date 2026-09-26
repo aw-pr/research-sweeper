@@ -36,7 +36,7 @@ const FALLBACK_LANE_MODEL_HAIKU = "claude-haiku-4-5-20251001";
 const FALLBACK_LANE_MODEL_SONNET = "claude-sonnet-5";
 // Synthesis is a single reasoning-dominated call per sweep, so it runs a tier
 // above the lanes. The high-volume lanes are unaffected by its override.
-const FALLBACK_SYNTHESIS_MODEL = "claude-opus-4-8";
+const FALLBACK_SYNTHESIS_MODEL = "claude-opus-5-5";
 
 export function haikuLaneModel(): string {
   return envModel("LANE_MODEL_HAIKU") ?? registryModel("claude", "haiku") ?? FALLBACK_LANE_MODEL_HAIKU;
