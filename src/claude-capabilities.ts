@@ -25,3 +25,14 @@ const FORCED_TOOL_CHOICE_MODELS = new Set([
 export function acceptsForcedToolChoice(model: string): boolean {
   return FORCED_TOOL_CHOICE_MODELS.has(baseModelId(model));
 }
+
+// output_config.effort returns a 400 on these (Haiku 4.5 is the test-mode and
+// judge model, so this is not theoretical). Every model since accepts it, and
+// newer ones default below `high` (Opus 5.5 defaults to `medium`), so an
+// unknown id is assumed to support it.
+const NO_EFFORT_MODELS = new Set(["claude-haiku-4-5", "claude-sonnet-4-5", "claude-sonnet-4", "claude-opus-4", "claude-opus-4-1"]);
+
+export function supportsEffort(model: string): boolean {
+  const id = baseModelId(model);
+  return !NO_EFFORT_MODELS.has(id) && !id.startsWith("claude-3");
+}

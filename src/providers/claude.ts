@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { ClaudeAuthMode, detectClaudeAuthMode, requireApiKeyModeOrThrow } from "../auth/detect";
 import { DEPTH_CONFIG, LANE_CONFIG } from "../config";
 import { fallbackLaneResult, parseLaneResponse } from "../parsing";
+import { supportsEffort } from "../claude-capabilities";
 import { claudeLaneToolConfig, countClaudeSearches, extractClaudeLaneRaw, harvestClaudeSearchSources, mergeLaneSources } from "../lane-schema";
 import { buildLanePrompt, buildSynthesisPrompt, buildLaneSystemPrefix } from "../prompts";
 import { envModel, registryModel } from "../model-registry";
@@ -161,6 +162,24 @@ export function buildLaneRequestParams(config: SweepConfig, lane: Lane): Record<
     messages: [{ role: "user", content: instruction ? `${prompt}\n\n${instruction}` : prompt }],
     tools,
     tool_choice,
+  };
+}
+
+// Synthesis is the one call where depth of reasoning shows in the output, and
+// newer models default effort below `high` (Opus 5.5: `medium`), so pin it.
+// Thinking is deliberately left unset: Opus 5.5 and Fable reject a disabled
+// thinking config or budget_tokens, and omitting it runs adaptive thinking.
+export const SYNTHESIS_EFFORT = "high";
+
+export function buildSynthesisRequestParams(config: SweepConfig, laneResults: LaneResult[], sourcesName: string, model: string): Record<string, unknown> {
+  return {
+    model,
+    max_tokens: DEPTH_CONFIG[config.depth].synthesisMaxTokens,
+    ...(supportsEffort(model) ? { output_config: { effort: SYNTHESIS_EFFORT } } : {}),
+    // Deliberately uncached: the synthesis prompt has no shared prefix
+    // across a sweep (see stats.ts), so a cache_control breakpoint here
+    // would only pay the 1.25x write premium for ~zero reads.
+    messages: [{ role: "user", content: buildSynthesisPrompt(config, laneResults, sourcesName) }],
   };
 }
 
@@ -409,17 +428,9 @@ export class ClaudeProvider implements ProviderAdapter {
   private async runSynthesisViaApi(config: SweepConfig, laneResults: LaneResult[], sourcesName: string): Promise<{ markdown: string; tokensIn: number; tokensOut: number }> {
     const client = this.getClient();
     console.log("\n  [Synthesis] Assembling research brief...");
+    const params = buildSynthesisRequestParams(config, laneResults, sourcesName, this.getModels(config, "sync").synthesis);
     const response = await withClaudeRetry("Synthesis", () =>
-      client.messages.create({
-        model: this.getModels(config, "sync").synthesis,
-        max_tokens: DEPTH_CONFIG[config.depth].synthesisMaxTokens,
-        // Deliberately uncached: the synthesis prompt has no shared prefix
-        // across a sweep (see stats.ts), so a cache_control breakpoint here
-        // would only pay the 1.25x write premium for ~zero reads.
-        messages: [
-          { role: "user", content: buildSynthesisPrompt(config, laneResults, sourcesName) },
-        ],
-      } as unknown as Anthropic.MessageCreateParamsNonStreaming)
+      client.messages.create(params as unknown as Anthropic.MessageCreateParamsNonStreaming)
     );
     let markdown = response.content.filter((block) => block.type === "text").map((block) => block.text).join("\n");
     const stopClass = classifyStopReason(response.stop_reason);
@@ -442,6 +453,7 @@ export class ClaudeProvider implements ProviderAdapter {
       prompt: buildSynthesisPrompt(config, laneResults, sourcesName),
       options: {
         model,
+        ...(supportsEffort(model) ? { effort: SYNTHESIS_EFFORT } : {}),
         allowedTools: SYNTH_ALLOWED_TOOLS,
         disallowedTools: [...CLI_DISALLOWED_TOOLS, "WebSearch"],
         permissionMode: "bypassPermissions",
@@ -496,19 +508,7 @@ export class ClaudeProvider implements ProviderAdapter {
     requireApiKeyModeOrThrow("claude", this.resolveAuthMode(config));
     const client = this.getClient();
     const model = this.getModels(config, "batch").synthesis;
-    const requests = [
-      {
-        custom_id: "synthesis",
-        params: {
-          model,
-          max_tokens: DEPTH_CONFIG[config.depth].synthesisMaxTokens,
-          // Deliberately uncached — see runSynthesisViaApi and stats.ts.
-          messages: [
-            { role: "user", content: buildSynthesisPrompt(config, laneResults, sourcesName) },
-          ],
-        },
-      },
-    ];
+    const requests = [{ custom_id: "synthesis", params: buildSynthesisRequestParams(config, laneResults, sourcesName, model) }];
     const batch = await client.messages.batches.create({ requests } as unknown as Anthropic.Messages.BatchCreateParams);
     return batch.id;
   }
