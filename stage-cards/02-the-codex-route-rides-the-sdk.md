@@ -143,3 +143,38 @@ of `runCodexTurn`. If the SDK's usage object differs from what
 Codex worker: the run worktree is sandboxed workspace-write; `npm install`
 needs the socket, which `Requires network: true` opens. The live smoke in
 criterion 6 is the verifier's to run, not the worker's.
+
+## Re-brief note (2026-09-26 17:55 UTC, orchestrator) — attempt 2
+
+Attempt 1 is preserved as commit `c9692e2` on branch
+`wip/02-the-codex-route-rides-the-sdk-attempt-1`. Seven of eight criteria
+passed. Start from that work: in your fresh run worktree run
+`git cherry-pick c9692e2` first, then fix the one defect below.
+
+**The defect (criterion 6).** `@openai/codex-sdk` 0.157.1 is ESM-only
+(`"type": "module"`, exports carry only an `import` condition) and this repo
+compiles to CommonJS, so the static `import { Codex } from "@openai/codex-sdk"`
+at the top of `src/codex-sdk.ts` becomes a `require()` that Node rejects with
+`ERR_PACKAGE_PATH_NOT_EXPORTED`. Because the provider and the auth check
+import that module statically, every CLI route fails to load, including
+`--help`.
+
+**The fix.** Keep only type imports at module scope
+(`import type { ModelReasoningEffort } from "@openai/codex-sdk"`) and load the
+runtime module lazily inside `runCodexTurn` with the same shim
+`src/providers/claude.ts` already uses for the Agent SDK:
+
+```ts
+const dynamicImport = new Function("m", "return import(m)") as (m: string) => Promise<typeof import("@openai/codex-sdk")>;
+```
+
+Cache the loaded module so a sweep pays the import once.
+
+**Hardening from the verifier's non-blocking findings.** `codexChildEnv`
+must also drop `CODEX_API_KEY`, for the same reason it drops
+`OPENAI_API_KEY`: either one can move the child onto API-key billing.
+
+**Verification the worker runs before writing the envelope.** In addition
+to the card's checks: `npx ts-node research-sweep.ts --help` exits 0, and
+`env -u OPENAI_API_KEY -u CODEX_API_KEY npx ts-node research-sweep.ts --auth-check codex`
+prints a PASS line for Codex auth. Paste both outputs in the envelope.
