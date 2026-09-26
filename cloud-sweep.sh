@@ -68,11 +68,14 @@ if [[ -n "$collect" ]]; then
   into="${into/#\~/$HOME}"
   run git fetch origin "$branch"
   run mkdir -p "$into"
-  run git --work-tree="$into" checkout "origin/${branch}" -- "sweeps/${collect}"
-  # git restores the path verbatim, so lift the folder out of the sweeps/ prefix.
   run rm -rf "${into}/${collect}"
-  run mv "${into}/sweeps/${collect}" "${into}/${collect}"
-  run rmdir "${into}/sweeps"
+  # git archive reads the branch without touching this checkout's index or
+  # tree; strip the sweeps/ prefix so the folder lands directly in the vault.
+  if (( dry )); then
+    printf '+ git archive origin/%s sweeps/%s | tar -x -C %s --strip-components=1\n' "$branch" "$collect" "$into"
+  else
+    git archive "origin/${branch}" "sweeps/${collect}" | tar -x -C "$into" --strip-components=1
+  fi
   echo "cloud-sweep: ${collect} collected into ${into}/${collect}"
   exit 0
 fi

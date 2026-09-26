@@ -57,7 +57,7 @@ describe("cloud-sweep.sh", () => {
   it("collects a branch into the configured output dir and lifts the sweeps/ prefix", () => {
     const lines = run(["--collect", "demo"], { RESEARCH_SWEEPER_OUTPUT_DIR: "/tmp/vault" });
     expect(lines).toContain("+ git fetch origin sweeps/demo");
-    expect(lines).toContain("+ git --work-tree=/tmp/vault checkout origin/sweeps/demo -- sweeps/demo");
-    expect(lines).toContain("+ mv /tmp/vault/sweeps/demo /tmp/vault/demo");
+    expect(lines).toContain("+ git archive origin/sweeps/demo sweeps/demo | tar -x -C /tmp/vault --strip-components=1");
+    expect(lines.some((l) => l.includes("--work-tree"))).toBe(false);
   });
 });
