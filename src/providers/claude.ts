@@ -4,6 +4,7 @@ import { DEPTH_CONFIG, LANE_CONFIG } from "../config";
 import { fallbackLaneResult, parseLaneResponse } from "../parsing";
 import { claudeLaneToolConfig, countClaudeSearches, extractClaudeLaneRaw, harvestClaudeSearchSources, mergeLaneSources } from "../lane-schema";
 import { buildLanePrompt, buildSynthesisPrompt, buildLaneSystemPrefix } from "../prompts";
+import { envModel, registryModel } from "../model-registry";
 import { withTransientRetry } from "../retry";
 import {
   appendSynthesisTruncationWarning,
@@ -17,22 +18,37 @@ import { BatchLaneFailure, BatchStatus, Lane, LaneResult, ProviderAdapter, Provi
 // Model-ID pinning policy (checked against platform.claude.com/docs, 2026-07):
 // every Claude model ID is a pinned snapshot, dated or not — Anthropic's docs
 // are explicit that starting with the 4.6 generation, dateless IDs are pinned
-// snapshots too, not evergreen pointers. LANE_MODEL_HAIKU carries a date
+// snapshots too, not evergreen pointers. The Haiku fallback carries a date
 // suffix because it predates that 4.6-generation naming change and the
 // Claude API ID for Haiku 4.5 has always been `claude-haiku-4-5-20251001`
-// (`claude-haiku-4-5` is the alias). LANE_MODEL_SONNET and SYNTHESIS_MODEL
-// are undated because `claude-sonnet-5` / `claude-opus-4-8` ARE the
-// documented canonical Claude API IDs for those models — there is no dated
-// snapshot variant to pin to instead, so the undated/dated split below is
-// deliberate, not an oversight. Re-check platform.claude.com/docs/en/about-
-// claude/models/overview if a future release reintroduces dated IDs.
-const LANE_MODEL_HAIKU = "claude-haiku-4-5-20251001";
-const LANE_MODEL_SONNET = "claude-sonnet-5";
+// (`claude-haiku-4-5` is the alias). The Sonnet and synthesis fallbacks are
+// undated because those ARE the documented canonical Claude API IDs — there
+// is no dated snapshot variant to pin to instead, so the undated/dated split
+// below is deliberate, not an oversight. Re-check platform.claude.com/docs/
+// en/about-claude/models/overview if a future release reintroduces dated IDs.
+//
+// Each tier resolves env override > MODEL_REGISTRY (`claude.<tier>`) > the
+// fallback constant, read lazily so .env.local (loaded in main() after
+// import) still applies. A model bump is then a registry edit, not a code
+// change; the constants only matter when no registry is configured.
+const FALLBACK_LANE_MODEL_HAIKU = "claude-haiku-4-5-20251001";
+const FALLBACK_LANE_MODEL_SONNET = "claude-sonnet-5";
 // Synthesis is a single reasoning-dominated call per sweep, so it runs a tier
-// above the lanes. Default is Opus 4.8; override with SYNTHESIS_MODEL (read
-// lazily so .env.local, loaded in main() after import, still applies) to dial
-// it up or down without a code change. The high-volume lanes are unaffected.
-const SYNTHESIS_MODEL = "claude-opus-4-8";
+// above the lanes. The high-volume lanes are unaffected by its override.
+const FALLBACK_SYNTHESIS_MODEL = "claude-opus-4-8";
+
+export function haikuLaneModel(): string {
+  return envModel("LANE_MODEL_HAIKU") ?? registryModel("claude", "haiku") ?? FALLBACK_LANE_MODEL_HAIKU;
+}
+
+export function sonnetLaneModel(): string {
+  return envModel("LANE_MODEL_SONNET") ?? registryModel("claude", "sonnet") ?? FALLBACK_LANE_MODEL_SONNET;
+}
+
+// --synthesis-model (config.synthesisModel) still outranks everything.
+export function synthesisModel(config: SweepConfig): string {
+  return config.synthesisModel || envModel("SYNTHESIS_MODEL") || registryModel("claude", "opus") || FALLBACK_SYNTHESIS_MODEL;
+}
 
 // Bound on pause_turn resend loops in runLaneViaApi (server-side web_search
 // loop hit its internal round cap and needs a resend to continue). 5 is
@@ -76,9 +92,9 @@ type ClaudeSdkMessage =
   | { type: string; [key: string]: unknown };
 
 function resolveLaneModel(config: SweepConfig): string {
-  if (config.laneModel === "sonnet") return LANE_MODEL_SONNET;
-  if (config.laneModel === "haiku") return LANE_MODEL_HAIKU;
-  return config.depth === "deep" ? LANE_MODEL_SONNET : LANE_MODEL_HAIKU;
+  if (config.laneModel === "sonnet") return sonnetLaneModel();
+  if (config.laneModel === "haiku") return haikuLaneModel();
+  return config.depth === "deep" ? sonnetLaneModel() : haikuLaneModel();
 }
 
 function usageCounts(input: { processing?: number; succeeded?: number; errored?: number }): UsageCounts {
@@ -126,7 +142,7 @@ export function determineFailedLanes(items: BatchResultTypeItem[], lanes: Lane[]
 export function buildLaneBatchRequests(config: SweepConfig, lanes: Lane[]): ClaudeBatchRequest[] {
   return lanes.map((lane) => {
     const params: Record<string, unknown> = {
-      model: config.test ? LANE_MODEL_HAIKU : resolveLaneModel(config),
+      model: config.test ? haikuLaneModel() : resolveLaneModel(config),
       max_tokens: DEPTH_CONFIG[config.depth].laneMaxTokens,
       system: [
         { type: "text", text: buildLaneSystemPrefix(config), cache_control: { type: "ephemeral" } },
@@ -248,8 +264,8 @@ export class ClaudeProvider implements ProviderAdapter {
 
   getModels(config: SweepConfig, mode: "sync" | "batch"): ProviderModels {
     return {
-      lane: config.test ? LANE_MODEL_HAIKU : resolveLaneModel(config),
-      synthesis: config.test ? LANE_MODEL_HAIKU : config.synthesisModel || process.env.SYNTHESIS_MODEL || SYNTHESIS_MODEL,
+      lane: config.test ? haikuLaneModel() : resolveLaneModel(config),
+      synthesis: config.test ? haikuLaneModel() : synthesisModel(config),
     };
   }
 
@@ -270,7 +286,7 @@ export class ClaudeProvider implements ProviderAdapter {
     const definition = LANE_CONFIG[lane];
     console.log(`  [${definition.label}] Starting sweep...`);
 
-    const model = config.test ? LANE_MODEL_HAIKU : resolveLaneModel(config);
+    const model = config.test ? haikuLaneModel() : resolveLaneModel(config);
 
     try {
       const requestParams: Record<string, unknown> = {
@@ -351,7 +367,7 @@ export class ClaudeProvider implements ProviderAdapter {
 
   private async runLaneViaClaudeOAuth(config: SweepConfig, lane: Lane): Promise<LaneResult> {
     const definition = LANE_CONFIG[lane];
-    const model = config.test ? LANE_MODEL_HAIKU : resolveLaneModel(config);
+    const model = config.test ? haikuLaneModel() : resolveLaneModel(config);
     console.log(`  [${definition.label}] Starting sweep (claude-oauth)...`);
 
     try {
@@ -550,7 +566,7 @@ export class ClaudeProvider implements ProviderAdapter {
     const laneResultMap = new Map<Lane, LaneResult>();
     // Fallback model used only when a non-succeeded result gives us nothing to read
     // and the caller didn't pass the submitted model — keep this honest, not Sonnet.
-    const fallbackModel = submittedModel || LANE_MODEL_HAIKU;
+    const fallbackModel = submittedModel || haikuLaneModel();
     for await (const item of await client.messages.batches.results(batchId)) {
       const lane = item.custom_id as Lane;
       const definition = LANE_CONFIG[lane];
