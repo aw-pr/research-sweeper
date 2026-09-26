@@ -36,6 +36,10 @@ describe("cloud-sweep.sh", () => {
     expect(source).toMatch(/export CLAUDE_CODE_OAUTH_TOKEN="\$SWEEP_CLAUDE_OAUTH_TOKEN"/);
   });
 
+  it("sets IS_SANDBOX=1 when running as root so bypassPermissions is accepted", () => {
+    expect(fs.readFileSync(script, "utf-8")).toMatch(/id -u.*== "0".*\n\s*export IS_SANDBOX=1/);
+  });
+
   it("stages a gitignored brief on the sweep branch and pushes it", () => {
     const lines = run(["--stage", "prompts/x.md", "--folder", "demo"]);
     expect(lines).toContain("+ git checkout -B sweeps/demo");

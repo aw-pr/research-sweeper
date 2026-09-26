@@ -104,6 +104,13 @@ if [[ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" && $dry -eq 0 ]]; then
   exit 2
 fi
 
+# The cloud container runs as root, and Claude Code refuses bypassPermissions
+# under root unless it is told it is inside a sandbox. The Agent SDK lanes use
+# that mode, so set the documented container escape hatch when we are root.
+if [[ "$(id -u)" == "0" ]]; then
+  export IS_SANDBOX=1
+fi
+
 branch="sweeps/${folder}"
 start_branch="$(git rev-parse --abbrev-ref HEAD)"
 export RESEARCH_SWEEPER_OUTPUT_DIR="${RESEARCH_SWEEPER_OUTPUT_DIR:-$PWD/sweeps}"
