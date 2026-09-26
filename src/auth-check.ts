@@ -92,7 +92,6 @@ async function checkCodex(): Promise<CheckResult> {
     "--sandbox",
     "read-only",
     "--skip-git-repo-check",
-    "--full-auto",
     "--output-last-message",
     outputPath,
     "Reply with OK.",
