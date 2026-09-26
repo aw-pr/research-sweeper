@@ -98,7 +98,7 @@ The retired MCP server was launched with an empty environment and never called `
 
 **Do not** run Claude OAuth sync as raw `npx ts-node research-sweep.ts ...` unless `CLAUDE_CODE_OAUTH_TOKEN` is available through fill-only `.env`/`.env.local` loading or the exported environment. Raw invocations bypass `op-fetch` and `op://` hydration.
 
-For OpenAI: `--sync --provider openai` strips `OPENAI_API_KEY` before invoking `codex exec` (lane output is schema-enforced via `codex exec --output-schema`). An explicit `--openai-auth api-key` overrides the codex default and fetches the API key instead.
+For OpenAI: `--sync --provider openai` strips `OPENAI_API_KEY` before the Codex child starts (lane output is schema-enforced on the Codex route too). An explicit `--openai-auth api-key` overrides the codex default and fetches the API key instead.
 
 For split spend: `--re-synthesise <folder> --from-batch <batchId>` collects the finished batch through the provider's API-key route, then applies an explicit synthesis override such as `--openai-auth codex` or `--claude-auth claude-oauth`. The wrapper fetches both credentials only for that split collection/synthesis flow, and the provider strips the API key before entering the subscription/OAuth synthesis route.
 
