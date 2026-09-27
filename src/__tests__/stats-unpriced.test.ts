@@ -85,13 +85,13 @@ describe("registry pricing fallback", () => {
     useRegistry({ "claude-future-9": { inPer1M: 2, outPer1M: 8 } });
     const models = { lane: "claude-sonnet-5", synthesis: "claude-future-9" };
     expect(findUnpricedModels("claude", models)).toEqual([]);
-    // lane 1M * $3 + synthesis 1M * $2
-    expect(computeRunCost("claude", tokens, models, false)).toBeCloseTo(5, 6);
+    // lane 1M * $2 + synthesis 1M * $2
+    expect(computeRunCost("claude", tokens, models, false)).toBeCloseTo(4, 6);
   });
 
   it("prefers the local table over the registry for a known id", () => {
     useRegistry({ "claude-sonnet-5": { inPer1M: 99, outPer1M: 99 } });
     const models = { lane: "claude-sonnet-5", synthesis: "claude-sonnet-5" };
-    expect(computeRunCost("claude", tokens, models, false)).toBeCloseTo(6, 6);
+    expect(computeRunCost("claude", tokens, models, false)).toBeCloseTo(4, 6);
   });
 });
