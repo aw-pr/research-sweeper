@@ -45,11 +45,27 @@ describe("buildLaneBatchRequests", () => {
   });
 
   it("forces tool use and leaves the prompt untouched on a model that accepts it", () => {
+    const saved = process.env.LANE_MODEL_SONNET;
+    process.env.LANE_MODEL_SONNET = "claude-sonnet-5";
+    try {
+      const config = { ...makeConfig(["financial"]), depth: "deep" as const };
+      const [request] = buildLaneBatchRequests(config, config.lanes);
+      expect(request.params.tool_choice).toEqual({ type: "any" });
+      const content = (request.params.messages as Array<{ content: string }>)[0].content;
+      expect(content).not.toContain("MUST call the submit_lane_findings");
+    } finally {
+      if (saved === undefined) delete process.env.LANE_MODEL_SONNET;
+      else process.env.LANE_MODEL_SONNET = saved;
+    }
+  });
+
+  it("does not force tool use on the default deep-lane model, claude-sonnet-5-5", () => {
     const config = { ...makeConfig(["financial"]), depth: "deep" as const };
     const [request] = buildLaneBatchRequests(config, config.lanes);
-    expect(request.params.tool_choice).toEqual({ type: "any" });
+    expect(request.params.model).toBe("claude-sonnet-5-5");
+    expect(request.params.tool_choice).toEqual({ type: "auto" });
     const content = (request.params.messages as Array<{ content: string }>)[0].content;
-    expect(content).not.toContain("MUST call the submit_lane_findings");
+    expect(content).toContain("MUST call the submit_lane_findings");
   });
 
   it("switches to auto + an appended submit instruction when the lane model rejects forced tool_choice", () => {

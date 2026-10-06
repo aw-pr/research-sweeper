@@ -86,7 +86,7 @@ describe("model registry", () => {
 describe("Claude model resolution order", () => {
   it("uses the built-in fallbacks with no env and no registry", () => {
     expect(haikuLaneModel()).toBe("claude-haiku-4-5-20251001");
-    expect(sonnetLaneModel()).toBe("claude-sonnet-5");
+    expect(sonnetLaneModel()).toBe("claude-sonnet-5-5");
     expect(synthesisModel(makeConfig())).toMatch(/^claude-opus-/);
   });
 
