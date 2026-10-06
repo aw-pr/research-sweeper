@@ -39,6 +39,7 @@ const MODEL_PRICING: Record<Provider, Record<string, ModelPricing>> = {
     // Sonnet 5's launch $2/$10 became the standard price; its newer tokenizer
     // emits ~30% more tokens per unit text than 4-6.
     "claude-sonnet-5": { inPer1M: 2.0, outPer1M: 10.0, cachedInPer1M: 0.2 },
+    "claude-sonnet-5-5": { inPer1M: 2.0, outPer1M: 10.0, cachedInPer1M: 0.2 },
     "claude-opus-4-5": { inPer1M: 5.0, outPer1M: 25.0 },
     "claude-opus-4-7": { inPer1M: 5.0, outPer1M: 25.0 },
     "claude-opus-4-8": { inPer1M: 5.0, outPer1M: 25.0 },

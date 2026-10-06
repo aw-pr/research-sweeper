@@ -90,6 +90,14 @@ describe("computeRunCost", () => {
     expect(computeRunCost("claude", cached, models, false)).toBeCloseTo(17.0, 6);
   });
 
+  it("prices claude-sonnet-5-5 at $2/$10 with its $0.20 cache-read rate", () => {
+    const models: ProviderModels = { lane: "claude-sonnet-5-5", synthesis: "claude-sonnet-5-5" };
+    // lanes 1M * $2 + 0.5M * $10 = $7; synthesis 0.2M * $2 + 0.1M * $10 = $1.4
+    expect(computeRunCost("claude", baseTokens, models, false)).toBeCloseTo(8.4, 6);
+    const cached: TokenBreakdown = { ...baseTokens, cacheReadIn: 1_000_000 };
+    expect(computeRunCost("claude", cached, models, false)).toBeCloseTo(8.6, 6);
+  });
+
   it("does not charge OpenAI reasoning tokens twice", () => {
     // Responses usage.output_tokens already includes reasoning tokens.
     const tokens: TokenBreakdown = {
