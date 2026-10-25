@@ -27,7 +27,7 @@ Specifically:
 3. **Run sweep** — drive the secure CLI wrapper (see Command surface). Default mode is **batch** (submits and prints a `batchId`); add `--sync` for an immediate single-shot result. Always pass `--topic` — without it the CLI drops to an interactive prompt and stalls in a non-interactive shell; redirect `< /dev/null` as a guard.
 4. **Poll / collect** — for batch runs, list with `./list-batches.sh` and collect a finished batch with `./run-secure-sweep.sh --resume <id> --provider <p>`.
 5. **Verify outputs exist** — check the output folder before reporting success.
-6. **Synthesise** — default synthesis model is `claude-opus-4-8`; override via `--synthesis-model`. Rebuild a report from cached lane data without re-fetching via `--re-synthesise <folder>`. A lane or synthesis call that hits `max_tokens` is flagged, not silently accepted: a truncated lane narrative is prefixed `[TRUNCATED at max_tokens — findings incomplete]`, and a truncated synthesis markdown carries a `> [!warning]` callout — both are generated markers, so treat them as a cue to rerun with fewer lanes or a deeper tier.
+6. **Synthesise** — default synthesis model is `claude-opus-5-5`; override via `--synthesis-model`. Rebuild a report from cached lane data without re-fetching via `--re-synthesise <folder>`. A lane or synthesis call that hits `max_tokens` is flagged, not silently accepted: a truncated lane narrative is prefixed `[TRUNCATED at max_tokens — findings incomplete]`, and a truncated synthesis markdown carries a `> [!warning]` callout — both are generated markers, so treat them as a cue to rerun with fewer lanes or a deeper tier.
 
 ## Command surface
 
@@ -74,7 +74,13 @@ npm run sweep:secure -- --topic "…" --brief-file prompts/x.md \
 | Gemini OAuth sync (GCP-billed) | `./run-secure-sweep.sh --sync --provider gemini --gemini-auth gemini-oauth ...` |
 | Gemini API-key batch | `npm run sweep:gemini -- ...` (needs paid-tier billing) |
 
-Output lands under `RESEARCH_SWEEPER_OUTPUT_DIR` (default `output/` in the repo), one folder per topic slug; deep and standard summaries include a Mermaid timeline section.
+Output lands under `RESEARCH_SWEEPER_OUTPUT_DIR`, one folder per topic slug; deep and standard summaries include a Mermaid timeline section. **The intended destination is the Obsidian vault research folder (`~/obsidian/research/`), not the repo.** The CLI's built-in default is repo-local `output/` so a fresh clone runs without writing outside the checkout, so the vault path is set in the gitignored `.env` at the repo root:
+
+```
+RESEARCH_SWEEPER_OUTPUT_DIR=/absolute/path/to/obsidian/research
+```
+
+Before launching a sweep, confirm that line exists and holds an absolute path: `grep -E '^RESEARCH_SWEEPER_OUTPUT_DIR=' .env.local .env`. Both files are read, and `.env.local` wins over `.env` when both set it, so the `.env.local` value is the one that applies. If neither has it, add it first; a run that lands in `output/` has to be copied into the vault by hand afterwards. The `Output:` line the CLI prints at submit time is confirmation after the fact, not a check to act on: by then the stub is already written to that folder.
 
 ## Auth & billing safety
 
@@ -92,7 +98,7 @@ The retired MCP server was launched with an empty environment and never called `
 
 **Do not** run Claude OAuth sync as raw `npx ts-node research-sweep.ts ...` unless `CLAUDE_CODE_OAUTH_TOKEN` is available through fill-only `.env`/`.env.local` loading or the exported environment. Raw invocations bypass `op-fetch` and `op://` hydration.
 
-For OpenAI: `--sync --provider openai` strips `OPENAI_API_KEY` before invoking `codex exec` (lane output is schema-enforced via `codex exec --output-schema`). An explicit `--openai-auth api-key` overrides the codex default and fetches the API key instead.
+For OpenAI: `--sync --provider openai` strips `OPENAI_API_KEY` before the Codex child starts (lane output is schema-enforced on the Codex route too). An explicit `--openai-auth api-key` overrides the codex default and fetches the API key instead.
 
 For split spend: `--re-synthesise <folder> --from-batch <batchId>` collects the finished batch through the provider's API-key route, then applies an explicit synthesis override such as `--openai-auth codex` or `--claude-auth claude-oauth`. The wrapper fetches both credentials only for that split collection/synthesis flow, and the provider strips the API key before entering the subscription/OAuth synthesis route.
 

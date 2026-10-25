@@ -32,7 +32,7 @@ describe("computeRunCost", () => {
     const batch = computeRunCost("claude", baseTokens, haikuModels, true);
     // lane 3.5 -> 1.75, synth 3.5 -> 1.75; claude batches both halves
     expect(batch).toBeCloseTo(1.75 + 1.75, 6);
-    expect(batch).toBeLessThan(sync);
+    expect(batch!).toBeLessThan(sync!);
   });
 
   it("keeps synthesis at full price on a batch run that synthesised synchronously", () => {
@@ -51,14 +51,14 @@ describe("computeRunCost", () => {
     );
   });
 
-  it("returns 0 for unknown model without throwing", () => {
+  it("returns null (unknown), not 0, for an unpriced model", () => {
     const cost = computeRunCost(
       "claude",
       baseTokens,
       { lane: "claude-bogus-9000", synthesis: "claude-opus-4-7" },
       false
     );
-    expect(cost).toBe(0);
+    expect(cost).toBeNull();
   });
 
   it("returns 0 for zero tokens", () => {
@@ -79,6 +79,23 @@ describe("computeRunCost", () => {
     };
     const cost = computeRunCost("claude", tokens, haikuModels, false);
     expect(cost).toBeCloseTo(8.35, 6);
+  });
+
+  it("prices claude-opus-5-5 at $4/$20 with its $0.20 cache-read rate", () => {
+    const models: ProviderModels = { lane: "claude-opus-5-5", synthesis: "claude-opus-5-5" };
+    // lanes 1M * $4 + 0.5M * $20 = $14; synthesis 0.2M * $4 + 0.1M * $20 = $2.8
+    expect(computeRunCost("claude", baseTokens, models, false)).toBeCloseTo(16.8, 6);
+    // 1M cache reads at $0.20, not the flat 0.10x ($0.40)
+    const cached: TokenBreakdown = { ...baseTokens, cacheReadIn: 1_000_000 };
+    expect(computeRunCost("claude", cached, models, false)).toBeCloseTo(17.0, 6);
+  });
+
+  it("prices claude-sonnet-5-5 at $2/$10 with its $0.20 cache-read rate", () => {
+    const models: ProviderModels = { lane: "claude-sonnet-5-5", synthesis: "claude-sonnet-5-5" };
+    // lanes 1M * $2 + 0.5M * $10 = $7; synthesis 0.2M * $2 + 0.1M * $10 = $1.4
+    expect(computeRunCost("claude", baseTokens, models, false)).toBeCloseTo(8.4, 6);
+    const cached: TokenBreakdown = { ...baseTokens, cacheReadIn: 1_000_000 };
+    expect(computeRunCost("claude", cached, models, false)).toBeCloseTo(8.6, 6);
   });
 
   it("does not charge OpenAI reasoning tokens twice", () => {
@@ -252,7 +269,7 @@ describe("computeRunCost", () => {
     const batch = computeRunCost("gemini", baseTokens, geminiModels, true);
     expect(sync).toBeCloseTo(1.55, 6);
     expect(batch).toBeCloseTo(0.775, 6);
-    expect(batch).toBeLessThan(sync);
+    expect(batch!).toBeLessThan(sync!);
   });
 
   it("computes gemini flash sync cost correctly", () => {
@@ -267,14 +284,14 @@ describe("computeRunCost", () => {
     expect(cost).toBeCloseTo(1.86, 6);
   });
 
-  it("returns 0 for unknown gemini model without throwing", () => {
+  it("returns null (unknown) for an unpriced gemini model", () => {
     const cost = computeRunCost(
       "gemini",
       baseTokens,
       { lane: "gemini-bogus-9000", synthesis: "gemini-2.5-pro" },
       false
     );
-    expect(cost).toBe(0);
+    expect(cost).toBeNull();
   });
 
 });

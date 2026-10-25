@@ -1,3 +1,4 @@
+import { acceptsForcedToolChoice } from "./claude-capabilities";
 import { SourceItem } from "./types";
 
 // Strict response-schema enforcement for lane output.
@@ -11,9 +12,10 @@ import { SourceItem } from "./types";
 //   - OpenAI codex-cli: the same schema passed via `codex exec --output-schema`
 //     (verified available on codex-cli 0.144.4).
 //   - Claude api-key: a `submit_lane_findings` tool whose input_schema is the
-//     contract. With search enabled, `tool_choice: any` forces some tool use;
-//     the prompt requests web search first, but that setting alone cannot
-//     guarantee which offered tool the model chooses.
+//     contract. On models that accept it, `tool_choice: any` forces some tool
+//     use; the prompt requests web search first, but that setting alone cannot
+//     guarantee which offered tool the model chooses. Models that reject
+//     forced tool_choice get `auto` plus a prompt instruction naming the tool.
 //
 // Gemini is excluded: Google Search grounding and JSON structured output are
 // mutually exclusive in the Gemini API. The Claude OAuth / Agent SDK route is
@@ -87,18 +89,33 @@ export const CLAUDE_LANE_TOOL = {
 
 type ContentBlock = { type: string; name?: string; input?: unknown; text?: string; content?: unknown };
 
+export interface ClaudeLaneToolConfig {
+  tools: unknown[];
+  tool_choice: unknown;
+  // Appended to the lane's user message when tool use cannot be forced.
+  instruction?: string;
+}
+
+const SUBMIT_AFTER_SEARCH_INSTRUCTION =
+  `When you have finished searching, you MUST call the ${CLAUDE_LANE_TOOL_NAME} tool exactly once with your complete findings. ` +
+  "Your findings are only recorded through that tool call, so do not write them as plain text.";
+const SUBMIT_INSTRUCTION =
+  `You MUST call the ${CLAUDE_LANE_TOOL_NAME} tool exactly once with your complete findings. ` +
+  "Your findings are only recorded through that tool call, so do not write them as plain text.";
+
 // Claude tool/tool_choice for a lane request. With search on, both web_search
-// and the submit tool are offered and some tool use is forced; the prompt asks
-// the model to search before submitting, but the API setting alone cannot
-// guarantee web_search. With search off, the submit tool is forced directly.
-export function claudeLaneToolConfig(noSearch: boolean): { tools: unknown[]; tool_choice: unknown } {
-  if (noSearch) {
-    return { tools: [CLAUDE_LANE_TOOL], tool_choice: { type: "tool", name: CLAUDE_LANE_TOOL_NAME } };
+// and the submit tool are offered; with search off, only the submit tool.
+// Where the model accepts forced tool_choice, some tool use (search on) or
+// the submit tool itself (search off) is forced. Otherwise tool_choice is
+// `auto` and an explicit instruction carries the contract; the strict tool
+// still guarantees schema-valid input when the model calls it, and
+// extractClaudeLaneRaw falls back to the tolerant parser when it does not.
+export function claudeLaneToolConfig(noSearch: boolean, model: string): ClaudeLaneToolConfig {
+  const tools = noSearch ? [CLAUDE_LANE_TOOL] : [{ type: "web_search_20250305", name: "web_search" }, CLAUDE_LANE_TOOL];
+  if (acceptsForcedToolChoice(model)) {
+    return { tools, tool_choice: noSearch ? { type: "tool", name: CLAUDE_LANE_TOOL_NAME } : { type: "any" } };
   }
-  return {
-    tools: [{ type: "web_search_20250305", name: "web_search" }, CLAUDE_LANE_TOOL],
-    tool_choice: { type: "any" },
-  };
+  return { tools, tool_choice: { type: "auto" }, instruction: noSearch ? SUBMIT_INSTRUCTION : SUBMIT_AFTER_SEARCH_INSTRUCTION };
 }
 
 // Prefer the structured submit_lane_findings tool input; fall back to the text

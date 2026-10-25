@@ -1,0 +1,63 @@
+import { describe, it, expect } from "vitest";
+import { execFileSync } from "child_process";
+import * as fs from "fs";
+import * as path from "path";
+
+const script = path.join(__dirname, "..", "..", "cloud-sweep.sh");
+const run = (args: string[], env: NodeJS.ProcessEnv = {}) =>
+  execFileSync("bash", [script, "--dry-run", ...args], {
+    encoding: "utf-8",
+    env: { ...process.env, ...env, RESEARCH_SWEEPER_OUTPUT_DIR: env.RESEARCH_SWEEPER_OUTPUT_DIR ?? "" },
+  }).split("\n");
+
+describe("cloud-sweep.sh", () => {
+  it("runs a sync Claude OAuth sweep and rides the result out on a sweeps/<folder> branch", () => {
+    const lines = run(["--brief-file", "prompts/x.md", "--folder", "demo", "--depth", "shallow"]);
+    expect(lines[0]).toBe("+ npx ts-node research-sweep.ts --sync --provider claude --claude-auth claude-oauth --brief-file prompts/x.md --folder demo --depth shallow");
+    expect(lines).toContain("+ git checkout -B sweeps/demo");
+    expect(lines).toContain("+ git add -f sweeps/demo");
+    expect(lines).toContain("+ git push -u origin sweeps/demo");
+    expect(lines.some((l) => l.startsWith("+ git checkout ") && !l.includes("-B"))).toBe(true);
+  });
+
+  it("honours --no-push and refuses without --folder", () => {
+    expect(run(["--no-push", "--folder", "demo"])).not.toContain("+ git push -u origin sweeps/demo");
+    expect(() => run(["--brief-file", "prompts/x.md"])).toThrow(/--folder is required/);
+  });
+
+  it("maps SWEEP_CLAUDE_OAUTH_TOKEN onto CLAUDE_CODE_OAUTH_TOKEN and refuses without either", () => {
+    const bare: NodeJS.ProcessEnv = { ...process.env, RESEARCH_SWEEPER_OUTPUT_DIR: "" };
+    delete bare.CLAUDE_CODE_OAUTH_TOKEN;
+    delete bare.SWEEP_CLAUDE_OAUTH_TOKEN;
+    expect(() =>
+      execFileSync("bash", [script, "--no-push", "--folder", "demo", "--brief-file", "x"], { encoding: "utf-8", env: bare, stdio: "pipe" })
+    ).toThrow(/no Claude OAuth token/);
+    const source = fs.readFileSync(script, "utf-8");
+    expect(source).toMatch(/export CLAUDE_CODE_OAUTH_TOKEN="\$SWEEP_CLAUDE_OAUTH_TOKEN"/);
+  });
+
+  it("sets IS_SANDBOX=1 when running as root so bypassPermissions is accepted", () => {
+    expect(fs.readFileSync(script, "utf-8")).toMatch(/id -u.*== "0".*\n\s*export IS_SANDBOX=1/);
+  });
+
+  it("adds origin from SWEEP_REMOTE_URL when the clone has no remote", () => {
+    const source = fs.readFileSync(script, "utf-8");
+    expect(source).toMatch(/git remote get-url origin/);
+    expect(source).toMatch(/git remote add origin "\$SWEEP_REMOTE_URL"/);
+  });
+
+  it("stages a gitignored brief on the sweep branch and pushes it", () => {
+    const lines = run(["--stage", "prompts/x.md", "--folder", "demo"]);
+    expect(lines).toContain("+ git checkout -B sweeps/demo");
+    expect(lines).toContain("+ git add -f prompts/x.md");
+    expect(lines).toContain("+ git push -u origin sweeps/demo");
+    expect(lines.some((l) => l.startsWith("+ npx ts-node"))).toBe(false);
+  });
+
+  it("collects a branch into the configured output dir and lifts the sweeps/ prefix", () => {
+    const lines = run(["--collect", "demo"], { RESEARCH_SWEEPER_OUTPUT_DIR: "/tmp/vault" });
+    expect(lines).toContain("+ git fetch origin sweeps/demo");
+    expect(lines).toContain("+ git archive origin/sweeps/demo sweeps/demo | tar -x -C /tmp/vault --strip-components=1");
+    expect(lines.some((l) => l.includes("--work-tree"))).toBe(false);
+  });
+});

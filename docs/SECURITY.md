@@ -28,7 +28,7 @@ Three auth routes are supported regardless of credential source: (1) **API key**
 (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY`); (2) **Claude OAuth** (Max/Pro) via
 `CLAUDE_CODE_OAUTH_TOKEN` with `ANTHROPIC_API_KEY` explicitly stripped from the
 child env; (3) **Codex auth** for OpenAI sync via the Codex CLI auth file, with
-`OPENAI_API_KEY` removed before `codex exec` runs.
+`OPENAI_API_KEY` and `CODEX_API_KEY` removed before the Codex SDK starts its bundled child.
 
 ## What is safe to commit
 

@@ -10,18 +10,23 @@ A multi-lane research harness that writes Obsidian-ready outputs. It supports `c
 
 Private work → public mirror, **linear and atomic** — no per-batch squash.
 Remotes: `origin` (`PRIV`) = private working remote, `PUB` = public mirror.
-Work on **`dev`** with atomic, per-agent-authored commits, fast-forward
-`publish` up to `dev` (`git switch publish && git merge --ff-only dev`), then
-publish. Default: `git publish-pr` — pushes `publish` to `PUB` as a
+Work on **`dev`** with atomic, per-agent-authored commits, then advance
+`publish` by curated replay (`bash scripts/publish-sync.sh --apply`), which
+replays `dev`'s new commits with `publishguard.privatefile` paths stripped.
+**Never `git merge --ff-only dev`** — a fast-forward would publish
+`HANDOFF.md`, which is tracked on `dev` on purpose. `publish` therefore
+diverges from `dev`; that is the model, not drift.
+Default: `git publish-pr` — pushes `publish` to `PUB` as a
 non-default branch, then open/review a `publish → main` PR (`gh pr create
 --repo PUB_MATCH --base main --head publish`) before merging. Fast path for
 trivial batches: `git publish` (ff-pushes straight to `PUB/main` behind the
 sentinel gate). Never hand-push to `PUB`; the fail-closed pre-push gate
 blocks anything else.
-Privacy is enforced by `.gitignore` + the pre-commit guard, not by branch
-separation: anything tracked on `dev` reaches the public mirror on the next
-fast-forward, so private files (`HANDOFF.md`, `.env*`, `*.local`) must be
-gitignored. Never rewrite commits already on the public remote. Full model +
+Privacy has two tiers: `.gitignore` + the pre-commit guard for what must never
+be committed (`.env*`, `*.local`, `runs/*.json`), and `publishguard.privatefile`
+for what is tracked on `dev` but stripped at publish (`HANDOFF.md`, so it
+follows worktrees and clones without reaching `PUB`). Never rewrite commits
+already on the public remote. Full model +
 setup: `docs/PUBLISH-WORKFLOW.md`. Gate config lives in local `git config`
 (`publishguard.*`, including `publishguard.prsource` for the PR-source branch)
 and personal block patterns in the gitignored `.publish-guard.local` — neither
@@ -59,7 +64,7 @@ npx ts-node research-sweep.ts --sync --provider openai --brief-file "prompts/exa
 
 Do not remove this route.
 
-When OpenAI sync is launched through `./run-secure-sweep.sh --sync --provider openai ...`, the wrapper and provider remove `OPENAI_API_KEY` before `codex exec` runs. This keeps the route on Codex/ChatGPT auth instead of silently using API-key billing. An explicit `--openai-auth api-key` with `--sync` overrides this: the wrapper then fetches `OPENAI_API_KEY` like the default route.
+When OpenAI sync is launched through `./run-secure-sweep.sh --sync --provider openai ...`, the wrapper and the shared `@openai/codex-sdk` client remove `OPENAI_API_KEY` and `CODEX_API_KEY` before the SDK starts its bundled Codex child. This keeps the route on Codex/ChatGPT auth instead of silently using API-key billing. An explicit `--openai-auth api-key` with `--sync` overrides this: the wrapper then fetches `OPENAI_API_KEY` like the default route.
 
 For spend-optimised finished batches, collect OpenAI API-key lanes and run only synthesis through Codex auth:
 
@@ -67,9 +72,9 @@ For spend-optimised finished batches, collect OpenAI API-key lanes and run only 
 ./run-secure-sweep.sh --provider openai --re-synthesise <folder> --from-batch <batchId> --openai-auth codex
 ```
 
-The wrapper exposes the API key for batch collection; the provider switches synthesis to Codex auth and strips `OPENAI_API_KEY` before `codex exec`.
+The wrapper exposes the API key for batch collection; the provider switches synthesis to Codex auth and strips `OPENAI_API_KEY` and `CODEX_API_KEY` before the SDK starts its bundled Codex child.
 
-Codex lanes carry the lane JSON schema via `codex exec --output-schema` (available on codex-cli 0.144+), so lane output is schema-enforced on this route too; synthesis stays free markdown by design.
+Codex lanes pass the lane JSON schema to the SDK turn's `outputSchema` option, with model, read-only sandbox, search, and reasoning effort set as thread options. Lane output is schema-enforced on this route too; synthesis stays free markdown by design.
 
 ### Claude Agent SDK OAuth route (Claude sync, Max/Pro quota)
 
@@ -87,6 +92,10 @@ Claude sync runs can consume Max/Pro subscription quota via the Agent SDK. Use t
 - A raw `npx ts-node research-sweep.ts ...` command does not invoke `op-fetch`; it reads `.env`/`.env.local` fill-only and otherwise relies on the exported environment, including a real `CLAUDE_CODE_OAUTH_TOKEN`.
 - Auto-detect precedence: when both `ANTHROPIC_API_KEY` and the OAuth token are present and no explicit flag is given, detection refuses to guess and throws (the API-key route bills credits) — pass an explicit `--claude-auth`. `claude-oauth` is auto-selected only when `ANTHROPIC_API_KEY` is absent and the OAuth token is set. The legacy alias `claude-cli` is still accepted.
 - Search divergence: the Agent SDK exposes the built-in `WebSearch` tool, not the API's `web_search_20250305`. Source selection may differ vs. the API-key path. `runs/stats.json` records `authMode` per run so cross-route comparisons stay honest.
+
+### Cloud session route (Claude sync on a branch)
+
+`./cloud-sweep.sh --brief-file ... --folder <slug>` is the launcher for a Claude Code cloud session: sync sweep on `--claude-auth claude-oauth` (the session must hold `SWEEP_CLAUDE_OAUTH_TOKEN`, mapped onto `CLAUDE_CODE_OAUTH_TOKEN` because the cloud runtime filters that name, plus `SWEEP_REMOTE_URL` for the https GitHub URL when the clone has no remote), output under `sweeps/<slug>`, force-added and pushed on branch `sweeps/<slug>` because the sandbox is ephemeral and `sweeps/` is gitignored. Locally, `./cloud-sweep.sh --collect <slug>` fetches that branch and copies the folder into `RESEARCH_SWEEPER_OUTPUT_DIR`. The secure wrappers pass `RESEARCH_SWEEPER_OUTPUT_DIR` and `CODEX_HOME` through `op-fetch`, so a runner that injects them as environment variables is honoured on the secure path too.
 
 ### Gemini auth routes
 
@@ -180,7 +189,7 @@ Flows:
 
 1. CLI resolves config and auth mode.
 2. `prepareOutputTarget()` creates the stub and blocks accidental overwrite.
-3. Lanes run in parallel or submit as batch jobs. Claude API lanes are instructed to use `web_search_20250305` and receive a forced `submit_lane_findings` schema tool (`tool_choice: any`); this forces some tool use, not independently a web-search invocation. OpenAI API-key lanes force `web_search` via `tool_choice: {type: "web_search"}`; Gemini uses Google Search grounding (model-decided, not forced). Lane output is schema-enforced wherever the route can carry a schema — OpenAI api-key via Responses `text.format` json_schema (strict), OpenAI codex via `codex exec --output-schema`, Claude api-key via the forced tool's `input_schema` with `strict: true` (one shared `LANE_RESPONSE_SCHEMA` in `src/lane-schema.ts` backs all three); the tolerant parser (`src/parsing.ts`, repairs via the `jsonrepair` library) remains the safety net for the Claude OAuth and Gemini routes. Claude search-result blocks are harvested and merged with model sources in shared `assembleLaneResult`, so provenance is not model-transcribed. Sources are then normalised and deduplicated globally by URL before depth caps. Each lane returns `sources`, `narrative`, and depth-bounded `model_context` (separate from retrieved sources), and records `parseMode` (`clean`/`repaired`/`salvaged`/`fallback`).
+3. Lanes run in parallel or submit as batch jobs. Claude API lanes are instructed to use `web_search_20250305` and receive a forced `submit_lane_findings` schema tool (`tool_choice: any`); this forces some tool use, not independently a web-search invocation. Models that reject forced `tool_choice` (Opus 5.5, Fable 5.1, and any id missing from the allowlist in `src/claude-capabilities.ts`) get `tool_choice: auto` plus a prompt instruction naming the tool. OpenAI API-key lanes force `web_search` via `tool_choice: {type: "web_search"}`; Gemini uses Google Search grounding (model-decided, not forced). Lane output is schema-enforced wherever the route can carry a schema — OpenAI api-key via Responses `text.format` json_schema (strict), OpenAI codex via the SDK turn's `outputSchema`, Claude api-key via the forced tool's `input_schema` with `strict: true` (one shared `LANE_RESPONSE_SCHEMA` in `src/lane-schema.ts` backs all three); the tolerant parser (`src/parsing.ts`, repairs via the `jsonrepair` library) remains the safety net for the Claude OAuth and Gemini routes. Claude search-result blocks are harvested and merged with model sources in shared `assembleLaneResult`, so provenance is not model-transcribed. Sources are then normalised and deduplicated globally by URL before depth caps. Each lane returns `sources`, `narrative`, and depth-bounded `model_context` (separate from retrieved sources), and records `parseMode` (`clean`/`repaired`/`salvaged`/`fallback`).
 4. Synthesis (Opus / gemini-2.5-pro) combines sourced findings and `model_context`. In batch/resume mode, synthesis is itself submitted as a batch job for the 50% cost discount on all three providers (Gemini and OpenAI batch both require API-key auth). OpenAI batches synthesis through the same `/v1/responses` endpoint as its lanes, which means a batched OpenAI sweep waits on two sequential batch windows rather than one batch plus a fast sync call; terminal batch failures report the batch id and status rather than polling forever.
 5. `appendRunStats()` records run metadata and cost-estimate caveats in `runs/stats.json`.
 
@@ -199,7 +208,7 @@ Model defaults:
 
 - Claude shallow/standard lanes: `claude-haiku-4-5-20251001`
 - Claude deep lanes: `claude-sonnet-5` (truncation risk at 25 sources)
-- Claude synthesis: `claude-opus-4-8` by default (batched for 50% discount)
+- Claude synthesis: `claude-opus-5-5` by default (resolution: `--synthesis-model` > `SYNTHESIS_MODEL` > `MODEL_REGISTRY` `claude.opus` > built-in; batched for 50% discount)
 - OpenAI lanes: `gpt-5.6-terra` with `reasoning.effort=low` (Luna is reserved for health checks)
 - OpenAI synthesis: `gpt-5.6-sol` with `reasoning.effort=high`
 - Gemini shallow/standard lanes: `gemini-2.5-flash-lite` ($0.10/$0.40 per 1M tokens)

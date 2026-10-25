@@ -11,18 +11,27 @@ URL (e.g. `myorg/myrepo`), `PUBLISH_BRANCH` = the line that becomes public
 
 ## Model (read this first)
 
-The history is **linear and shared**. There is one line of development:
+The history is **shared at the root but not identical**. There is one line of
+development and one curated line derived from it:
 
 - **`dev`** — the working branch on `PRIV`. Atomic commits, per-agent author
   attribution. This is the canonical line; all work lands here.
-- **`publish`** — not a separate history. It is a pointer that sits behind `dev`
-  on the same line and is **fast-forwarded** up to a chosen `dev` commit when you
-  publish. `publish` is pushed to `PUB` as `main`.
-- `PUB/main` is whatever `publish` last fast-forwarded to.
+- **`publish`** — a curated replay of `dev`. Each new `dev` commit is replayed
+  onto `publish` with the private-tier paths (`publishguard.privatefile`)
+  stripped out, preserving message and author. Commits that were only ever
+  private-tier drop out as empty. `publish` is pushed to `PUB` as `main`.
+- `PUB/main` is whatever `publish` last replayed up to.
 
-`dev` and `publish` share history, and `git merge-base dev publish` is publish's
-own tip. There is nothing to rebase or cherry-pick. To publish you fast-forward
-`publish` up to `dev` and push. That is the whole model.
+**`publish` is not a fast-forward of `dev`, and it must not be.** `HANDOFF.md` is
+tracked on `dev` so it follows worktrees and clones, and a fast-forward would
+make `publish`'s tree identical to `dev`'s — publishing it. A file can be at
+most two of {tracked, published-by-fast-forward, absent-from-public}; curated
+replay is what buys all three. The divergence is the accepted cost, not drift.
+
+Run the replay with `bash scripts/publish-sync.sh --apply`; never
+`git merge --ff-only dev`. The canonical script and the full rationale live in
+mcp-hub (`docs/PUBLISH-SYNC.md`, `docs/BRANCH-PROTECTION.md`); the copy here is
+distributed by `sync-guard-hooks.sh` and should stay identical to it.
 
 > **No per-batch squash.** Earlier versions of this doc told you to
 > `git merge --squash wip/<thing>` into `publish`. That collapsed atomic commits
@@ -41,8 +50,10 @@ guard still runs underneath it, but the PR diff is the *visible* check.
 ```sh
 # 1. work on dev as usual — atomic commits, per-agent --author=
 # 2. when a batch is ready for the public mirror:
+bash scripts/publish-sync.sh              # plan only: shows what would replay
+bash scripts/publish-sync.sh --apply      # replays dev's new commits onto publish,
+                                          # stripping private-tier paths, then moves the ref
 git switch publish
-git merge --ff-only dev          # publish catches up to dev's tip; always a clean ff
 git publish-pr                   # backs up to origin, pushes publish as a non-default
                                   # branch on PUB, then prints the gh pr create command
 git switch dev                   # back to the working branch
@@ -80,8 +91,8 @@ marks it merged when the base receives the head SHAs. Repo-level opt-out:
 For a batch whose PR diff has been reviewed, finish with:
 
 ```sh
+bash scripts/publish-sync.sh --apply   # replay dev onto publish, private paths stripped
 git switch publish
-git merge --ff-only dev          # publish catches up to dev's tip; always a clean ff
 PUBLISH_PR_REVIEWED=1 git publish  # backs up to origin, then ff-pushes PUB main behind the gate
 git switch dev                   # back to the working branch
 ```
@@ -91,9 +102,10 @@ git switch dev                   # back to the working branch
 backs up to the private remote first, then publishes. Never hand-type
 `git push PUB publish:main`: the gate blocks it and points you back here.
 
-If `git merge --ff-only dev` refuses, `publish` has commits `dev` does not
-(someone committed directly on `publish`). That should not happen in this model;
-reconcile by hand rather than forcing.
+`publish-sync.sh` refuses rather than guessing if the replay would conflict.
+Resolve toward `dev`'s version (`git checkout <commit> -- <file>`), since `dev`
+is the source of truth for public content. Do not fall back to
+`git merge --ff-only dev` — that is what publishes the private-tier files.
 
 ## The gate (why it cannot be bypassed by accident)
 
@@ -150,13 +162,17 @@ branch should differ from `publish`.
 
 ## What is private, and how
 
-In a linear model there is **no private-tier branch**. Whatever is tracked and
-committed on `dev` reaches `PUB` on the next fast-forward. Privacy is enforced by
-`.gitignore` and the pre-commit guard, not by branch separation:
+There is **no private-tier branch**. Privacy comes from two mechanisms, not from
+branch separation: `.gitignore` plus the pre-commit guard for anything that must
+never be committed at all, and curated replay (`publishguard.privatefile`) for
+files that must be tracked on `dev` but stripped before they reach `PUB`:
 
 - **Gitignored, never public:** `.env*`, `*.local`, `op-refs.local.sh`,
-  `.publish-guard.local`, `HANDOFF.md` (the dated operator log stays private),
-  `runs/*.json` (job/state **and** `stats.json`), and `logs/`.
+  `.publish-guard.local`, `runs/*.json` (job/state **and** `stats.json`), and
+  `logs/`.
+- **Tracked on `dev`, stripped at publish** (`publishguard.privatefile`):
+  `HANDOFF.md` — the dated operator log. Tracked so it follows worktrees and
+  clones; removed from every replayed commit so it never reaches `PUB`.
 - **Tracked, intentionally public:** the ~25 briefs already tracked under
   `prompts/` (shipped as worked examples) and the three curated
   `results/2026-04-07-*.md` examples.

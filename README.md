@@ -6,7 +6,7 @@
 
 ## What it does
 
-- Runs up to 6 parallel research lanes (`financial`, `frontier`, `academic`, `vc`, `blogs`, `tech`) as independent Claude, OpenAI, or Gemini agent calls. Claude API lanes are instructed to use web search and receive `web_search_20250305` plus a forced schema-submission tool under `tool_choice: any`; that forces some tool use, but does not independently guarantee a web-search invocation. OpenAI API-key lanes force `web_search` via `tool_choice`; Gemini lanes use Google Search grounding (model-decided, not forced). Lane output is schema-enforced wherever the route can carry a schema (OpenAI api-key strict JSON schema, `codex exec --output-schema`, Claude api-key forced tool with `strict: true`); a tolerant parser covers the Claude OAuth and Gemini routes. Sources are URL-normalised and deduplicated globally across lanes before depth caps. `model_context` is empty for shallow sweeps and optional up to about 80/120 words for standard/deep. Each run records per-lane `parseModes` in `runs/stats.json`.
+- Runs up to 6 parallel research lanes (`financial`, `frontier`, `academic`, `vc`, `blogs`, `tech`) as independent Claude, OpenAI, or Gemini agent calls. Claude API lanes are instructed to use web search and receive `web_search_20250305` plus a schema-submission tool under `tool_choice: any`; that forces some tool use, but does not independently guarantee a web-search invocation. Models that reject forced `tool_choice` (Opus 5.5, Fable 5.1, and any id not on the allowlist in `src/claude-capabilities.ts`) get `tool_choice: auto` plus a prompt instruction to call the tool instead. OpenAI API-key lanes force `web_search` via `tool_choice`; Gemini lanes use Google Search grounding (model-decided, not forced). Lane output is schema-enforced wherever the route can carry a schema (OpenAI api-key strict JSON schema, Codex SDK turn `outputSchema`, Claude api-key forced tool with `strict: true`); a tolerant parser covers the Claude OAuth and Gemini routes. Sources are URL-normalised and deduplicated globally across lanes before depth caps. `model_context` is empty for shallow sweeps and optional up to about 80/120 words for standard/deep. Each run records per-lane `parseModes` in `runs/stats.json`.
 - Synthesises lane outputs into a single Obsidian-ready summary plus a deduplicated sources file, with optional async submission through the Anthropic, OpenAI, and Gemini Batch APIs for cost reduction.
 - Evaluates each sweep with an LLM-as-judge harness using `claude-haiku-4-5-20251001` across coverage, source quality, synthesis, and relevance, and persists scores back to the run record.
 
@@ -67,13 +67,20 @@ gitignored, so a fresh clone runs without writing anywhere else. Set
 `RESEARCH_SWEEPER_OUTPUT_DIR` (env or `.env`) to write into a notes vault or any
 other directory.
 
-The single synthesis call defaults to `claude-opus-4-8` (a reasoning-dominated
+The single synthesis call defaults to `claude-opus-5-5` (a reasoning-dominated
 call where the extra capability earns its cost once per sweep); the six lanes
 stay on haiku/sonnet. Override the synthesis model without a code change via
 `SYNTHESIS_MODEL` (env or `.env`), e.g. `SYNTHESIS_MODEL=claude-fable-5`, or the
 `--synthesis-model` flag. Fable 5 is access-gated: it returns `not_found_error`
 unless your Console admin has accepted 30-day data retention (misuse detection
 only, not training).
+
+To take model bumps without a code change, point `MODEL_REGISTRY` at a shared
+`models.json` (tiers `claude.opus` for synthesis, `claude.sonnet` /
+`claude.haiku` for lanes, plus a `pricing` map). Each Claude model resolves
+`--synthesis-model` / `SYNTHESIS_MODEL` / `LANE_MODEL_SONNET` /
+`LANE_MODEL_HAIKU` first, then the registry, then the built-in default. A model
+with no known price is recorded as unknown cost with a warning, never as $0.
 
 > **Tip:** the run signature is long. Describe what you want in plain English to
 > any capable LLM and ask it to emit the full `--flag` invocation (topic, lanes,
@@ -154,6 +161,10 @@ The resubmission writes to its own `<folder>-resubmit-<id>` output folder rather
 into the original run automatically — combine the two by hand (see the guidance printed by
 `--resume` on a resubmitted job) or fold the resubmitted lane files into the original folder's
 `lanes/` directory and re-run `--re-synthesise <original-folder>`.
+
+## Running in a Claude Code cloud session
+
+A cloud session has no 1Password and no vault. `./cloud-sweep.sh --brief-file prompts/x.md --folder <slug> ...` runs a sync sweep on the Claude subscription route (the session needs `SWEEP_CLAUDE_OAUTH_TOKEN`, which the script maps onto `CLAUDE_CODE_OAUTH_TOKEN` because the cloud runtime filters that name, plus `SWEEP_REMOTE_URL` for the https GitHub URL when the clone has no remote), then commits the result on branch `sweeps/<slug>` and pushes it, since the sandbox disappears with the session. Locally, `./cloud-sweep.sh --collect <slug>` fetches that branch and copies the folder into `RESEARCH_SWEEPER_OUTPUT_DIR`. Cloud runs are sync only, so they forgo the batch discount.
 
 ## Auth routes
 

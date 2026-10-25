@@ -2,8 +2,10 @@ import Anthropic from "@anthropic-ai/sdk";
 import { ClaudeAuthMode, detectClaudeAuthMode, requireApiKeyModeOrThrow } from "../auth/detect";
 import { DEPTH_CONFIG, LANE_CONFIG } from "../config";
 import { fallbackLaneResult, parseLaneResponse } from "../parsing";
+import { supportsEffort } from "../claude-capabilities";
 import { claudeLaneToolConfig, countClaudeSearches, extractClaudeLaneRaw, harvestClaudeSearchSources, mergeLaneSources } from "../lane-schema";
 import { buildLanePrompt, buildSynthesisPrompt, buildLaneSystemPrefix } from "../prompts";
+import { envModel, registryModel } from "../model-registry";
 import { withTransientRetry } from "../retry";
 import {
   appendSynthesisTruncationWarning,
@@ -17,22 +19,37 @@ import { BatchLaneFailure, BatchStatus, Lane, LaneResult, ProviderAdapter, Provi
 // Model-ID pinning policy (checked against platform.claude.com/docs, 2026-07):
 // every Claude model ID is a pinned snapshot, dated or not — Anthropic's docs
 // are explicit that starting with the 4.6 generation, dateless IDs are pinned
-// snapshots too, not evergreen pointers. LANE_MODEL_HAIKU carries a date
+// snapshots too, not evergreen pointers. The Haiku fallback carries a date
 // suffix because it predates that 4.6-generation naming change and the
 // Claude API ID for Haiku 4.5 has always been `claude-haiku-4-5-20251001`
-// (`claude-haiku-4-5` is the alias). LANE_MODEL_SONNET and SYNTHESIS_MODEL
-// are undated because `claude-sonnet-5` / `claude-opus-4-8` ARE the
-// documented canonical Claude API IDs for those models — there is no dated
-// snapshot variant to pin to instead, so the undated/dated split below is
-// deliberate, not an oversight. Re-check platform.claude.com/docs/en/about-
-// claude/models/overview if a future release reintroduces dated IDs.
-const LANE_MODEL_HAIKU = "claude-haiku-4-5-20251001";
-const LANE_MODEL_SONNET = "claude-sonnet-5";
+// (`claude-haiku-4-5` is the alias). The Sonnet and synthesis fallbacks are
+// undated because those ARE the documented canonical Claude API IDs — there
+// is no dated snapshot variant to pin to instead, so the undated/dated split
+// below is deliberate, not an oversight. Re-check platform.claude.com/docs/
+// en/about-claude/models/overview if a future release reintroduces dated IDs.
+//
+// Each tier resolves env override > MODEL_REGISTRY (`claude.<tier>`) > the
+// fallback constant, read lazily so .env.local (loaded in main() after
+// import) still applies. A model bump is then a registry edit, not a code
+// change; the constants only matter when no registry is configured.
+const FALLBACK_LANE_MODEL_HAIKU = "claude-haiku-4-5-20251001";
+const FALLBACK_LANE_MODEL_SONNET = "claude-sonnet-5-5";
 // Synthesis is a single reasoning-dominated call per sweep, so it runs a tier
-// above the lanes. Default is Opus 4.8; override with SYNTHESIS_MODEL (read
-// lazily so .env.local, loaded in main() after import, still applies) to dial
-// it up or down without a code change. The high-volume lanes are unaffected.
-const SYNTHESIS_MODEL = "claude-opus-4-8";
+// above the lanes. The high-volume lanes are unaffected by its override.
+const FALLBACK_SYNTHESIS_MODEL = "claude-opus-5-5";
+
+export function haikuLaneModel(): string {
+  return envModel("LANE_MODEL_HAIKU") ?? registryModel("claude", "haiku") ?? FALLBACK_LANE_MODEL_HAIKU;
+}
+
+export function sonnetLaneModel(): string {
+  return envModel("LANE_MODEL_SONNET") ?? registryModel("claude", "sonnet") ?? FALLBACK_LANE_MODEL_SONNET;
+}
+
+// --synthesis-model (config.synthesisModel) still outranks everything.
+export function synthesisModel(config: SweepConfig): string {
+  return config.synthesisModel || envModel("SYNTHESIS_MODEL") || registryModel("claude", "opus") || FALLBACK_SYNTHESIS_MODEL;
+}
 
 // Bound on pause_turn resend loops in runLaneViaApi (server-side web_search
 // loop hit its internal round cap and needs a resend to continue). 5 is
@@ -76,9 +93,9 @@ type ClaudeSdkMessage =
   | { type: string; [key: string]: unknown };
 
 function resolveLaneModel(config: SweepConfig): string {
-  if (config.laneModel === "sonnet") return LANE_MODEL_SONNET;
-  if (config.laneModel === "haiku") return LANE_MODEL_HAIKU;
-  return config.depth === "deep" ? LANE_MODEL_SONNET : LANE_MODEL_HAIKU;
+  if (config.laneModel === "sonnet") return sonnetLaneModel();
+  if (config.laneModel === "haiku") return haikuLaneModel();
+  return config.depth === "deep" ? sonnetLaneModel() : haikuLaneModel();
 }
 
 function usageCounts(input: { processing?: number; succeeded?: number; errored?: number }): UsageCounts {
@@ -123,22 +140,51 @@ export function determineFailedLanes(items: BatchResultTypeItem[], lanes: Lane[]
   return failures;
 }
 
+// Shared by the sync lane call and the batch builder so both carry the same
+// model-appropriate tool_choice and, where it cannot be forced, the same
+// submit instruction.
+export function buildLaneRequestParams(config: SweepConfig, lane: Lane): Record<string, unknown> {
+  const model = config.test ? haikuLaneModel() : resolveLaneModel(config);
+  const { tools, tool_choice, instruction } = claudeLaneToolConfig(!!config.noSearch, model);
+  const prompt = buildLanePrompt(lane, config);
+  return {
+    model,
+    max_tokens: DEPTH_CONFIG[config.depth].laneMaxTokens,
+    // Two-block system array: the shared scaffolding clears 1024 tokens
+    // (Sonnet/Opus minimum) and is the real cache target across all six
+    // lanes of the sweep. The lane systemPrompt is a small per-lane
+    // addendum and gets its own ephemeral marker as a second cacheable
+    // block (useful when the same lane runs back-to-back).
+    system: [
+      { type: "text", text: buildLaneSystemPrefix(config), cache_control: { type: "ephemeral" } },
+      { type: "text", text: LANE_CONFIG[lane].systemPrompt, cache_control: { type: "ephemeral" } },
+    ],
+    messages: [{ role: "user", content: instruction ? `${prompt}\n\n${instruction}` : prompt }],
+    tools,
+    tool_choice,
+  };
+}
+
+// Synthesis is the one call where depth of reasoning shows in the output, and
+// newer models default effort below `high` (Opus 5.5: `medium`), so pin it.
+// Thinking is deliberately left unset: Opus 5.5 and Fable reject a disabled
+// thinking config or budget_tokens, and omitting it runs adaptive thinking.
+export const SYNTHESIS_EFFORT = "high";
+
+export function buildSynthesisRequestParams(config: SweepConfig, laneResults: LaneResult[], sourcesName: string, model: string): Record<string, unknown> {
+  return {
+    model,
+    max_tokens: DEPTH_CONFIG[config.depth].synthesisMaxTokens,
+    ...(supportsEffort(model) ? { output_config: { effort: SYNTHESIS_EFFORT } } : {}),
+    // Deliberately uncached: the synthesis prompt has no shared prefix
+    // across a sweep (see stats.ts), so a cache_control breakpoint here
+    // would only pay the 1.25x write premium for ~zero reads.
+    messages: [{ role: "user", content: buildSynthesisPrompt(config, laneResults, sourcesName) }],
+  };
+}
+
 export function buildLaneBatchRequests(config: SweepConfig, lanes: Lane[]): ClaudeBatchRequest[] {
-  return lanes.map((lane) => {
-    const params: Record<string, unknown> = {
-      model: config.test ? LANE_MODEL_HAIKU : resolveLaneModel(config),
-      max_tokens: DEPTH_CONFIG[config.depth].laneMaxTokens,
-      system: [
-        { type: "text", text: buildLaneSystemPrefix(config), cache_control: { type: "ephemeral" } },
-        { type: "text", text: LANE_CONFIG[lane].systemPrompt, cache_control: { type: "ephemeral" } },
-      ],
-      messages: [{ role: "user", content: buildLanePrompt(lane, config) }],
-    };
-    const { tools, tool_choice } = claudeLaneToolConfig(!!config.noSearch);
-    params.tools = tools;
-    params.tool_choice = tool_choice;
-    return { custom_id: lane, params };
-  });
+  return lanes.map((lane) => ({ custom_id: lane, params: buildLaneRequestParams(config, lane) }));
 }
 
 // Transient Anthropic API errors worth a bounded retry: 429 (rate limit),
@@ -248,8 +294,8 @@ export class ClaudeProvider implements ProviderAdapter {
 
   getModels(config: SweepConfig, mode: "sync" | "batch"): ProviderModels {
     return {
-      lane: config.test ? LANE_MODEL_HAIKU : resolveLaneModel(config),
-      synthesis: config.test ? LANE_MODEL_HAIKU : config.synthesisModel || process.env.SYNTHESIS_MODEL || SYNTHESIS_MODEL,
+      lane: config.test ? haikuLaneModel() : resolveLaneModel(config),
+      synthesis: config.test ? haikuLaneModel() : synthesisModel(config),
     };
   }
 
@@ -270,27 +316,10 @@ export class ClaudeProvider implements ProviderAdapter {
     const definition = LANE_CONFIG[lane];
     console.log(`  [${definition.label}] Starting sweep...`);
 
-    const model = config.test ? LANE_MODEL_HAIKU : resolveLaneModel(config);
+    const model = config.test ? haikuLaneModel() : resolveLaneModel(config);
 
     try {
-      const requestParams: Record<string, unknown> = {
-        model,
-        max_tokens: DEPTH_CONFIG[config.depth].laneMaxTokens,
-        // Two-block system array: the shared scaffolding clears 1024 tokens
-        // (Sonnet/Opus minimum) and is the real cache target across all six
-        // lanes of the sweep. The lane systemPrompt is a small per-lane
-        // addendum and gets its own ephemeral marker as a second cacheable
-        // block (useful when the same lane runs back-to-back).
-        system: [
-          { type: "text", text: buildLaneSystemPrefix(config), cache_control: { type: "ephemeral" } },
-          { type: "text", text: definition.systemPrompt, cache_control: { type: "ephemeral" } },
-        ],
-        messages: [{ role: "user", content: buildLanePrompt(lane, config) }],
-      };
-
-      const { tools, tool_choice } = claudeLaneToolConfig(!!config.noSearch);
-      requestParams.tools = tools;
-      requestParams.tool_choice = tool_choice;
+      const requestParams = buildLaneRequestParams(config, lane);
 
       const createFn = client.messages.create.bind(client.messages) as unknown as (params: Record<string, unknown>) => Promise<ClaudeMessageLike>;
 
@@ -351,7 +380,7 @@ export class ClaudeProvider implements ProviderAdapter {
 
   private async runLaneViaClaudeOAuth(config: SweepConfig, lane: Lane): Promise<LaneResult> {
     const definition = LANE_CONFIG[lane];
-    const model = config.test ? LANE_MODEL_HAIKU : resolveLaneModel(config);
+    const model = config.test ? haikuLaneModel() : resolveLaneModel(config);
     console.log(`  [${definition.label}] Starting sweep (claude-oauth)...`);
 
     try {
@@ -399,17 +428,9 @@ export class ClaudeProvider implements ProviderAdapter {
   private async runSynthesisViaApi(config: SweepConfig, laneResults: LaneResult[], sourcesName: string): Promise<{ markdown: string; tokensIn: number; tokensOut: number }> {
     const client = this.getClient();
     console.log("\n  [Synthesis] Assembling research brief...");
+    const params = buildSynthesisRequestParams(config, laneResults, sourcesName, this.getModels(config, "sync").synthesis);
     const response = await withClaudeRetry("Synthesis", () =>
-      client.messages.create({
-        model: this.getModels(config, "sync").synthesis,
-        max_tokens: DEPTH_CONFIG[config.depth].synthesisMaxTokens,
-        // Deliberately uncached: the synthesis prompt has no shared prefix
-        // across a sweep (see stats.ts), so a cache_control breakpoint here
-        // would only pay the 1.25x write premium for ~zero reads.
-        messages: [
-          { role: "user", content: buildSynthesisPrompt(config, laneResults, sourcesName) },
-        ],
-      } as unknown as Anthropic.MessageCreateParamsNonStreaming)
+      client.messages.create(params as unknown as Anthropic.MessageCreateParamsNonStreaming)
     );
     let markdown = response.content.filter((block) => block.type === "text").map((block) => block.text).join("\n");
     const stopClass = classifyStopReason(response.stop_reason);
@@ -432,6 +453,7 @@ export class ClaudeProvider implements ProviderAdapter {
       prompt: buildSynthesisPrompt(config, laneResults, sourcesName),
       options: {
         model,
+        ...(supportsEffort(model) ? { effort: SYNTHESIS_EFFORT } : {}),
         allowedTools: SYNTH_ALLOWED_TOOLS,
         disallowedTools: [...CLI_DISALLOWED_TOOLS, "WebSearch"],
         permissionMode: "bypassPermissions",
@@ -486,19 +508,7 @@ export class ClaudeProvider implements ProviderAdapter {
     requireApiKeyModeOrThrow("claude", this.resolveAuthMode(config));
     const client = this.getClient();
     const model = this.getModels(config, "batch").synthesis;
-    const requests = [
-      {
-        custom_id: "synthesis",
-        params: {
-          model,
-          max_tokens: DEPTH_CONFIG[config.depth].synthesisMaxTokens,
-          // Deliberately uncached — see runSynthesisViaApi and stats.ts.
-          messages: [
-            { role: "user", content: buildSynthesisPrompt(config, laneResults, sourcesName) },
-          ],
-        },
-      },
-    ];
+    const requests = [{ custom_id: "synthesis", params: buildSynthesisRequestParams(config, laneResults, sourcesName, model) }];
     const batch = await client.messages.batches.create({ requests } as unknown as Anthropic.Messages.BatchCreateParams);
     return batch.id;
   }
@@ -550,7 +560,7 @@ export class ClaudeProvider implements ProviderAdapter {
     const laneResultMap = new Map<Lane, LaneResult>();
     // Fallback model used only when a non-succeeded result gives us nothing to read
     // and the caller didn't pass the submitted model — keep this honest, not Sonnet.
-    const fallbackModel = submittedModel || LANE_MODEL_HAIKU;
+    const fallbackModel = submittedModel || haikuLaneModel();
     for await (const item of await client.messages.batches.results(batchId)) {
       const lane = item.custom_id as Lane;
       const definition = LANE_CONFIG[lane];

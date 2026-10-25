@@ -154,7 +154,9 @@ export interface RunStats {
   submittedAt: string | null;
   tokens: TokenBreakdown;
   models: { lane: string; synthesis: string };
-  estimatedCostUSD: number;
+  // null when a model had no known price: the cost is unknown, not zero.
+  estimatedCostUSD: number | null;
+  unpricedModels?: string[];
   // Additive caveats for estimates that lack provider usage telemetry. Older
   // records intentionally omit this field and remain valid RunStats data.
   costEstimateNotes?: string[];

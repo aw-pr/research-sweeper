@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "tokens_spent": 0,
+  "lifetime_tokens_spent": 0,
+  "breaches": [],
+  "wall_clock_cap_seconds": 3600,
+  "wall_clock_elapsed_seconds": 0,
+  "clock_tick_cap": 100,
+  "clock_ticks_used": 0,
+  "consecutive_failure_cap": 3,
+  "consecutive_failures": 0,
+  "halted": false,
+  "halt_reason": null,
+  "halted_at": null,
+  "window_started_at": "2026-09-26",
+  "idle_ticks_used": 1
+}

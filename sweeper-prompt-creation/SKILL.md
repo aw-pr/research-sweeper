@@ -144,16 +144,38 @@ Confirm the file path to the user.
 
 ### Step 5 — Offer to launch
 
-Ask: "Ready to launch? I can start it as a batch run in a tmux session."
+Ask: "Ready to launch? I can start it as a batch run in a tmux session here, or hand it to a Claude Code cloud session."
 
-If yes:
+**Local batch (default, API key, 50% batch discount):**
 Manual steps (run in your own terminal if needed):
 1. `tmux new-session -d -s sweep-[slug] \`
 2. `'./batch-search.sh --brief-file "prompts/[filename].md" \`
 3. `--from [from] --to [to] --lanes [lanes] --depth [depth] --folder "[folder]"'`
 
 
-Confirm with `tmux ls`. Remind user to check `./list-batches.sh` to monitor.
+Confirm with `tmux ls`. Remind user to check `./list-batches.sh` to monitor. Add `--wait` to the command only when the user wants the job to auto-resume, with the default synthesis, on the API key. For a two-step plan where synthesis runs on a subscription route, launch without it and, if a waiter is running, stop it with `tmux kill-session -t sweep-[slug]` once "Batch submitted" appears.
+
+**Cloud session (Claude subscription, sync, no batch discount):**
+
+A Claude Code cloud session has no 1Password and no vault, so the sweep runs on the Claude OAuth route and carries its result out on a git branch. Requirements: the cloud environment holds `SWEEP_CLAUDE_OAUTH_TOKEN` (the value from `claude setup-token`; the runtime filters `CLAUDE_CODE_*` names, so the script maps this one across) and `SWEEP_REMOTE_URL=https://github.com/<owner>/<repo>.git` (a clone made by `claude --cloud` can have no remote; the session's GitHub proxy supplies credentials) and can push to `origin`. `prompts/` is gitignored, so first put the brief on the sweep branch from here:
+
+```
+./cloud-sweep.sh --stage prompts/[filename].md --folder "[folder]"
+```
+
+Then open the cloud session on branch `sweeps/[folder]` and give it this task, filled in:
+
+```
+npm ci && ./cloud-sweep.sh --brief-file "prompts/[filename].md" --from [from] --to [to] --lanes [lanes] --depth [depth] --synthesis-model claude-fable-5-1 --folder "[folder]"
+```
+
+`cloud-sweep.sh` runs the sync sweep on the Claude OAuth route and commits `sweeps/[folder]` on the same branch, then pushes it. Fable 5.1 synthesis needs Agent SDK 0.3.283 or newer, which the lockfile pins. When the session reports the push, pull the result into the vault locally:
+
+```
+./cloud-sweep.sh --collect [folder]
+```
+
+That fetches the branch and copies the folder into `RESEARCH_SWEEPER_OUTPUT_DIR`. Codex and Gemini routes are not wired for the cloud path: Codex needs an `auth.json` written under `CODEX_HOME` and Gemini needs an API key, neither of which the script provisions.
 
 ## Reference
 

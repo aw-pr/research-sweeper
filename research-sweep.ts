@@ -10,7 +10,7 @@ import { saveJob } from "./src/jobs";
 import { classifyLaneOutcomes, defaultMinLanes } from "./src/lane-outcomes";
 import { computeFileNames, prepareOutputTarget, writeOutput } from "./src/output";
 import { getProvider } from "./src/providers";
-import { appendRunStats, buildRunStats, collectParseModes, displayStats } from "./src/stats";
+import { appendRunStats, buildRunStats, collectParseModes, displayStats, warnUnpricedModels } from "./src/stats";
 import { LaneResult, Provider, SweepConfig, SweepJob, TokenBreakdown } from "./src/types";
 import { applyAuthFlag, parseAuthOverrides } from "./src/cli/auth-flags";
 import { getPollIntervalMs, listBatches, resumeBatch, resubmitFailedBatch, waitAllBatches } from "./src/cli/batches";
@@ -266,6 +266,7 @@ Model:    ${models.lane}${config.test ? " [TEST MODE]" : ""}
 Output:   ${config.outputDir}
 Stub:     ${stubPath}
 `);
+    warnUnpricedModels(config.provider, models);
 
     const batchId = await provider.submitBatchLanes(config);
     const job: SweepJob = {
@@ -317,6 +318,7 @@ Output:   ${config.outputDir}
 
 Starting parallel lane sweeps...
 `);
+  warnUnpricedModels(config.provider, models);
 
   const startTime = Date.now();
   const settled = await Promise.allSettled(validLanes.map((lane) => provider.runLane(config, lane)));

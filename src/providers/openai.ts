@@ -1,9 +1,9 @@
 import OpenAI from "openai";
-import { spawn } from "child_process";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { detectOpenAIAuthMode, OpenAIAuthMode, requireApiKeyModeOrThrow } from "../auth/detect";
+import { runCodexTurn } from "../codex-sdk";
 import { DEPTH_CONFIG, LANE_CONFIG } from "../config";
 import { fallbackLaneResult, parseLaneResponse } from "../parsing";
 import { LANE_RESPONSE_SCHEMA, OPENAI_LANE_TEXT_FORMAT, openaiLaneToolConfig } from "../lane-schema";
@@ -15,17 +15,10 @@ import { BatchStatus, Lane, LaneResult, ProviderAdapter, ProviderModels, SweepCo
 
 const LANE_MODEL = "gpt-5.6-terra";
 const LANE_MODEL_BATCH = "gpt-5.6-terra";
-const SYNTHESIS_MODEL = "gpt-5.6-sol";
+const SYNTHESIS_MODEL = "gpt-6-astra";
 const TEST_MODEL = "gpt-5.6-luna";
 const LANE_REASONING_EFFORT = "low";
 const SYNTHESIS_REASONING_EFFORT = "high";
-const EXEC_MAX_BUFFER = 1024 * 1024 * 128; // 128MB
-
-interface CodexExecResult {
-  text: string;
-  tokensIn: number;
-  tokensOut: number;
-}
 
 interface OpenAIUsageCounts {
   tokensIn: number;
@@ -186,86 +179,6 @@ export class OpenAIProvider implements ProviderAdapter {
     return this.authMode;
   }
 
-  private parseCodexUsage(jsonl: string): { tokensIn: number; tokensOut: number } {
-    let tokensIn = 0;
-    let tokensOut = 0;
-    for (const line of jsonl.split("\n").map((item) => item.trim()).filter(Boolean)) {
-      try {
-        const event = JSON.parse(line) as { type?: string; usage?: { input_tokens?: number; output_tokens?: number } };
-        if (event.type === "turn.completed") {
-          tokensIn += event.usage?.input_tokens || 0;
-          tokensOut += event.usage?.output_tokens || 0;
-        }
-      } catch {
-        // Ignore non-JSON event noise.
-      }
-    }
-    return { tokensIn, tokensOut };
-  }
-
-  private async runViaCodexCli(prompt: string, model: string, useSearch: boolean, reasoningEffort: string, outputSchema?: object): Promise<CodexExecResult> {
-    const allowedEfforts = ["minimal", "low", "medium", "high", "xhigh", "max"];
-    if (!allowedEfforts.includes(reasoningEffort)) {
-      throw new Error(
-        `Invalid reasoning effort "${reasoningEffort}"; expected one of ${allowedEfforts.join(", ")}. ` +
-          "This value is interpolated into the codex argv."
-      );
-    }
-    delete process.env.OPENAI_API_KEY;
-    const outputPath = tempFilePath(".out.txt");
-    const schemaPath = outputSchema ? tempFilePath("-schema.json") : null;
-    if (schemaPath && outputSchema) fs.writeFileSync(schemaPath, JSON.stringify(outputSchema), "utf-8");
-    const args = [
-      ...(useSearch ? ["--search"] : []),
-      "exec",
-      "--json",
-      "--model",
-      model,
-      "-c",
-      `model_reasoning_effort="${reasoningEffort}"`,
-      "--sandbox",
-      "read-only",
-      "--skip-git-repo-check",
-      ...(schemaPath ? ["--output-schema", schemaPath] : []),
-      "--output-last-message",
-      outputPath,
-      prompt,
-    ];
-
-    try {
-      const stdout = await new Promise<string>((resolve, reject) => {
-        const env = { ...process.env };
-        delete env.OPENAI_API_KEY;
-        const child = spawn("codex", args, { stdio: ["ignore", "pipe", "pipe"], env });
-        const out: Buffer[] = [];
-        const err: Buffer[] = [];
-
-        child.stdout.on("data", (chunk) => out.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
-        child.stderr.on("data", (chunk) => err.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
-        child.on("error", reject);
-        child.on("close", (code) => {
-          const stdoutText = Buffer.concat(out).toString("utf-8");
-          const stderrText = Buffer.concat(err).toString("utf-8");
-          if (Buffer.byteLength(stdoutText, "utf-8") > EXEC_MAX_BUFFER) {
-            reject(new Error("codex exec output exceeded max buffer"));
-            return;
-          }
-          if (code !== 0) {
-            reject(new Error(`codex exec failed (${code}): ${stderrText || "no stderr"}`));
-            return;
-          }
-          resolve(stdoutText);
-        });
-      });
-      const text = fs.existsSync(outputPath) ? fs.readFileSync(outputPath, "utf-8") : "";
-      const usage = this.parseCodexUsage(stdout || "");
-      return { text, tokensIn: usage.tokensIn, tokensOut: usage.tokensOut };
-    } finally {
-      if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
-      if (schemaPath && fs.existsSync(schemaPath)) fs.unlinkSync(schemaPath);
-    }
-  }
-
   getModels(config: SweepConfig, mode: "sync" | "batch"): ProviderModels {
     return {
       lane: config.test ? TEST_MODEL : mode === "batch" ? LANE_MODEL_BATCH : LANE_MODEL,
@@ -311,7 +224,13 @@ export class OpenAIProvider implements ProviderAdapter {
         if (truncated) console.warn(`  [${definition.label}] Hit max_output_tokens — marking narrative truncated`);
       } else {
         const combinedPrompt = `${buildLaneSystemPrefix(config)}\n\n${definition.systemPrompt}\n\n${buildLanePrompt(lane, config)}`;
-        const result = await this.runViaCodexCli(combinedPrompt, model, !config.noSearch, LANE_REASONING_EFFORT, LANE_RESPONSE_SCHEMA);
+        const result = await runCodexTurn({
+          prompt: combinedPrompt,
+          model,
+          reasoningEffort: LANE_REASONING_EFFORT,
+          useSearch: !config.noSearch,
+          outputSchema: LANE_RESPONSE_SCHEMA,
+        });
         rawText = result.text;
         tokensIn = result.tokensIn;
         tokensOut = result.tokensOut;
@@ -384,7 +303,12 @@ export class OpenAIProvider implements ProviderAdapter {
       openaiCacheWriteIn = usage.openaiCacheWriteIn;
       if (isOpenAIResponseTruncated(response)) markdown = appendSynthesisTruncationWarning(markdown);
     } else {
-      const result = await this.runViaCodexCli(buildSynthesisPrompt(config, laneResults, sourcesName), model, false, SYNTHESIS_REASONING_EFFORT);
+      const result = await runCodexTurn({
+        prompt: buildSynthesisPrompt(config, laneResults, sourcesName),
+        model,
+        reasoningEffort: SYNTHESIS_REASONING_EFFORT,
+        useSearch: false,
+      });
       markdown = result.text;
       tokensIn = result.tokensIn;
       tokensOut = result.tokensOut;

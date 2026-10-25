@@ -8,7 +8,7 @@ import { defaultMinLanes } from "../lane-outcomes";
 import { computeFileNames, prepareOutputTarget, writeOutput } from "../output";
 import { getProvider } from "../providers";
 import { appendRunStats, buildRunStats, collectParseModes } from "../stats";
-import { SweepConfig, SweepJob, TokenBreakdown } from "../types";
+import { ProviderAdapter, SweepConfig, SweepJob, TokenBreakdown } from "../types";
 import { capLaneSourcesByDepth, runSynthesisOptimised } from "./synthesis";
 
 export function getPollIntervalMs(rawArgs: string[]): number {
@@ -233,6 +233,30 @@ export async function listBatches(): Promise<void> {
   console.log();
 }
 
+// Splits pending jobs by whether this environment holds the API key each job's
+// provider needs, so one stale foreign-provider manifest cannot kill the waiter.
+export function partitionJobsByCredential(
+  jobs: SweepJob[],
+  providerFor: (name: string) => Pick<ProviderAdapter, "requireApiKey">
+): { ready: SweepJob[]; skipped: { job: SweepJob; reason: string }[] } {
+  const ready: SweepJob[] = [];
+  const skipped: { job: SweepJob; reason: string }[] = [];
+  for (const job of jobs) {
+    try {
+      providerFor(job.provider).requireApiKey(job.config);
+      ready.push(job);
+    } catch (error) {
+      skipped.push({ job, reason: error instanceof Error ? error.message : String(error) });
+    }
+  }
+  return { ready, skipped };
+}
+
+function routeAwareResumeCommand(job: SweepJob): string {
+  const authFlag = job.provider === "claude" ? " --claude-auth api-key" : "";
+  return `./run-secure-sweep.sh --resume ${job.batchId} --provider ${job.provider}${authFlag}`;
+}
+
 export async function waitAllBatches(pollIntervalMs: number): Promise<void> {
   const dir = jobsDir();
   const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((file) => file.endsWith(".json")) : [];
@@ -241,13 +265,20 @@ export async function waitAllBatches(pollIntervalMs: number): Promise<void> {
     return;
   }
 
-  const pending = new Map<string, SweepJob>();
-  for (const file of files) {
-    // Use the real batchId from file content, not the (sanitised) filename —
-    // Gemini ids contain "/" so filename != batchId.
-    const job = JSON.parse(fs.readFileSync(path.join(dir, file), "utf-8")) as SweepJob;
-    pending.set(job.batchId, job);
+  // Use the real batchId from file content, not the (sanitised) filename:
+  // Gemini ids contain "/" so filename != batchId.
+  const jobs = files.map((file) => JSON.parse(fs.readFileSync(path.join(dir, file), "utf-8")) as SweepJob);
+  const { ready, skipped } = partitionJobsByCredential(jobs, (name) => getProvider(name as SweepJob["provider"]));
+  for (const { job, reason } of skipped) {
+    console.log(`  Skipping [${job.batchId.slice(-8)}] (${job.provider}): ${reason}`);
+    console.log(`    Resume it with: ${routeAwareResumeCommand(job)}`);
   }
+  if (ready.length === 0) {
+    console.log("No pending batch jobs have a usable credential in this environment; nothing to wait for.");
+    return;
+  }
+
+  const pending = new Map<string, SweepJob>(ready.map((job) => [job.batchId, job]));
 
   console.log(`\nMonitoring ${pending.size} batch ${pending.size === 1 ? "job" : "jobs"} — polling every ${Math.round(pollIntervalMs / 1000)}s`);
   for (const [batchId, job] of pending) {
@@ -261,9 +292,7 @@ export async function waitAllBatches(pollIntervalMs: number): Promise<void> {
     const ts = new Date().toISOString().slice(11, 19);
 
     for (const [batchId, job] of [...pending.entries()]) {
-      const provider = getProvider(job.provider);
-      provider.requireApiKey(job.config);
-      const status = await provider.getBatchStatus(batchId);
+      const status = await getProvider(job.provider).getBatchStatus(batchId);
       const label = job.config.topic.slice(0, 34).padEnd(34);
       console.log(`  [${ts}] +${String(elapsed).padStart(5)}s  [${batchId.slice(-8)}] (${job.provider}) ${label}  ${status.status}  (${status.counts.processing} active / ${status.counts.succeeded} done)`);
       if (status.status === "completed" || status.status === "ended") {

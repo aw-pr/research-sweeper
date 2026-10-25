@@ -62,3 +62,15 @@ runs/*.log
 # macOS
 .DS_Store
 .codegraph/
+
+state/logs/
+.autometta.local.yaml
+# Per-machine Autometta launchagent template copy
+.autometta/
+# Runtime state written by the Autometta loop; only the queue and budget are tracked
+state/**
+!state/state.yaml
+!state/budget.json
+
+# Cloud sweep results ride their own sweeps/<folder> branch (force-added by cloud-sweep.sh)
+sweeps/
