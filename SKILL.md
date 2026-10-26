@@ -3,12 +3,6 @@ name: research-sweep
 description: "Runs parallel-lane research via the research-sweeper CLI, comparing tools/frameworks/approaches/topics and producing Obsidian-ready markdown notes with synthesis. Use when the user asks to compare technologies, evaluate a stack, run a research sweep, research multiple options, or produce research notes for Obsidian."
 ---
 
-## Claude.ai Compatibility
-
-- Exported for Claude.ai compatibility.
-- See `README.md` in this skill bundle for full portability notes.
-- Strict mode enabled.
-
 # Research Sweep
 
 ## When to use
