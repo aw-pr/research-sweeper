@@ -139,6 +139,11 @@ themed sub-question blocks, and the optional directive sections). The repo ships
 
 ## Quick start (with 1Password, optional)
 
+This route needs an `op-fetch` resolver on `PATH`. It is not shipped with this
+repo: bring your own that resolves the named `op://` refs and execs the child
+with a sanitised env (the contract is in [`docs/SECURITY.md`](docs/SECURITY.md)).
+Without it the wrappers fall back to `.env`.
+
 ```bash
 cp op-refs.local.sh.example op-refs.local.sh   # set your real op:// vault refs
 npm run auth:check:secure                       # resolves refs via op-fetch
