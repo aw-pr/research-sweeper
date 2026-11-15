@@ -24,11 +24,14 @@ file), resolves only the named refs, and `exec`s the child with a sanitised env
 (small allowlist plus the resolved keys). If `op-fetch` or `op-refs.local.sh`
 is absent, the wrappers fall back to running directly with the `.env` keys.
 
-Three auth routes are supported regardless of credential source: (1) **API key**
-(`ANTHROPIC_API_KEY` / `OPENAI_API_KEY`); (2) **Claude OAuth** (Max/Pro) via
-`CLAUDE_CODE_OAUTH_TOKEN` with `ANTHROPIC_API_KEY` explicitly stripped from the
-child env; (3) **Codex auth** for OpenAI sync via the Codex CLI auth file, with
-`OPENAI_API_KEY` and `CODEX_API_KEY` removed before the Codex SDK starts its bundled child.
+Four auth routes are supported regardless of credential source: (1) **API key**
+(`ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY`); (2) **Claude OAuth**
+(Max/Pro) via `CLAUDE_CODE_OAUTH_TOKEN` with `ANTHROPIC_API_KEY` explicitly
+stripped from the child env; (3) **Codex auth** for OpenAI sync via the Codex CLI
+auth file, with `OPENAI_API_KEY` and `CODEX_API_KEY` removed before the Codex SDK
+starts its bundled child; (4) **Gemini OAuth** for Gemini sync via a caller-supplied
+`GOOGLE_ACCESS_TOKEN`, with `GEMINI_API_KEY` removed in-process. Gemini OAuth is
+billed to the GCP project, not to a consumer subscription.
 
 ## What is safe to commit
 
