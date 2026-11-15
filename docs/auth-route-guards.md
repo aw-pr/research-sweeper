@@ -15,6 +15,11 @@ Some SDKs and CLIs can prefer API keys when both are present. For subscription-f
 
 ## Current Guards
 
+Only the research-sweeper section describes this repository. The
+explainer-batch, contract-crawler and ai-schedules sections record the same
+guard in the author's other repos, which are private; they are kept for
+context, and their scripts are not part of this repo.
+
 ### research-sweeper
 
 Key hydration:
