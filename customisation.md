@@ -50,15 +50,20 @@ The YAML frontmatter written to each file:
 ```yaml
 ---
 provider: claude
-topic: "AI agent orchestration"
+topic: 'AI agent orchestration'
 date: 2026-04-02
 from: 2019
 to: 2026
 lanes: [financial, frontier, academic, vc]
 depth: standard
-tags: [research-sweep, ai-agent-orchestration]
+model_lane: claude-haiku-4-5-20251001
+model_synthesis: claude-opus-5-5
+tags: [research-sweep, claude, ai-agent-orchestration]
 ---
 ```
+
+A sweep run from `--brief-file` also gets `brief_title` and `brief_file`. Lane
+files and the in-flight stub carry their own, shorter variants.
 
 This is Obsidian-compatible and will index correctly in Dataview queries.
 
