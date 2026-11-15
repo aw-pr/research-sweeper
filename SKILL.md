@@ -3,12 +3,6 @@ name: research-sweep
 description: "Runs parallel-lane research via the research-sweeper CLI, comparing tools/frameworks/approaches/topics and producing Obsidian-ready markdown notes with synthesis. Use when the user asks to compare technologies, evaluate a stack, run a research sweep, research multiple options, or produce research notes for Obsidian."
 ---
 
-## Claude.ai Compatibility
-
-- Exported for Claude.ai compatibility.
-- See `README.md` in this skill bundle for full portability notes.
-- Strict mode enabled.
-
 # Research Sweep
 
 ## When to use
@@ -24,7 +18,7 @@ Specifically:
 
 1. **Confirm scope** — topic, lanes, depth, provider, output folder.
 2. **Load brief** — if a markdown brief exists, pass it via `--brief-file <path>` instead of retyping the topic and sub-questions. It feeds both the lanes and synthesis.
-3. **Run sweep** — drive the secure CLI wrapper (see Command surface). Default mode is **batch** (submits and prints a `batchId`); add `--sync` for an immediate single-shot result. Always pass `--topic` — without it the CLI drops to an interactive prompt and stalls in a non-interactive shell; redirect `< /dev/null` as a guard.
+3. **Run sweep** — drive the secure CLI wrapper (see Command surface). Default mode is **batch** (submits and prints a `batchId`); add `--sync` for an immediate single-shot result. Always pass `--topic` (or a `--brief-file` whose `## Topic string` supplies it) plus `--from`, `--lanes`, `--depth` and `--folder`: any one missing drops the CLI to an interactive prompt that stalls in a non-interactive shell; redirect `< /dev/null` as a guard.
 4. **Poll / collect** — for batch runs, list with `./list-batches.sh` and collect a finished batch with `./run-secure-sweep.sh --resume <id> --provider <p>`.
 5. **Verify outputs exist** — check the output folder before reporting success.
 6. **Synthesise** — default synthesis model is `claude-opus-5-5`; override via `--synthesis-model`. Rebuild a report from cached lane data without re-fetching via `--re-synthesise <folder>`. A lane or synthesis call that hits `max_tokens` is flagged, not silently accepted: a truncated lane narrative is prefixed `[TRUNCATED at max_tokens — findings incomplete]`, and a truncated synthesis markdown carries a `> [!warning]` callout — both are generated markers, so treat them as a cue to rerun with fewer lanes or a deeper tier.
@@ -44,7 +38,7 @@ Run from the `research-sweeper` repo root. The secure wrappers resolve API keys 
 
 **Common flags** (these map 1:1 to the old tool arguments):
 
-`--topic "<string>"` (required) · `--brief-file <path>` · `--depth shallow|standard|deep` (5 / 10 / 25 sources) · `--lanes financial,frontier,academic,vc,blogs,tech` (default all six) · `--from <year>` / `--to <year>` · `--folder <name>` · `--synthesis-model <model>` · `--overwrite` · `--sync` (single-shot; omit for batch).
+`--topic "<string>"` (required unless `--brief-file` supplies it) · `--brief-file <path>` · `--depth shallow|standard|deep` (5 / 10 / 25 sources) · `--lanes financial,frontier,academic,vc,blogs,tech` (all six is only the interactive prompt's default) · `--from <year>` / `--to <year>` · `--folder <name>` · `--synthesis-model <model>` · `--overwrite` · `--sync` (single-shot; omit for batch).
 
 Example — deep Claude batch:
 
@@ -94,7 +88,7 @@ The retired MCP server was launched with an empty environment and never called `
 
 ### Billing-route guards
 
-`run-secure-sweep.sh` strips `ANTHROPIC_API_KEY` from the child environment after `op run` hydrates `.env`, and the provider also removes it in-process before importing the Agent SDK. This is what prevents accidental API-key billing during Claude OAuth sync — the protection lives in two places by design.
+`run-secure-sweep.sh` fetches only `CLAUDE_CODE_OAUTH_TOKEN` through `op-fetch`, whose sanitised child env leaves `ANTHROPIC_API_KEY` out, and the provider also removes it in-process before importing the Agent SDK. This is what prevents accidental API-key billing during Claude OAuth sync — the protection lives in two places by design. On the `.env` fallback (no `op-fetch`), only the in-process removal applies.
 
 **Do not** run Claude OAuth sync as raw `npx ts-node research-sweep.ts ...` unless `CLAUDE_CODE_OAUTH_TOKEN` is available through fill-only `.env`/`.env.local` loading or the exported environment. Raw invocations bypass `op-fetch` and `op://` hydration.
 
@@ -137,6 +131,6 @@ British English, no em dashes, to match the rest of the iTone surface.
 
 ## Source of truth
 
-- [AGENTS.md](<LOCAL_PATH>)
-- [CLAUDE.md](<LOCAL_PATH>)
-- [README.md](<LOCAL_PATH>)
+- [AGENTS.md](AGENTS.md)
+- [CLAUDE.md](CLAUDE.md)
+- [README.md](README.md)

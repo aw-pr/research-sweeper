@@ -69,10 +69,12 @@ gh pr create --repo PUB_MATCH --base main --head publish
 
 Then **review the PR diff** — confirm no private-tier path (`HANDOFF.md`,
 `RUNBOOK.md`, `runs/`, `archive/`, anything under "What is private" below) is
-present — and merge on GitHub. Keep the merge fast-forward/clean (GitHub's
-"Rebase and merge" or "Create a merge commit" both work here since `publish`
-and `main` share linear history; avoid squash-merging on GitHub, which would
-rewrite the commits already reviewed in the PR).
+present — and merge on GitHub with "Create a merge commit". That keeps every
+reviewed commit SHA, so `publish` stays an ancestor of `PUB/main`; afterwards
+fast-forward the local branch onto the merge commit
+(`git fetch PUB && git fetch . PUB/main:publish`) before the next replay.
+Avoid "Rebase and merge" and "Squash and merge": GitHub rewrites the SHAs on
+both, which leaves `publish` diverged from `PUB/main`.
 
 The `pre-push` gate allows `publish` to be pushed to `PUB` as a non-default
 branch (the PR source) without the `PUBLISH_GUARD_OK` sentinel — the PR review

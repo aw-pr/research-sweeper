@@ -2,13 +2,13 @@
 
 **Multi-lane agentic research harness that runs parallel Claude, OpenAI, and Gemini agents, synthesises Obsidian-ready markdown, and scores each sweep with an LLM judge.**
 
-![Node](https://img.shields.io/badge/node-18%2B-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Tests](https://img.shields.io/badge/tests-252%20passed-brightgreen) ![Status](https://img.shields.io/badge/status-usable-brightgreen)
+![Node](https://img.shields.io/badge/node-20%2B-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Tests](https://img.shields.io/badge/tests-320%20passed-brightgreen) ![Status](https://img.shields.io/badge/status-usable-brightgreen)
 
 ## What it does
 
-- Runs up to 6 parallel research lanes (`financial`, `frontier`, `academic`, `vc`, `blogs`, `tech`) as independent Claude, OpenAI, or Gemini agent calls. Claude API lanes are instructed to use web search and receive `web_search_20250305` plus a schema-submission tool under `tool_choice: any`; that forces some tool use, but does not independently guarantee a web-search invocation. Models that reject forced `tool_choice` (Opus 5.5, Fable 5.1, and any id not on the allowlist in `src/claude-capabilities.ts`) get `tool_choice: auto` plus a prompt instruction to call the tool instead. OpenAI API-key lanes force `web_search` via `tool_choice`; Gemini lanes use Google Search grounding (model-decided, not forced). Lane output is schema-enforced wherever the route can carry a schema (OpenAI api-key strict JSON schema, Codex SDK turn `outputSchema`, Claude api-key forced tool with `strict: true`); a tolerant parser covers the Claude OAuth and Gemini routes. Sources are URL-normalised and deduplicated globally across lanes before depth caps. `model_context` is empty for shallow sweeps and optional up to about 80/120 words for standard/deep. Each run records per-lane `parseModes` in `runs/stats.json`.
-- Synthesises lane outputs into a single Obsidian-ready summary plus a deduplicated sources file, with optional async submission through the Anthropic, OpenAI, and Gemini Batch APIs for cost reduction.
-- Evaluates each sweep with an LLM-as-judge harness using `claude-haiku-4-5-20251001` across coverage, source quality, synthesis, and relevance, and persists scores back to the run record.
+- Runs up to 6 parallel research lanes (`financial`, `frontier`, `academic`, `vc`, `blogs`, `tech`) as independent Claude, OpenAI, or Gemini agent calls. Claude API lanes are instructed to use web search and receive `web_search_20250305` plus a schema-submission tool under `tool_choice: any`; that forces some tool use, but does not independently guarantee a web-search invocation. Models that reject forced `tool_choice` (Sonnet 5.5, the deep-lane default, plus Opus 5.5, Fable 5.1, and any id not on the allowlist in `src/claude-capabilities.ts`) get `tool_choice: auto` plus a prompt instruction to call the tool instead. OpenAI API-key lanes force `web_search` via `tool_choice`; Gemini lanes use Google Search grounding (model-decided, not forced). Lane output is schema-enforced wherever the route can carry a schema (OpenAI api-key strict JSON schema, Codex SDK turn `outputSchema`, Claude api-key submission tool with `strict: true`); a tolerant parser covers the Claude OAuth and Gemini routes. Sources are URL-normalised and deduplicated globally across lanes before depth caps. `model_context` is empty for shallow sweeps and optional up to about 80/120 words for standard/deep. Each run records per-lane `parseModes` in `runs/stats.json`.
+- Synthesises lane outputs into a single Obsidian-ready summary plus a deduplicated sources file. Sweeps go through the Anthropic, OpenAI, and Gemini Batch APIs by default for cost reduction; `--sync` runs them immediately instead.
+- Scores a finished sweep with an LLM-as-judge harness using `claude-haiku-4-5-20251001` across coverage, source quality, synthesis, and relevance, and persists scores back to the run record. This is a separate `npm run eval` step; a sweep does not call the judge itself.
 
 ## Architecture
 
@@ -23,7 +23,7 @@ flowchart LR
     Orch --> L6[Lane: tech]
     L1 & L2 & L3 & L4 & L5 & L6 --> Synth[Synthesis Agent]
     Synth --> Out[Obsidian Markdown<br/>summary - sources - lanes]
-    Synth --> Eval[LLM Judge<br/>claude-haiku]
+    Out -. npm run eval .-> Eval[LLM Judge<br/>claude-haiku]
     Eval --> Stats[runs/stats.json<br/>with eval score]
 ```
 
@@ -57,6 +57,12 @@ npm run sweep -- \
   --depth standard \
   --folder "ai-transformation-fs"
 ```
+
+With no mode flag the sweep is submitted through the provider's Batch API (about
+half the token cost) and the CLI prints the `--resume <batchId>` command that
+collects it later. Add `--wait` to poll and collect in one go, or `--sync` to run
+the lanes immediately. The Claude OAuth, Codex and Gemini OAuth routes are
+sync-only.
 
 `.env` is loaded fill-only and never overrides a real environment variable, so the
 secure wrappers (`./batch-search.sh`, etc.) also work without 1Password — they
@@ -129,9 +135,14 @@ cp prompts/sweep-template.md prompts/my-topic.md
 
 The template documents the expected structure (topic string with a date range,
 themed sub-question blocks, and the optional directive sections). The repo ships
-~24 real briefs in `prompts/` as worked examples.
+25 real briefs in `prompts/` as worked examples.
 
 ## Quick start (with 1Password, optional)
+
+This route needs an `op-fetch` resolver on `PATH`. It is not shipped with this
+repo: bring your own that resolves the named `op://` refs and execs the child
+with a sanitised env (the contract is in [`docs/SECURITY.md`](docs/SECURITY.md)).
+Without it the wrappers fall back to `.env`.
 
 ```bash
 cp op-refs.local.sh.example op-refs.local.sh   # set your real op:// vault refs
@@ -164,7 +175,7 @@ into the original run automatically — combine the two by hand (see the guidanc
 
 ## Running in a Claude Code cloud session
 
-A cloud session has no 1Password and no vault. `./cloud-sweep.sh --brief-file prompts/x.md --folder <slug> ...` runs a sync sweep on the Claude subscription route (the session needs `SWEEP_CLAUDE_OAUTH_TOKEN`, which the script maps onto `CLAUDE_CODE_OAUTH_TOKEN` because the cloud runtime filters that name, plus `SWEEP_REMOTE_URL` for the https GitHub URL when the clone has no remote), then commits the result on branch `sweeps/<slug>` and pushes it, since the sandbox disappears with the session. Locally, `./cloud-sweep.sh --collect <slug>` fetches that branch and copies the folder into `RESEARCH_SWEEPER_OUTPUT_DIR`. Cloud runs are sync only, so they forgo the batch discount.
+A cloud session has no 1Password and no vault. `./cloud-sweep.sh --brief-file prompts/x.md --folder <slug> ...` runs a sync sweep on the Claude subscription route (the session needs `SWEEP_CLAUDE_OAUTH_TOKEN`, which the script maps onto `CLAUDE_CODE_OAUTH_TOKEN` because the cloud runtime filters that name, plus `SWEEP_REMOTE_URL` for the https GitHub URL when the clone has no remote), then commits the result on branch `sweeps/<slug>` and pushes it, since the sandbox disappears with the session. `prompts/` is gitignored, so a brief that is not one of the tracked examples has to travel on that branch: run `./cloud-sweep.sh --stage prompts/x.md --folder <slug>` locally first, which commits the brief on `sweeps/<slug>` and pushes it, then start the cloud session on that branch. Locally, `./cloud-sweep.sh --collect <slug>` fetches that branch and copies the folder into `RESEARCH_SWEEPER_OUTPUT_DIR`. Cloud runs are sync only, so they forgo the batch discount.
 
 ## Auth routes
 
@@ -209,7 +220,7 @@ tokens and is not billed twice; missing provider usage is called out in the run 
 
 ### Claude provider — transient-error retries
 
-Sync lane and synthesis calls retry 429/500/502/503/529 with backoff (2s/6s/18s, 3 attempts) before degrading a lane; 429s honour the response's `retry-after` header. The SDK's own internal retry is disabled so the two layers don't multiply attempts.
+Sync lane and synthesis calls retry 429/500/502/503/529 with backoff (2s/6s/18s, up to 3 retries) before degrading a lane; 429s honour the response's `retry-after` header. The SDK's own internal retry is disabled so the two layers don't multiply attempts.
 
 ## Evaluation
 

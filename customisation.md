@@ -31,7 +31,7 @@ Edit `config/depths.json` to change source targets:
 }
 ```
 
-`searchRounds` is passed into the lane prompt as the search budget ("run up to N targeted searches"). Claude API lanes are instructed to search and receive `web_search_20250305` plus the forced schema-submission tool under `tool_choice: any`; this forces some tool use, but does not independently guarantee web-search invocation. Add `--no-search` to disable the search tools entirely.
+`searchRounds` is passed into the lane prompt as the search budget ("run up to N targeted searches"). Claude API lanes are instructed to search and receive `web_search_20250305` plus the schema-submission tool. By default shallow and standard lanes (Haiku 4.5) run under `tool_choice: any`, which forces some tool use but does not independently guarantee a web search; deep lanes (Sonnet 5.5) and any model outside the allowlist in `src/claude-capabilities.ts` reject forced tool choice, so they run `tool_choice: auto` plus an instruction to call the tool. Add `--no-search` to disable the search tools entirely.
 
 ## Modifying synthesis style
 
@@ -50,15 +50,20 @@ The YAML frontmatter written to each file:
 ```yaml
 ---
 provider: claude
-topic: "AI agent orchestration"
+topic: 'AI agent orchestration'
 date: 2026-04-02
 from: 2019
 to: 2026
 lanes: [financial, frontier, academic, vc]
 depth: standard
-tags: [research-sweep, ai-agent-orchestration]
+model_lane: claude-haiku-4-5-20251001
+model_synthesis: claude-opus-5-5
+tags: [research-sweep, claude, ai-agent-orchestration]
 ---
 ```
+
+A sweep run from `--brief-file` also gets `brief_title` and `brief_file`. Lane
+files and the in-flight stub carry their own, shorter variants.
 
 This is Obsidian-compatible and will index correctly in Dataview queries.
 
@@ -76,7 +81,7 @@ Sync Claude runs can consume Max/Pro subscription quota instead of API credits v
 Caveats:
 - Sync-only. Batch mode hard-fails on `--claude-auth claude-oauth` because the batch API requires API-key auth.
 - Run the smoke test first for expensive sweeps. It passes only if the live Agent SDK call works with `CLAUDE_CODE_OAUTH_TOKEN` set and `ANTHROPIC_API_KEY` absent.
-- On explicit `--claude-auth claude-oauth`, `run-secure-sweep.sh` removes `ANTHROPIC_API_KEY` from the child environment after `op run` hydrates `.env`, and the provider also removes it in-process before importing the Agent SDK. This prevents accidental API-key billing.
+- On explicit `--claude-auth claude-oauth`, `run-secure-sweep.sh` fetches only `CLAUDE_CODE_OAUTH_TOKEN` through `op-fetch`, so `ANTHROPIC_API_KEY` is absent from the child environment, and the provider also removes it in-process before importing the Agent SDK. This prevents accidental API-key billing. On the `.env` fallback (no `op-fetch`), only the in-process removal applies.
 - A raw `npx ts-node research-sweep.ts ...` command does not invoke `op-fetch`; it reads `.env`/`.env.local` (fill-only) and otherwise relies on whatever is already exported in that shell, e.g. a real `CLAUDE_CODE_OAUTH_TOKEN`.
 - The Agent SDK uses the built-in `WebSearch` tool, not `web_search_20250305` + `tool_choice: any`. Source selection may differ vs. the API-key route. `runs/stats.json` records `authMode` per run so the difference is traceable.
 - Auto-detect precedence: when both `ANTHROPIC_API_KEY` and the OAuth token are present and no explicit flag is given, detection refuses to guess and throws (the API-key route bills credits). Pass `--claude-auth claude-oauth` explicitly to force subscription quota, or `--claude-auth api-key` to force billed API use. The legacy alias `claude-cli` is still accepted.

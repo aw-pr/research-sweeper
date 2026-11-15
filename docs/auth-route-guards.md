@@ -15,6 +15,11 @@ Some SDKs and CLIs can prefer API keys when both are present. For subscription-f
 
 ## Current Guards
 
+Only the research-sweeper section describes this repository. The
+explainer-batch, contract-crawler and ai-schedules sections record the same
+guard in the author's other repos, which are private; they are kept for
+context, and their scripts are not part of this repo.
+
 ### research-sweeper
 
 Key hydration:
@@ -25,10 +30,12 @@ Key hydration:
 Route guard:
 
 - `run-secure-sweep.sh --sync --provider claude --claude-auth claude-oauth ...`
-  strips `ANTHROPIC_API_KEY` after `op run` hydration.
+  fetches only `CLAUDE_CODE_OAUTH_TOKEN` through `op-fetch`, so `ANTHROPIC_API_KEY`
+  never reaches the child.
 - `src/providers/claude.ts` also deletes `process.env.ANTHROPIC_API_KEY` before importing/running the Agent SDK.
 - `run-secure-sweep.sh --sync --provider openai ...`
-  strips `OPENAI_API_KEY` after `op run` hydration.
+  fetches no key through `op-fetch`, so `OPENAI_API_KEY` never reaches the child
+  (an explicit `--openai-auth api-key` fetches it instead).
 - `src/codex-sdk.ts` deletes `OPENAI_API_KEY` and `CODEX_API_KEY` and supplies an explicit sanitised environment before the SDK starts its bundled Codex child.
 
 Smoke test:
