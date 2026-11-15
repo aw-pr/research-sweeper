@@ -25,10 +25,12 @@ Key hydration:
 Route guard:
 
 - `run-secure-sweep.sh --sync --provider claude --claude-auth claude-oauth ...`
-  strips `ANTHROPIC_API_KEY` after `op run` hydration.
+  fetches only `CLAUDE_CODE_OAUTH_TOKEN` through `op-fetch`, so `ANTHROPIC_API_KEY`
+  never reaches the child.
 - `src/providers/claude.ts` also deletes `process.env.ANTHROPIC_API_KEY` before importing/running the Agent SDK.
 - `run-secure-sweep.sh --sync --provider openai ...`
-  strips `OPENAI_API_KEY` after `op run` hydration.
+  fetches no key through `op-fetch`, so `OPENAI_API_KEY` never reaches the child
+  (an explicit `--openai-auth api-key` fetches it instead).
 - `src/codex-sdk.ts` deletes `OPENAI_API_KEY` and `CODEX_API_KEY` and supplies an explicit sanitised environment before the SDK starts its bundled Codex child.
 
 Smoke test:

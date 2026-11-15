@@ -88,7 +88,7 @@ The retired MCP server was launched with an empty environment and never called `
 
 ### Billing-route guards
 
-`run-secure-sweep.sh` strips `ANTHROPIC_API_KEY` from the child environment after `op run` hydrates `.env`, and the provider also removes it in-process before importing the Agent SDK. This is what prevents accidental API-key billing during Claude OAuth sync — the protection lives in two places by design.
+`run-secure-sweep.sh` fetches only `CLAUDE_CODE_OAUTH_TOKEN` through `op-fetch`, whose sanitised child env leaves `ANTHROPIC_API_KEY` out, and the provider also removes it in-process before importing the Agent SDK. This is what prevents accidental API-key billing during Claude OAuth sync — the protection lives in two places by design. On the `.env` fallback (no `op-fetch`), only the in-process removal applies.
 
 **Do not** run Claude OAuth sync as raw `npx ts-node research-sweep.ts ...` unless `CLAUDE_CODE_OAUTH_TOKEN` is available through fill-only `.env`/`.env.local` loading or the exported environment. Raw invocations bypass `op-fetch` and `op://` hydration.
 
