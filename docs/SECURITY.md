@@ -35,8 +35,9 @@ child env; (3) **Codex auth** for OpenAI sync via the Codex CLI auth file, with
 `op://` references are pointers — they identify *where* a secret lives, not the
 secret itself. Only the placeholder `op-refs.sh` and `op-refs.local.sh.example`
 are tracked; your real refs go in the gitignored `op-refs.local.sh`.
-`runs/stats.json` is tracked — it is the run-history ledger and contains no
-secrets.
+`runs/stats.json`, the run-history ledger, is gitignored: it holds no secrets,
+but it records the topic of every sweep, which is operator activity rather than
+repo content.
 
 ## What must never be committed
 
