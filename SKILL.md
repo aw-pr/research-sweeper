@@ -131,6 +131,6 @@ British English, no em dashes, to match the rest of the iTone surface.
 
 ## Source of truth
 
-- [AGENTS.md](<LOCAL_PATH>)
-- [CLAUDE.md](<LOCAL_PATH>)
-- [README.md](<LOCAL_PATH>)
+- [AGENTS.md](AGENTS.md)
+- [CLAUDE.md](CLAUDE.md)
+- [README.md](README.md)
