@@ -8,7 +8,7 @@
 
 - Runs up to 6 parallel research lanes (`financial`, `frontier`, `academic`, `vc`, `blogs`, `tech`) as independent Claude, OpenAI, or Gemini agent calls. Claude API lanes are instructed to use web search and receive `web_search_20250305` plus a schema-submission tool under `tool_choice: any`; that forces some tool use, but does not independently guarantee a web-search invocation. Models that reject forced `tool_choice` (Sonnet 5.5, the deep-lane default, plus Opus 5.5, Fable 5.1, and any id not on the allowlist in `src/claude-capabilities.ts`) get `tool_choice: auto` plus a prompt instruction to call the tool instead. OpenAI API-key lanes force `web_search` via `tool_choice`; Gemini lanes use Google Search grounding (model-decided, not forced). Lane output is schema-enforced wherever the route can carry a schema (OpenAI api-key strict JSON schema, Codex SDK turn `outputSchema`, Claude api-key submission tool with `strict: true`); a tolerant parser covers the Claude OAuth and Gemini routes. Sources are URL-normalised and deduplicated globally across lanes before depth caps. `model_context` is empty for shallow sweeps and optional up to about 80/120 words for standard/deep. Each run records per-lane `parseModes` in `runs/stats.json`.
 - Synthesises lane outputs into a single Obsidian-ready summary plus a deduplicated sources file. Sweeps go through the Anthropic, OpenAI, and Gemini Batch APIs by default for cost reduction; `--sync` runs them immediately instead.
-- Evaluates each sweep with an LLM-as-judge harness using `claude-haiku-4-5-20251001` across coverage, source quality, synthesis, and relevance, and persists scores back to the run record.
+- Scores a finished sweep with an LLM-as-judge harness using `claude-haiku-4-5-20251001` across coverage, source quality, synthesis, and relevance, and persists scores back to the run record. This is a separate `npm run eval` step; a sweep does not call the judge itself.
 
 ## Architecture
 
@@ -23,7 +23,7 @@ flowchart LR
     Orch --> L6[Lane: tech]
     L1 & L2 & L3 & L4 & L5 & L6 --> Synth[Synthesis Agent]
     Synth --> Out[Obsidian Markdown<br/>summary - sources - lanes]
-    Synth --> Eval[LLM Judge<br/>claude-haiku]
+    Out -. npm run eval .-> Eval[LLM Judge<br/>claude-haiku]
     Eval --> Stats[runs/stats.json<br/>with eval score]
 ```
 
