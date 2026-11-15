@@ -31,7 +31,7 @@ Edit `config/depths.json` to change source targets:
 }
 ```
 
-`searchRounds` is passed into the lane prompt as the search budget ("run up to N targeted searches"). Claude API lanes are instructed to search and receive `web_search_20250305` plus the forced schema-submission tool under `tool_choice: any`; this forces some tool use, but does not independently guarantee web-search invocation. Add `--no-search` to disable the search tools entirely.
+`searchRounds` is passed into the lane prompt as the search budget ("run up to N targeted searches"). Claude API lanes are instructed to search and receive `web_search_20250305` plus the schema-submission tool. By default shallow and standard lanes (Haiku 4.5) run under `tool_choice: any`, which forces some tool use but does not independently guarantee a web search; deep lanes (Sonnet 5.5) and any model outside the allowlist in `src/claude-capabilities.ts` reject forced tool choice, so they run `tool_choice: auto` plus an instruction to call the tool. Add `--no-search` to disable the search tools entirely.
 
 ## Modifying synthesis style
 
