@@ -215,7 +215,7 @@ tokens and is not billed twice; missing provider usage is called out in the run 
 
 ### Claude provider — transient-error retries
 
-Sync lane and synthesis calls retry 429/500/502/503/529 with backoff (2s/6s/18s, 3 attempts) before degrading a lane; 429s honour the response's `retry-after` header. The SDK's own internal retry is disabled so the two layers don't multiply attempts.
+Sync lane and synthesis calls retry 429/500/502/503/529 with backoff (2s/6s/18s, up to 3 retries) before degrading a lane; 429s honour the response's `retry-after` header. The SDK's own internal retry is disabled so the two layers don't multiply attempts.
 
 ## Evaluation
 
