@@ -2,7 +2,7 @@
 
 **Multi-lane agentic research harness that runs parallel Claude, OpenAI, and Gemini agents, synthesises Obsidian-ready markdown, and scores each sweep with an LLM judge.**
 
-![Node](https://img.shields.io/badge/node-20%2B-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Tests](https://img.shields.io/badge/tests-252%20passed-brightgreen) ![Status](https://img.shields.io/badge/status-usable-brightgreen)
+![Node](https://img.shields.io/badge/node-20%2B-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Tests](https://img.shields.io/badge/tests-320%20passed-brightgreen) ![Status](https://img.shields.io/badge/status-usable-brightgreen)
 
 ## What it does
 
@@ -129,7 +129,7 @@ cp prompts/sweep-template.md prompts/my-topic.md
 
 The template documents the expected structure (topic string with a date range,
 themed sub-question blocks, and the optional directive sections). The repo ships
-~24 real briefs in `prompts/` as worked examples.
+25 real briefs in `prompts/` as worked examples.
 
 ## Quick start (with 1Password, optional)
 
