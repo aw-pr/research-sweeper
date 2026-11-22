@@ -9,7 +9,7 @@
 Example structure:
 > "[Subject] trends [Month YYYY]–present: [dimension 1], [dimension 2], and [dimension 3]"
 
-Tip: Include the date range in the topic string itself — lane agents use it as a search anchor and are less likely to skip recent coverage.
+Tip: Include the date range in the topic string itself: lane agents use it as a search anchor and are less likely to skip recent coverage.
 
 ## Lane directive
 
@@ -45,7 +45,7 @@ When you run with `--brief-file`, these are passed through to both the lane prom
 ./batch-search.sh \
   --brief-file "prompts/[this-brief].md" \
   --lanes financial,frontier,academic,vc,blogs,tech \
-  --from YYYY-MM \
+  --from YYYY \
   --depth [shallow|standard|deep] \
   --folder "[kebab-case-folder-name]"
 ```
@@ -55,19 +55,20 @@ When you run with `--brief-file`, these are passed through to both the lane prom
 |----------|--------|--------------|-------------------------|-----------------------------------|
 | shallow  | 2      | 5            | 300–400 words           | Quick orientation, narrow topics  |
 | standard | 3      | 10           | 700–900 words           | Most research briefs              |
-| deep     | 5      | 20           | 1800–2400 words, 5 sections | Broad or competitive topics    |
+| deep     | 5      | 25           | 1800–2400 words, 5 sections | Broad or competitive topics    |
 
 ### Date anchor guide
-| Scope         | Flag           |
-|---------------|----------------|
-| Last 6 months | --from 2025-10 |
-| Last year     | --from 2025-01 |
-| Last 2 years  | --from 2024-01 |
-| Custom window | --from YYYY-MM --to YYYY-MM |
+`--from` and `--to` each take a year; a month is ignored.
+
+| Scope         | Flag         |
+|---------------|--------------|
+| Last year     | --from 2025  |
+| Last 2 years  | --from 2024  |
+| Custom window | --from YYYY --to YYYY |
 
 ## Notes
 
-- Output lands in `~/obsidian/research/[folder]/`
+- Output lands in `$RESEARCH_SWEEPER_OUTPUT_DIR/[folder]/` (defaults to `output/[folder]/` in the repo)
 - `--brief-file` reads four sections and ignores the rest: topic string, sub-questions, lane directive, synthesis directive. Anything under another `##` heading is reported at submit time and reaches no model
 - A `_research-sweeper-stub.md` note is created before the sweep starts
 - Existing `summary-*`, `sources-*`, and lane files are protected unless you pass `--overwrite`

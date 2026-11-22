@@ -1,4 +1,4 @@
-# Research Sweep — Lane Customisation Reference
+# Research Sweep: Lane Customisation Reference
 
 This file documents how to extend or modify the shared lane and depth configuration.
 
@@ -17,7 +17,7 @@ In `config/lanes.json`, add an entry:
 }
 ```
 
-Then add `"trade"` to the `Lane` type union in [`src/types.ts`](src/types.ts).
+Then add `"trade"` to the `Lane` type union in [`src/types.ts`](src/types.ts), to the `lanes` array in `loadLaneConfig` in [`src/config.ts`](src/config.ts), and to the `LANE_PREFIX` map in the same file (one unused letter per lane).
 
 ## Adjusting depth
 
@@ -30,6 +30,8 @@ Edit `config/depths.json` to change source targets:
   "deep": { "searchRounds": 5, "sourcesPerLane": 25 }
 }
 ```
+
+The example shows two fields only; each depth must also define `laneMaxTokens`, `synthesisMaxTokens`, `description` and `synthGuide`, or `assertDepthDefinition` in `src/config.ts` throws at load.
 
 `searchRounds` is passed into the lane prompt as the search budget ("run up to N targeted searches"). Claude API lanes are instructed to search and receive `web_search_20250305` plus the schema-submission tool. By default shallow and standard lanes (Haiku 4.5) run under `tool_choice: any`, which forces some tool use but does not independently guarantee a web search; deep lanes (Sonnet 5.5) and any model outside the allowlist in `src/claude-capabilities.ts` reject forced tool choice, so they run `tool_choice: auto` plus an instruction to call the tool. Add `--no-search` to disable the search tools entirely.
 

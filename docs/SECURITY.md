@@ -35,7 +35,7 @@ billed to the GCP project, not to a consumer subscription.
 
 ## What is safe to commit
 
-`op://` references are pointers — they identify *where* a secret lives, not the
+`op://` references are pointers: they identify *where* a secret lives, not the
 secret itself. Only the placeholder `op-refs.sh` and `op-refs.local.sh.example`
 are tracked; your real refs go in the gitignored `op-refs.local.sh`.
 `runs/stats.json`, the run-history ledger, is gitignored: it holds no secrets,
@@ -49,8 +49,9 @@ Never commit resolved API keys, OAuth tokens, `.env` / `.env.local`,
 token, `.claude/settings.local.json`, or any file with raw `sk-…` / `sk-ant-…`
 style credentials. `.gitignore` excludes `.env*` (except `.env.example`),
 `*.local`, `op-refs.local.sh`, `.claude/settings.local.json`, `logs/`,
-`results/`, and `runs/*.json` job-state files. If a secret is committed by
-accident, rotate it immediately — do not rely on a `git rm` to remediate.
+`results/` (bar three curated samples), `output/`, `prompts/`, `jobs/` (batch job state), and
+`runs/*.json` and `runs/*.log` (the run and stats ledger). If a secret is committed by
+accident, rotate it immediately. Do not rely on a `git rm` to remediate.
 
 ## Threat model
 
@@ -68,7 +69,7 @@ npm packages.
 
 ## Credential rotation
 
-Rotate the key at its source — the 1Password item behind your
+Rotate the key at its source: the 1Password item behind your
 `op-refs.local.sh` ref (the `op://` reference does not change), or the value in
 `.env`. Verify with `npm run auth:check` (`.env` route) or
 `npm run auth:check:secure` (1Password route), which runs a live auth check.
