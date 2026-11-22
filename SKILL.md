@@ -16,16 +16,16 @@ Specifically:
 
 ## Workflow
 
-1. **Confirm scope** — topic, lanes, depth, provider, output folder.
-2. **Load brief** — if a markdown brief exists, pass it via `--brief-file <path>` instead of retyping the topic and sub-questions. It feeds both the lanes and synthesis.
-3. **Run sweep** — drive the secure CLI wrapper (see Command surface). Default mode is **batch** (submits and prints a `batchId`); add `--sync` for an immediate single-shot result. Always pass `--topic` (or a `--brief-file` whose `## Topic string` supplies it) plus `--from`, `--lanes`, `--depth` and `--folder`: any one missing drops the CLI to an interactive prompt that stalls in a non-interactive shell; redirect `< /dev/null` as a guard.
-4. **Poll / collect** — for batch runs, list with `./list-batches.sh` and collect a finished batch with `./run-secure-sweep.sh --resume <id> --provider <p>`.
-5. **Verify outputs exist** — check the output folder before reporting success.
-6. **Synthesise** — default synthesis model is `claude-opus-5-5`; override via `--synthesis-model`. Rebuild a report from cached lane data without re-fetching via `--re-synthesise <folder>`. A lane or synthesis call that hits `max_tokens` is flagged, not silently accepted: a truncated lane narrative is prefixed `[TRUNCATED at max_tokens — findings incomplete]`, and a truncated synthesis markdown carries a `> [!warning]` callout — both are generated markers, so treat them as a cue to rerun with fewer lanes or a deeper tier.
+1. **Confirm scope**: topic, lanes, depth, provider, output folder.
+2. **Load brief**: if a markdown brief exists, pass it via `--brief-file <path>` instead of retyping the topic and sub-questions. It feeds both the lanes and synthesis.
+3. **Run sweep**: drive the secure CLI wrapper (see Command surface). Default mode is **batch** (submits and prints a `batchId`); add `--sync` for an immediate single-shot result. Always pass `--topic` (or a `--brief-file` whose `## Topic string` supplies it) plus `--from`, `--lanes`, `--depth` and `--folder`: any one missing drops the CLI to an interactive prompt that stalls in a non-interactive shell; redirect `< /dev/null` as a guard.
+4. **Poll / collect**: for batch runs, list with `./list-batches.sh` and collect a finished batch with `./run-secure-sweep.sh --resume <id> --provider <p>`.
+5. **Verify outputs exist**: check the output folder before reporting success.
+6. **Synthesise**: default synthesis model is `claude-opus-5-5`; override via `--synthesis-model`. Rebuild a report from cached lane data without re-fetching via `--re-synthesise <folder>`. A lane or synthesis call that hits `max_tokens` is flagged, not silently accepted: a truncated lane narrative is prefixed `[TRUNCATED at max_tokens — findings incomplete]`, and a truncated synthesis markdown carries a `> [!warning]` callout. Both are generated markers, so treat them as a cue to rerun with fewer lanes or a deeper tier.
 
 ## Command surface
 
-> The in-process MCP server was **retired on 2026-06-08** — it launched with an empty environment, never called `op-fetch`, and could not authenticate any provider. The secure CLI wrappers below are the only supported surface. Do not reintroduce the MCP.
+> The in-process MCP server was **retired on 2026-06-08**: it launched with an empty environment, never called `op-fetch`, and could not authenticate any provider. The secure CLI wrappers below are the only supported surface. Do not reintroduce the MCP.
 
 Run from the `research-sweeper` repo root. The secure wrappers resolve API keys headlessly via the 1Password service account (see Auth & billing safety).
 
@@ -40,7 +40,7 @@ Run from the `research-sweeper` repo root. The secure wrappers resolve API keys 
 
 `--topic "<string>"` (required unless `--brief-file` supplies it) · `--brief-file <path>` · `--depth shallow|standard|deep` (5 / 10 / 25 sources) · `--lanes financial,frontier,academic,vc,blogs,tech` (all six is only the interactive prompt's default) · `--from <year>` / `--to <year>` · `--folder <name>` · `--synthesis-model <model>` · `--overwrite` · `--sync` (single-shot; omit for batch).
 
-Example — deep Claude batch:
+Example: deep Claude batch:
 
 ```bash
 npm run sweep:secure -- --topic "…" --brief-file prompts/x.md \
@@ -78,17 +78,17 @@ Before launching a sweep, confirm that line exists and holds an absolute path: `
 
 ## Auth & billing safety
 
-### Headless auth (service account — no biometrics)
+### Headless auth (service account, no biometrics)
 
-The secure wrappers resolve every `op://` ref through `op-fetch`, which sources a 1Password **service-account token** from `$OP_SERVICE_ACCOUNT_ENV` (default `~/.config/op/service-account.env`, chmod 600). This means the secure routes run **unattended — no `op signin`, no biometric prompt**. An empty `op whoami` (the interactive *user-account* session) does NOT block them; the service account is a separate credential. If a secure route fails with `OP_SERVICE_ACCOUNT_TOKEN not set and <file> not readable`, that token file is the thing to restore — not a desktop unlock.
+The secure wrappers resolve every `op://` ref through `op-fetch`, which sources a 1Password **service-account token** from `$OP_SERVICE_ACCOUNT_ENV` (default `~/.config/op/service-account.env`, chmod 600). This means the secure routes run **unattended: no `op signin`, no biometric prompt**. An empty `op whoami` (the interactive *user-account* session) does NOT block them; the service account is a separate credential. If a secure route fails with `OP_SERVICE_ACCOUNT_TOKEN not set and <file> not readable`, that token file is the thing to restore, not a desktop unlock.
 
 ### Why the CLI, not the MCP
 
-The retired MCP server was launched with an empty environment and never called `op-fetch`, so it had no working auth for **any** provider — Gemini, Claude and OpenAI sweeps through it all failed with `<provider> auth not configured`. Every secret-backed sweep goes through the secure wrapper, which resolves keys headlessly via the service account above: `npm run sweep:secure -- ...` (Claude/OpenAI) or `npm run sweep:secure:gemini -- ...`.
+The retired MCP server was launched with an empty environment and never called `op-fetch`, so it had no working auth for **any** provider: Gemini, Claude and OpenAI sweeps through it all failed with `<provider> auth not configured`. Every secret-backed sweep goes through the secure wrapper, which resolves keys headlessly via the service account above: `npm run sweep:secure -- ...` (Claude/OpenAI) or `npm run sweep:secure:gemini -- ...`.
 
 ### Billing-route guards
 
-`run-secure-sweep.sh` fetches only `CLAUDE_CODE_OAUTH_TOKEN` through `op-fetch`, whose sanitised child env leaves `ANTHROPIC_API_KEY` out, and the provider also removes it in-process before importing the Agent SDK. This is what prevents accidental API-key billing during Claude OAuth sync — the protection lives in two places by design. On the `.env` fallback (no `op-fetch`), only the in-process removal applies.
+`run-secure-sweep.sh` fetches only `CLAUDE_CODE_OAUTH_TOKEN` through `op-fetch`, whose sanitised child env leaves `ANTHROPIC_API_KEY` out, and the provider also removes it in-process before importing the Agent SDK. This is what prevents accidental API-key billing during Claude OAuth sync: the protection lives in two places by design. On the `.env` fallback (no `op-fetch`), only the in-process removal applies.
 
 **Do not** run Claude OAuth sync as raw `npx ts-node research-sweep.ts ...` unless `CLAUDE_CODE_OAUTH_TOKEN` is available through fill-only `.env`/`.env.local` loading or the exported environment. Raw invocations bypass `op-fetch` and `op://` hydration.
 
@@ -96,11 +96,11 @@ For OpenAI: `--sync --provider openai` strips `OPENAI_API_KEY` before the Codex 
 
 For split spend: `--re-synthesise <folder> --from-batch <batchId>` collects the finished batch through the provider's API-key route, then applies an explicit synthesis override such as `--openai-auth codex` or `--claude-auth claude-oauth`. The wrapper fetches both credentials only for that split collection/synthesis flow, and the provider strips the API key before entering the subscription/OAuth synthesis route.
 
-For Gemini: on `--gemini-auth gemini-oauth`, `run-secure-sweep.sh` injects no Gemini key via `op-fetch`; `GOOGLE_ACCESS_TOKEN` must be present in the caller environment. The provider strips `GEMINI_API_KEY` in-process as a belt-and-suspenders guard. Note: the `gemini-oauth` route is **GCP-billed** — it is not a free or subscription-quota path. Batch mode hard-fails with `gemini-oauth`; use the API-key route for batch.
+For Gemini: on `--gemini-auth gemini-oauth`, `run-secure-sweep.sh` injects no Gemini key via `op-fetch`; `GOOGLE_ACCESS_TOKEN` must be present in the caller environment. The provider strips `GEMINI_API_KEY` in-process as a belt-and-suspenders guard. Note: the `gemini-oauth` route is **GCP-billed**: it is not a free or subscription-quota path. Batch mode hard-fails with `gemini-oauth`; use the API-key route for batch.
 
-**Reading a Gemini `429`:** two distinct causes, do not conflate them. `RESOURCE_EXHAUSTED` with *"Your prepayment credits are depleted"* means a **paid prepay project with a zero balance** — auth and billing are correctly wired, just top up credits in AI Studio; it is not a free-tier or auth fault. A `429` quoting an RPM/RPD quota is the **free-tier rate limit** below. If lanes retry 3× then all fail `RESOURCE_EXHAUSTED`, check the message before assuming the key is wrong.
+**Reading a Gemini `429`:** two distinct causes, do not conflate them. `RESOURCE_EXHAUSTED` with *"Your prepayment credits are depleted"* means a **paid prepay project with a zero balance**: auth and billing are correctly wired, just top up credits in AI Studio; it is not a free-tier or auth fault. A `429` quoting an RPM/RPD quota is the **free-tier rate limit** below. If lanes retry 3× then all fail `RESOURCE_EXHAUSTED`, check the message before assuming the key is wrong.
 
-**Gemini known limitations:** Free-tier keys hit `generate_content` rate limits (~5 RPM flash / ~10 RPM flash-lite) — multi-lane sweeps require a paid-tier key. A GCP trial billing account does not unlock paid-tier limits. The Batch API and `gemini-2.5-pro` both require billing; free-tier returns `400 FAILED_PRECONDITION`. Google Search grounding and native JSON mode are mutually exclusive — the provider uses a tolerant parser. Some lanes may return empty output due to upstream safety/grounding blocks; this is benign. Collect batches via `./run-secure-sweep.sh --resume <id> --provider gemini` to avoid the Claude both-keys guard.
+**Gemini known limitations:** Free-tier keys hit `generate_content` rate limits (~5 RPM flash / ~10 RPM flash-lite), so multi-lane sweeps require a paid-tier key. A GCP trial billing account does not unlock paid-tier limits. The Batch API and `gemini-2.5-pro` both require billing; free-tier returns `400 FAILED_PRECONDITION`. Google Search grounding and native JSON mode are mutually exclusive, so the provider uses a tolerant parser. Some lanes may return empty output due to upstream safety/grounding blocks; this is benign. Collect batches via `./run-secure-sweep.sh --resume <id> --provider gemini` to avoid the Claude both-keys guard.
 
 **Claude 429s and other transients are handled too:** sync lane and synthesis calls on the API-key route retry 429/500/502/503/529 with backoff before degrading a lane, honouring the response's `retry-after` header on 429. This is not Gemini-only behaviour.
 
