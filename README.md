@@ -45,7 +45,7 @@ Built-ins can replace ad-hoc one-off research and reduce custom orchestration. T
 cp .env.example .env
 # edit .env: set ANTHROPIC_API_KEY (and OPENAI_API_KEY for the OpenAI provider,
 #            GEMINI_API_KEY for the Gemini provider;
-#            GOOGLE_ACCESS_TOKEN is only needed for the gemini-oauth route — GCP-billed)
+#            GOOGLE_ACCESS_TOKEN is only needed for the gemini-oauth route, GCP-billed)
 
 npm install
 npm run auth:check          # verifies the keys in .env work
@@ -65,7 +65,7 @@ the lanes immediately. The Claude OAuth, Codex and Gemini OAuth routes are
 sync-only.
 
 `.env` is loaded fill-only and never overrides a real environment variable, so the
-secure wrappers (`./batch-search.sh`, etc.) also work without 1Password — they
+secure wrappers (`./batch-search.sh`, etc.) also work without 1Password: they
 detect that `op-fetch` is unavailable and fall back to the `.env` keys.
 
 Generated output defaults to `output/<folder>/` inside the checkout, which is
@@ -113,15 +113,15 @@ system prefix, so it costs one cache write per sweep however many lanes run.
 Anything under any other `##` heading is reported at submit time and reaches no
 model, so a role block in the wrong place fails loudly rather than silently.
 
-Three ways, easiest first:
+There are three ways to write a brief, easiest first:
 
 **1. The `sweeper-prompt-creation` skill (recommended).** If you drive this repo
 from Claude Code or an MCP harness, invoke the `sweeper-prompt-creation` skill
 shipped in this repo at [`sweeper-prompt-creation/SKILL.md`](sweeper-prompt-creation/SKILL.md).
 Describe your research goal in plain English; it
 interviews you for the gaps (time window, lanes, depth), writes a well-formed
-`prompts/<slug>.md`, and offers to launch the sweep. This is the handiest path —
-a good brief is the single highest-leverage input to a sweep.
+`prompts/<slug>.md`, and offers to launch the sweep. This path needs the least effort:
+a good brief shapes the evidence the lanes collect.
 
 **2. Any capable LLM.** No skill? Paste `prompts/sweep-template.md` into any
 model, describe the goal, and save the returned brief into `prompts/`.
@@ -159,17 +159,17 @@ npm run auth:check:secure                       # resolves refs via op-fetch
 Use `./list-batches.sh` to inspect pending jobs and `./resume-batch.sh <n>` to collect results.
 
 If a completed batch comes back with some lanes errored/expired/canceled, resubmit just those
-lanes (Claude only — the Batches API best practice is to resend exactly the failed `custom_id`s,
+lanes (Claude only: the Batches API best practice is to resend exactly the failed `custom_id`s,
 which is free since those requests were never billed):
 
 ```bash
-npx ts-node research-sweep.ts --resubmit-failed <batchId>
+./run-secure-sweep.sh --resubmit-failed <batchId>
 # prints the failed lanes, submits a follow-up batch, and saves a new job manifest
-npx ts-node research-sweep.ts --resume <newBatchId>
+./run-secure-sweep.sh --resume <newBatchId>
 ```
 
 The resubmission writes to its own `<folder>-resubmit-<id>` output folder rather than merging
-into the original run automatically — combine the two by hand (see the guidance printed by
+into the original run automatically: combine the two by hand (see the guidance printed by
 `--resume` on a resubmitted job) or fold the resubmitted lane files into the original folder's
 `lanes/` directory and re-run `--re-synthesise <original-folder>`.
 
@@ -209,8 +209,9 @@ provider switches the synthesis call to the explicit Codex, Claude OAuth, or Gem
 OpenAI estimates use list rates with one Batch discount, observed web-search fees,
 and reported cache read/write telemetry. Reasoning is already included in output
 tokens and is not billed twice; missing provider usage is called out in the run record.
+Estimates are recorded per run in `runs/stats.json`.
 
-### Gemini provider — known limitations
+### Gemini provider: known limitations
 
 - **Free-tier rate limits.** Google AI Studio free tier enforces ~5 RPM (`gemini-2.5-flash`) / ~10 RPM (`gemini-2.5-flash-lite`). Multi-lane parallel sweeps will hit this. A GCP trial billing account does not grant paid-tier rate limits. `gemini-2.5-pro` requires paid tier.
 - **Batch API requires billing.** Free-tier keys return `400 FAILED_PRECONDITION` or `429 RESOURCE_EXHAUSTED` on batch create. Enable prepaid billing in Google AI Studio or use a billing-attached GCP project.
@@ -218,7 +219,7 @@ tokens and is not billed twice; missing provider usage is called out in the run 
 - **Empty / dropped lanes.** Upstream content-safety or grounding blocks can produce 0-source, 0-token lanes with `finishReason` other than `STOP`, and a batch item can error or fail to return. Both cases are now surfaced, not swallowed: the provider emits an explicit empty-lane placeholder and logs `Warning: no batch result for this lane …` rather than silently shrinking the lane set. Synthesis proceeds with the lanes that did return content and the lane count stays stable. If you see this warning, check the per-lane logs for a block reason or rerun that lane; a missing lane is expected behaviour, not a crash. The `--min-lanes` pre-flight still aborts if too few lanes returned real content.
 - **Batch collection.** Collect Gemini/Claude/OpenAI batches via `./run-secure-sweep.sh --resume <id> --provider <p>` rather than the all-keys helper to avoid tripping the Claude both-keys auth guard.
 
-### Claude provider — transient-error retries
+### Claude provider: transient-error retries
 
 Sync lane and synthesis calls retry 429/500/502/503/529 with backoff (2s/6s/18s, up to 3 retries) before degrading a lane; 429s honour the response's `retry-after` header. The SDK's own internal retry is disabled so the two layers don't multiply attempts.
 
@@ -254,7 +255,7 @@ Generated Markdown sanitises absolute brief paths; lane JSON sanitises both brie
 output paths. Re-synthesis always writes to the requested folder, never a cached output
 path.
 
-A lane that hits its provider's output-token cap (Claude `max_tokens`, OpenAI `incomplete_details`, Gemini `MAX_TOKENS`) has its narrative prefixed with `[TRUNCATED at max_tokens — findings incomplete]`. If any upstream lane is marked truncated, the final summary deterministically receives a separate warning naming the affected lanes. This is distinct from a synthesis that itself truncates, which carries a `> [!warning] Synthesis truncated at max_tokens — increase depth tier or reduce lane volume.` callout. These are generated markers, not model prose — treat them as a signal to rerun with a lower lane volume or higher depth tier. A Claude synthesis refusal is a hard failure, so an empty response cannot overwrite a report or be recorded as a successful run.
+A lane that hits its provider's output-token cap (Claude `max_tokens`, OpenAI `incomplete_details`, Gemini `MAX_TOKENS`) has its narrative prefixed with `[TRUNCATED at max_tokens — findings incomplete]`. If any upstream lane is marked truncated, the final summary deterministically receives a separate warning naming the affected lanes. This is distinct from a synthesis that itself truncates, which carries a `> [!warning] Synthesis truncated at max_tokens — increase depth tier or reduce lane volume.` callout. These are generated markers, not model prose: treat them as a signal to rerun with a lower lane volume or higher depth tier. A Claude synthesis refusal is a hard failure, so an empty response cannot overwrite a report or be recorded as a successful run.
 
 Batch synthesis failures stop with the batch id and terminal status rather than polling indefinitely.
 

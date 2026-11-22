@@ -14,9 +14,9 @@ URL (e.g. `myorg/myrepo`), `PUBLISH_BRANCH` = the line that becomes public
 The history is **shared at the root but not identical**. There is one line of
 development and one curated line derived from it:
 
-- **`dev`** — the working branch on `PRIV`. Atomic commits, per-agent author
+- **`dev`**: the working branch on `PRIV`. Atomic commits, per-agent author
   attribution. This is the canonical line; all work lands here.
-- **`publish`** — a curated replay of `dev`. Each new `dev` commit is replayed
+- **`publish`**: a curated replay of `dev`. Each new `dev` commit is replayed
   onto `publish` with the private-tier paths (`publishguard.privatefile`)
   stripped out, preserving message and author. Commits that were only ever
   private-tier drop out as empty. `publish` is pushed to `PUB` as `main`.
@@ -24,7 +24,7 @@ development and one curated line derived from it:
 
 **`publish` is not a fast-forward of `dev`, and it must not be.** `HANDOFF.md` is
 tracked on `dev` so it follows worktrees and clones, and a fast-forward would
-make `publish`'s tree identical to `dev`'s — publishing it. A file can be at
+make `publish`'s tree identical to `dev`'s, publishing it. A file can be at
 most two of {tracked, published-by-fast-forward, absent-from-public}; curated
 replay is what buys all three. The divergence is the accepted cost, not drift.
 
@@ -44,11 +44,11 @@ distributed by `sync-guard-hooks.sh` and should stay identical to it.
 
 The default way to move `publish` onto `PUB/main` is a self-reviewed PR, not a
 direct ff-push. The final hop (`publish → PUB/main`) gets an explicit diff you
-look at before anything public changes — the same fail-closed private-file
+look at before anything public changes. The same fail-closed private-file
 guard still runs underneath it, but the PR diff is the *visible* check.
 
 ```sh
-# 1. work on dev as usual — atomic commits, per-agent --author=
+# 1. work on dev as usual, atomic commits, per-agent --author=
 # 2. when a batch is ready for the public mirror:
 bash scripts/publish-sync.sh              # plan only: shows what would replay
 bash scripts/publish-sync.sh --apply      # replays dev's new commits onto publish,
@@ -67,9 +67,9 @@ echoed reminder. Run the reminded command (or the equivalent):
 gh pr create --repo PUB_MATCH --base main --head publish
 ```
 
-Then **review the PR diff** — confirm no private-tier path (`HANDOFF.md`,
+Then **review the PR diff**: confirm no private-tier path (`HANDOFF.md`,
 `RUNBOOK.md`, `runs/`, `archive/`, anything under "What is private" below) is
-present — and merge on GitHub with "Create a merge commit". That keeps every
+present, and merge on GitHub with "Create a merge commit". That keeps every
 reviewed commit SHA, so `publish` stays an ancestor of `PUB/main`; afterwards
 fast-forward the local branch onto the merge commit
 (`git fetch PUB && git fetch . PUB/main:publish`) before the next replay.
@@ -77,8 +77,8 @@ Avoid "Rebase and merge" and "Squash and merge": GitHub rewrites the SHAs on
 both, which leaves `publish` diverged from `PUB/main`.
 
 The `pre-push` gate allows `publish` to be pushed to `PUB` as a non-default
-branch (the PR source) without the `PUBLISH_GUARD_OK` sentinel — the PR review
-is the safeguard on that path — but it still runs the private-file tree scan,
+branch (the PR source) without the `PUBLISH_GUARD_OK` sentinel (the PR review
+is the safeguard on that path), but it still runs the private-file tree scan,
 fail-closed, exactly as it does on the `main` path. See "The gate" below.
 
 ## Fast path: `git publish` (ff-push, requires the PR attestation)
@@ -86,7 +86,7 @@ fail-closed, exactly as it does on the `main` path. See "The gate" below.
 The pre-push hook now enforces the PR boundary (`publishguard.boundary`,
 default `pr`): the push to `PUB/main` is rejected unless
 `PUBLISH_PR_REVIEWED=1` is set, attesting that a `publish → main` PR was
-opened and its diff reviewed. The ff push then completes the PR — GitHub
+opened and its diff reviewed. The ff push then completes the PR: GitHub
 marks it merged when the base receives the head SHAs. Repo-level opt-out:
 `git config publishguard.boundary direct`.
 
@@ -107,23 +107,23 @@ backs up to the private remote first, then publishes. Never hand-type
 `publish-sync.sh` refuses rather than guessing if the replay would conflict.
 Resolve toward `dev`'s version (`git checkout <commit> -- <file>`), since `dev`
 is the source of truth for public content. Do not fall back to
-`git merge --ff-only dev` — that is what publishes the private-tier files.
+`git merge --ff-only dev`: that is what publishes the private-tier files.
 
 ## The gate (why it cannot be bypassed by accident)
 
 The guard ships at `scripts/git-hooks/` and installs via
 `scripts/install-guards.sh`:
 
-- `pre-commit` — refuses to stage files matching the personal or secret patterns
+- `pre-commit`: refuses to stage files matching the personal or secret patterns
   in the gitignored `.publish-guard.local`, plus never-commit paths (`.env`,
   `*.local`, `op-refs.local.sh`, `.publish-guard.local`) regardless of
   `.gitignore` state.
-- `pre-push` — on `PUB` (matched by `publishguard.publicmatch`): the default
+- `pre-push`: on `PUB` (matched by `publishguard.publicmatch`): the default
   branch (`main`/`master`) may be pushed only when `PUBLISH_GUARD_OK=1` is set
   (which only `git publish` does), only as a **fast-forward**, and only if no
   `publishguard.privatefile` (e.g. `HANDOFF.md`) is present in the pushed tree.
   The PR-source branch (`publishguard.prsource`, default `publish`) may also be
-  pushed as a non-default ref — no sentinel required, but the same
+  pushed as a non-default ref: no sentinel required, but the same
   private-file scan still runs, fail-closed. Any other non-default ref,
   non-fast-forward pushes to the default branch, and private-file leaks are
   rejected.
@@ -153,11 +153,11 @@ git config publishguard.prsource      'publish'    # PR-source branch allowed on
 
 `scripts/install-guards.sh` reads these and writes the `git publish` and
 `git publish-pr` aliases. If `publicmatch` or `publicremote` are unset, both
-aliases are left inert and the pre-push hook is a no-op on all remotes — the
+aliases are left inert and the pre-push hook is a no-op on all remotes: the
 correct state on a fresh clone before the operator has set the public-remote
 details. `historymode` is informational (surfaced in guard messages); it
-records the convention — `preserve` means atomic fast-forward, never a
-per-batch squash. `prsource` is local-only config (never committed) — it is
+records the convention: `preserve` means atomic fast-forward, never a
+per-batch squash. `prsource` is local-only config (never committed). It is
 not one of the five keys `install-guards.sh` prompts for when unset, since it
 defaults sensibly to `publishbranch`; set it explicitly only if the PR-source
 branch should differ from `publish`.
@@ -173,7 +173,7 @@ files that must be tracked on `dev` but stripped before they reach `PUB`:
   `.publish-guard.local`, `runs/*.json` (job/state **and** `stats.json`), and
   `logs/`.
 - **Tracked on `dev`, stripped at publish** (`publishguard.privatefile`):
-  `HANDOFF.md` — the dated operator log. Tracked so it follows worktrees and
+  `HANDOFF.md`: the dated operator log. Tracked so it follows worktrees and
   clones; removed from every replayed commit so it never reaches `PUB`.
 - **Tracked, intentionally public:** the ~25 briefs already tracked under
   `prompts/` (shipped as worked examples) and the three curated

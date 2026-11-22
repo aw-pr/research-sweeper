@@ -66,7 +66,7 @@ Two Gemini routes exist, selected via `--gemini-auth api-key|gemini-oauth`.
 
 **Search behaviour:**
 
-Gemini lanes use Google Search grounding (`tools: [{ googleSearch: {} }]`). Unlike the Anthropic/OpenAI paths, grounding cannot be forced — the model decides whether to invoke it. Under `--no-search` the grounding tool is omitted. Source selection may therefore diverge from claude/openai lanes; `runs/stats.json` records `authMode` per run.
+Gemini lanes use Google Search grounding (`tools: [{ googleSearch: {} }]`). Unlike the Anthropic/OpenAI paths, grounding cannot be forced: the model decides whether to invoke it. Under `--no-search` the grounding tool is omitted. Source selection may therefore diverge from claude/openai lanes; `runs/stats.json` records `authMode` per run.
 
 **Known limitations:**
 
